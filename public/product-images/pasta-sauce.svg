@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-label="Pasta sauce variety case">
+  <rect width="640" height="480" fill="#f3f5f8"/>
+  <rect x="92" y="96" width="456" height="288" rx="20" fill="#ffffff" stroke="#d7deea" stroke-width="6"/>
+  <g>
+    <rect x="150" y="140" width="86" height="184" rx="18" fill="#dc2626"/>
+    <rect x="277" y="140" width="86" height="184" rx="18" fill="#0a63b0"/>
+    <rect x="404" y="140" width="86" height="184" rx="18" fill="#10194a"/>
+    <rect x="162" y="174" width="62" height="70" rx="8" fill="#fff7ed"/>
+    <rect x="289" y="174" width="62" height="70" rx="8" fill="#fff7ed"/>
+    <rect x="416" y="174" width="62" height="70" rx="8" fill="#fff7ed"/>
+  </g>
+  <text x="320" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#10194a">North Table</text>
+  <text x="320" y="392" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#475569">Pasta Sauce Variety Pack</text>
+</svg>

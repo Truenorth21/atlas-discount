@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-label="Commercial disinfecting wipes case">
+  <rect width="640" height="480" fill="#f3f5f8"/>
+  <rect x="78" y="86" width="484" height="308" rx="22" fill="#ffffff" stroke="#d7deea" stroke-width="6"/>
+  <rect x="118" y="142" width="150" height="196" rx="18" fill="#0a63b0"/>
+  <rect x="290" y="142" width="150" height="196" rx="18" fill="#10194a"/>
+  <rect x="462" y="142" width="62" height="196" rx="18" fill="#dc2626"/>
+  <rect x="140" y="178" width="106" height="40" rx="10" fill="#ffffff"/>
+  <rect x="312" y="178" width="106" height="40" rx="10" fill="#ffffff"/>
+  <text x="320" y="252" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#10194a">BrightPro</text>
+  <text x="320" y="292" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#475569">Disinfecting Wipes</text>
+</svg>

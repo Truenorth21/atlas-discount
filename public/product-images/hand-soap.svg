@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-label="Hand soap refill case">
+  <rect width="640" height="480" fill="#f3f5f8"/>
+  <rect x="94" y="102" width="452" height="276" rx="20" fill="#ffffff" stroke="#d7deea" stroke-width="6"/>
+  <path d="M206 154h228l28 170H178z" fill="#0a63b0"/>
+  <path d="M238 184h164l16 104H222z" fill="#ffffff" opacity=".92"/>
+  <circle cx="320" cy="236" r="34" fill="#dc2626"/>
+  <text x="320" y="340" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#10194a">Pure Harbor</text>
+  <text x="320" y="372" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#475569">Hand Soap Refills</text>
+</svg>
