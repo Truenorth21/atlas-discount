@@ -107,8 +107,8 @@ export default function HomePage() {
       <main>
         <section className="relative overflow-hidden bg-[#1237dc] text-white">
           <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.13)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.13)_1px,transparent_1px)] bg-[size:170px_170px]" />
-          <div className="atlas-container relative min-h-[620px] py-10">
-            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div className="atlas-container relative min-h-[620px] py-16 lg:py-20">
+            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-16">
               <div className="max-w-2xl">
                 <p className="w-fit rounded-md border-2 border-yellow-300 px-4 py-2 text-2xl font-black uppercase tracking-normal text-yellow-300">
                   {t("newMemberRewards")}
@@ -116,15 +116,15 @@ export default function HomePage() {
                 <p className="mt-5 text-xl font-black uppercase tracking-normal text-sky-100">
                   {t("heroSubtitle")}
                 </p>
-                <h1 className="mt-4 text-5xl font-black tracking-normal sm:text-7xl">
+                <h1 className="mt-6 text-4xl font-black tracking-normal sm:text-6xl">
                   {t("firstQualifiedOrder")}
                 </h1>
-                <div className="mt-1 flex flex-wrap items-end gap-3">
-                  <span className="text-8xl font-black leading-none text-yellow-300 sm:text-[9rem]">$100</span>
-                  <span className="pb-5 text-4xl font-black uppercase leading-none text-yellow-300 sm:text-5xl">{t("off")}</span>
+                <div className="mt-4 flex flex-wrap items-end gap-3">
+                  <span className="text-7xl font-black leading-none text-yellow-300 sm:text-8xl">$100</span>
+                  <span className="pb-3 text-4xl font-black uppercase leading-none text-yellow-300 sm:text-5xl">{t("off")}</span>
                 </div>
-                <p className="text-2xl font-semibold text-sky-50">{t("firstOrderRule")}</p>
-                <p className="mt-5 max-w-xl text-lg leading-8 text-sky-50">{t("heroBody")}</p>
+                <p className="mt-4 text-2xl font-semibold text-sky-50">{t("firstOrderRule")}</p>
+                <p className="mt-6 max-w-xl text-lg leading-8 text-sky-50">{t("heroBody")}</p>
                 <div className="mt-8 flex flex-wrap gap-3">
                   <Link className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-yellow-300 px-8 py-3 text-base font-black text-atlas-navy transition hover:bg-yellow-200" href="/register/buyer">
                     {t("heroPrimaryCta")}
