@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { defaultPricingSettings, documentRequirements, sampleApplications, sampleOrders, sampleProducts, sampleRouteSellers } from "@/lib/data";
+import { loadSharedAtlasData, saveSharedPricingSettings, saveSharedProducts, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
 import type { Application, CartLine, OrderRequest, PricingSettings, Product, QuoteAdjustment, RouteSeller } from "@/lib/types";
 
 type Store = {
@@ -68,6 +69,17 @@ function normalizeOrders(orders: OrderRequest[]) {
   });
 }
 
+function normalizeProducts(products: Product[]) {
+  return products.map((product) => ({
+    ...product,
+    productName: product.productName ?? product.description,
+    unitSize: product.unitSize ?? "",
+    pickupLocation: product.pickupLocation ?? product.location,
+    shippingLocation: product.shippingLocation ?? product.location,
+    deliveryRadius: product.deliveryRadius ?? ""
+  }));
+}
+
 function normalizeStore(store: Store): Store {
   const legacySettings = store.pricingSettings as PricingSettings & {
     defaultMarkupPercent?: number;
@@ -77,6 +89,7 @@ function normalizeStore(store: Store): Store {
   return {
     ...store,
     applications: normalizeApplications(store.applications),
+    products: normalizeProducts(store.products),
     orders: normalizeOrders(store.orders),
     quoteAdjustments: store.quoteAdjustments ?? [],
     pricingSettings: {
@@ -129,11 +142,34 @@ export function useAtlasStore() {
   }
 
   useEffect(() => {
+    let active = true;
     const saved = readStoredState();
     if (saved) {
       setStore(normalizeStore(JSON.parse(saved) as Store));
     }
+    loadSharedAtlasData()
+      .then((shared) => {
+        if (!active) return;
+        if (!shared.products && !shared.pricingSettings) return;
+
+        setStore((current) => {
+          const next = normalizeStore({
+            ...current,
+            products: shared.products && shared.products.length > 0 ? shared.products : current.products,
+            pricingSettings: shared.pricingSettings ?? current.pricingSettings
+          });
+          writeStoredState(next);
+          return next;
+        });
+      })
+      .catch(() => {
+        // Keep the local demo data if Supabase is unavailable or the user cannot read a table yet.
+      });
     setReady(true);
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -148,13 +184,17 @@ export function useAtlasStore() {
     ready,
     addApplication: (application: Application) =>
       commit((current) => ({ ...current, applications: [application, ...current.applications] })),
-    addProducts: (products: Product[]) =>
-      commit((current) => ({ ...current, products: [...products, ...current.products] })),
-    updateProductStatus: (id: string, status: Product["status"]) =>
+    addProducts: (products: Product[]) => {
+      void saveSharedProducts(products);
+      commit((current) => ({ ...current, products: [...products, ...current.products] }));
+    },
+    updateProductStatus: (id: string, status: Product["status"]) => {
+      void saveSharedProductStatus(id, status);
       commit((current) => ({
         ...current,
         products: current.products.map((product) => (product.id === id ? { ...product, status } : product))
-      })),
+      }));
+    },
     updateApplicationStatus: (id: string, status: Application["status"]) =>
       commit((current) => ({
         ...current,
@@ -214,8 +254,10 @@ export function useAtlasStore() {
     setCart: (cart: CartLine[]) => commit((current) => ({ ...current, cart })),
     addOrder: (order: OrderRequest) =>
       commit((current) => ({ ...current, orders: [order, ...current.orders], cart: [] })),
-    updatePricingSettings: (pricingSettings: PricingSettings) =>
-      commit((current) => ({ ...current, pricingSettings })),
+    updatePricingSettings: (pricingSettings: PricingSettings) => {
+      void saveSharedPricingSettings(pricingSettings);
+      commit((current) => ({ ...current, pricingSettings }));
+    },
     updateQuoteAdjustment: (orderId: string, adjustment: Omit<QuoteAdjustment, "orderId">) =>
       commit((current) => {
         const existing = current.quoteAdjustments.find((item) => item.orderId === orderId);

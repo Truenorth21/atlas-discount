@@ -14,9 +14,11 @@ export type Product = {
   sku: string;
   brand: string;
   upc: string;
+  productName: string;
   description: string;
   category: string;
   subcategory: string;
+  unitSize: string;
   imageUrl: string;
   productDimensions: string;
   casePack: number;
@@ -29,6 +31,9 @@ export type Product = {
   leadTime: string;
   inventoryAvailable: number;
   location: string;
+  pickupLocation: string;
+  shippingLocation: string;
+  deliveryRadius: string;
   preferredHub: AtlasHub;
   routeRecommendation: string;
   status: ApprovalStatus;
@@ -139,6 +144,15 @@ export type PricingSettings = {
   freightCostEstimate: number;
   routeSellerCommissionPercent: number;
   freightCaseThreshold: number;
+  featuredProductRate: number;
+  weeklyDealsRate: number;
+  monthlyCircularRate: number;
+  newsletterSponsorshipRate: number;
+  whatsappPromotionRate: number;
+  sponsoredCategoryRate: number;
+  newProductLaunchRate: number;
+  closeoutListingRate: number;
+  supplierMembershipRate: number;
 };
 
 export type QuoteFinancials = {

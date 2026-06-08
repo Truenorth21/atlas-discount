@@ -72,14 +72,16 @@ create table public.product_uploads (
 
 create table public.products (
   id uuid primary key default uuid_generate_v4(),
-  supplier_profile_id uuid not null references public.supplier_profiles(id) on delete cascade,
+  supplier_profile_id uuid references public.supplier_profiles(id) on delete cascade,
   product_upload_id uuid references public.product_uploads(id) on delete set null,
   sku text not null,
   brand text not null,
   upc text not null,
+  product_name text not null default '',
   description text not null,
   category text not null,
   subcategory text not null,
+  unit_size text not null default '',
   image_url text not null default '',
   product_dimensions text not null,
   case_pack integer not null,
@@ -92,8 +94,13 @@ create table public.products (
   lead_time text not null,
   inventory_available integer not null default 0,
   pickup_shipping_location text not null,
+  pickup_location text not null default '',
+  shipping_location text not null default '',
+  delivery_radius text not null default '',
   preferred_hub public.atlas_hub not null default 'Orlando hub',
   route_recommendation text not null default 'Atlas will route this item through the nearest available hub or supplier-direct lane.',
+  supplier_name text not null default 'Atlas Supplier',
+  promotion text,
   status public.approval_status not null default 'pending',
   published_at timestamptz,
   created_at timestamptz not null default now(),
@@ -102,7 +109,7 @@ create table public.products (
 );
 
 create index products_search_idx on public.products using gin (
-  to_tsvector('english', brand || ' ' || upc || ' ' || sku || ' ' || description || ' ' || category || ' ' || subcategory)
+  to_tsvector('english', brand || ' ' || upc || ' ' || sku || ' ' || product_name || ' ' || description || ' ' || category || ' ' || subcategory)
 );
 
 create table public.saved_lists (
@@ -180,6 +187,15 @@ create table public.pricing_settings (
   freight_cost_estimate numeric(12, 2) not null default 95,
   route_seller_commission_percent numeric(8, 2) not null default 3,
   freight_case_threshold integer not null default 96,
+  featured_product_rate numeric(12, 2) not null default 250,
+  weekly_deals_rate numeric(12, 2) not null default 175,
+  monthly_circular_rate numeric(12, 2) not null default 500,
+  newsletter_sponsorship_rate numeric(12, 2) not null default 125,
+  whatsapp_promotion_rate numeric(12, 2) not null default 75,
+  sponsored_category_rate numeric(12, 2) not null default 350,
+  new_product_launch_rate numeric(12, 2) not null default 225,
+  closeout_listing_rate numeric(12, 2) not null default 150,
+  supplier_membership_rate numeric(12, 2) not null default 99,
   updated_at timestamptz not null default now(),
   constraint one_pricing_settings_row check (id = true)
 );
@@ -345,6 +361,9 @@ create policy "admin manages quote adjustments" on public.quote_adjustments
 
 create policy "admin manages pricing settings" on public.pricing_settings
   for all using (public.is_admin()) with check (public.is_admin());
+
+create policy "authenticated users read pricing settings" on public.pricing_settings
+  for select using (auth.role() = 'authenticated');
 
 create policy "supplier submits promotions" on public.promotion_submissions
   for insert with check (public.owns_supplier_profile(supplier_profile_id));

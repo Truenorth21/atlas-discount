@@ -5,11 +5,24 @@ export const protectedRoutes = ["/admin", "/catalog", "/dashboard", "/quotes"];
 const publicRoutes = ["/", "/login", "/register", "/auth/callback"];
 
 function userRole(user: { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown>; email?: string } | null) {
+  const userEmail = user?.email?.toLowerCase();
+  const adminEmail = process.env.ATLAS_ADMIN_EMAIL?.toLowerCase();
+
   return String(
     user?.app_metadata?.role ??
       user?.user_metadata?.role ??
-      (user?.email === process.env.ATLAS_ADMIN_EMAIL ? "admin" : "")
+      (userEmail && adminEmail && userEmail === adminEmail ? "admin" : "")
   );
+}
+
+async function adminRoleFromProfile(supabase: ReturnType<typeof createServerClient>, userId: string) {
+  const { data } = await supabase
+    .from("profiles")
+    .select("role,status")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return data?.role === "admin" && data.status === "approved";
 }
 
 export async function updateSession(request: NextRequest) {
@@ -49,7 +62,15 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (pathname.startsWith("/admin") && userRole(user) !== "admin") {
+  if (pathname.startsWith("/admin")) {
+    const isAdmin =
+      userRole(user) === "admin" ||
+      (user ? await adminRoleFromProfile(supabase, user.id) : false);
+
+    if (isAdmin) {
+      return response;
+    }
+
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = user ? "/dashboard/retailer" : "/login";
     redirectUrl.search = "";
@@ -59,7 +80,11 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isPublic && pathname === "/login") {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/dashboard/retailer";
+    const isAdmin =
+      userRole(user) === "admin" ||
+      (await adminRoleFromProfile(supabase, user.id));
+
+    redirectUrl.pathname = isAdmin ? "/admin" : "/dashboard/retailer";
     redirectUrl.search = "";
     return NextResponse.redirect(redirectUrl);
   }

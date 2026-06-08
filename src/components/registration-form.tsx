@@ -5,6 +5,7 @@ import { CheckCircle2, FileUp, UploadCloud } from "lucide-react";
 import { registerUser } from "@/app/register/actions";
 import { documentRequirements, routeSellerProductLanes, routeSellerPrograms, routeSellerTerritories } from "@/lib/data";
 import { requiresExpirationDate } from "@/lib/documents";
+import { useI18n } from "@/lib/i18n";
 import { isSupabaseConfigured } from "@/lib/supabase/browser";
 import type { AtlasHub, BusinessDocument, RouteSellerPreference } from "@/lib/types";
 import { useAtlasStore } from "./local-store";
@@ -14,6 +15,7 @@ function documentId(type: "buyer" | "supplier" | "route_seller", label: string) 
 }
 
 export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" | "route_seller"; error?: string }) {
+  const { t } = useI18n();
   const { addApplication } = useAtlasStore();
   const [submitted, setSubmitted] = useState(false);
   const requirements = documentRequirements[type];
@@ -89,12 +91,12 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
   if (submitted) {
     return (
       <div className="panel p-8">
-        <h1 className="text-2xl font-black text-atlas-navy">Application received</h1>
+        <h1 className="text-2xl font-black text-atlas-navy">{t("applicationReceived")}</h1>
         <p className="mt-3 text-slate-600">
-          Atlas Discount will review the business profile and documents before enabling wholesale access.
+          {t("applicationReceivedBody")}
         </p>
         <a className="btn-primary mt-6" href={type === "buyer" ? "/dashboard/retailer" : type === "route_seller" ? "/dashboard/route-seller" : "/dashboard/supplier"}>
-          Continue to dashboard
+          {t("continueToDashboard")}
         </a>
       </div>
     );
@@ -105,50 +107,50 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
       <input name="role" type="hidden" value={type} />
       <div>
         <h1 className="text-3xl font-black text-atlas-navy">
-          {type === "buyer" ? "Business buyer registration" : type === "route_seller" ? "Route seller registration" : "Supplier registration"}
+          {type === "buyer" ? t("buyerRegistrationTitle") : type === "route_seller" ? t("routeSellerRegistrationTitle") : t("supplierRegistrationTitle")}
         </h1>
         <p className="mt-2 text-slate-600">
           {type === "buyer"
-            ? "Upload resale certificate or business documents to request verified wholesale pricing access."
+            ? t("buyerRegistrationBody")
             : type === "route_seller"
-              ? "Apply to sell Atlas products to local businesses through assigned routes and territories."
-              : "Apply to sell through the Atlas wholesale marketplace and fulfillment network."}
+              ? t("routeSellerRegistrationBody")
+              : t("supplierRegistrationBody")}
         </p>
       </div>
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2">
-          <span className="label">Company name</span>
+          <span className="label">{t("companyName")}</span>
           <input className="field" name="companyName" required />
         </label>
         <label className="grid gap-2">
-          <span className="label">Contact name</span>
+          <span className="label">{t("contactName")}</span>
           <input className="field" name="contactName" required />
         </label>
         <label className="grid gap-2">
-          <span className="label">Email</span>
+          <span className="label">{t("email")}</span>
           <input className="field" name="email" type="email" required />
         </label>
         <label className="grid gap-2">
-          <span className="label">Phone</span>
+          <span className="label">{t("phone")}</span>
           <input className="field" name="phone" required />
         </label>
         <label className="grid gap-2">
-          <span className="label">Password</span>
+          <span className="label">{t("password")}</span>
           <input className="field" name="password" minLength={8} type="password" required />
         </label>
       </div>
       {type === "route_seller" && (
         <div className="grid gap-3 rounded-lg border border-slate-200 bg-atlas-light p-4">
           <div>
-            <p className="text-sm font-black text-atlas-navy">Route assignment preferences</p>
+            <p className="text-sm font-black text-atlas-navy">{t("routeAssignmentPreferences")}</p>
             <p className="mt-1 text-sm text-slate-600">
-              Atlas approves one seller per territory and product lane before assigning stores, so two sellers are not pitching the same accounts with the same offer.
+              {t("routeAssignmentBody")}
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-2">
-              <span className="label">Seller program</span>
+              <span className="label">{t("sellerProgram")}</span>
               <select className="field" name="routeProgram" required>
                 {routeSellerPrograms.map((program) => (
                   <option key={program}>{program}</option>
@@ -156,7 +158,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
               </select>
             </label>
             <label className="grid gap-2">
-              <span className="label">Preferred Atlas hub</span>
+              <span className="label">{t("preferredAtlasHub")}</span>
               <select
                 className="field"
                 name="routeHub"
@@ -174,7 +176,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
               </select>
             </label>
             <label className="grid gap-2">
-              <span className="label">Preferred territory</span>
+              <span className="label">{t("preferredTerritory")}</span>
               <select
                 className="field"
                 name="routeTerritory"
@@ -188,7 +190,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
               </select>
             </label>
             <label className="grid gap-2">
-              <span className="label">Primary product lane</span>
+              <span className="label">{t("primaryProductLane")}</span>
               <select className="field" name="productLane" required>
                 {routeSellerProductLanes.map((lane) => (
                   <option key={lane}>{lane}</option>
@@ -200,10 +202,10 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
       )}
       <div className="grid gap-2">
         <span className="label">
-          {type === "buyer" ? "Resale certificate / business documents" : type === "route_seller" ? "Route seller documents" : "Supplier documents"}
+          {type === "buyer" ? t("buyerDocumentLabel") : type === "route_seller" ? t("routeSellerDocumentLabel") : t("supplierDocumentLabel")}
         </span>
         <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm font-black text-atlas-navy">Required document checklist</p>
+          <p className="text-sm font-black text-atlas-navy">{t("requiredDocumentChecklist")}</p>
           <div className="mt-3 grid gap-3">
             {documents.map((document, index) => (
               <div key={document.id} className="rounded-md border border-slate-200 bg-atlas-light p-3">
@@ -216,10 +218,10 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                     <div>
                       <p className="text-sm font-bold text-atlas-navy">{document.label}</p>
                       <p className="text-xs text-slate-600">
-                        {document.fileName ? `Uploaded: ${document.fileName}` : "Waiting for upload"}
+                        {document.fileName ? `${t("uploaded")}: ${document.fileName}` : t("waitingForUpload")}
                       </p>
                       {document.expiresAt && (
-                        <p className="text-xs font-semibold text-atlas-blue">Expires: {document.expiresAt}</p>
+                        <p className="text-xs font-semibold text-atlas-blue">{t("expires")}: {document.expiresAt}</p>
                       )}
                     </div>
                   </div>
@@ -233,7 +235,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                 </div>
                 <label className="btn-secondary mt-3 w-fit cursor-pointer">
                   <FileUp size={16} />
-                  {document.fileName ? "Replace file" : "Upload file"}
+                  {document.fileName ? t("replaceFile") : t("uploadFile")}
                   <input
                     className="sr-only"
                     name={`document-${index}`}
@@ -244,7 +246,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                 </label>
                 {requiresExpirationDate(document.label) && (
                   <label className="mt-3 grid max-w-xs gap-2">
-                    <span className="label">Expiration date</span>
+                    <span className="label">{t("expirationDate")}</span>
                     <input
                       className="field"
                       name={`document-expiration-${index}`}
@@ -262,11 +264,11 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
         </div>
         <span className="flex min-h-20 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-atlas-light p-5 text-center text-sm text-slate-600">
           <UploadCloud className="mb-2 text-atlas-blue" />
-          Upload each required document one by one. Admin will approve each item or reject it with a reason.
+          {t("uploadOneByOne")}
         </span>
       </div>
       <button className="btn-primary" type="submit">
-        Submit for admin approval
+        {t("submitForApproval")}
       </button>
     </form>
   );

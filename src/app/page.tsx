@@ -1,3 +1,144 @@
+"use client";
+
+import Link from "next/link";
+import type { Route as NextRoute } from "next";
+import type { ReactNode } from "react";
+import {
+  ArrowRight,
+  BadgeDollarSign,
+  CheckCircle2,
+  ClipboardCheck,
+  Headset,
+  MapPinned,
+  Megaphone,
+  Package,
+  PackageSearch,
+  Repeat2,
+  ShieldCheck,
+  ShoppingCart,
+  Store,
+  Tag,
+  Truck,
+  Warehouse
+} from "lucide-react";
+import { Nav } from "@/components/nav";
+import { type TranslationKey, useI18n } from "@/lib/i18n";
+
+const heroItems = [
+  "/product-images/disinfecting-wipes.svg",
+  "/product-images/hand-soap.svg",
+  "/product-images/pasta-sauce.svg",
+  "/product-images/copy-paper.svg"
+];
+
+const valueCards: Array<{ titleKey: TranslationKey; bodyKey: TranslationKey; icon: typeof Package }> = [
+  { titleKey: "featureBuyingTitle", bodyKey: "featureBuyingBody", icon: Package },
+  { titleKey: "featureFulfillmentTitle", bodyKey: "featureFulfillmentBody", icon: Truck },
+  { titleKey: "featureSupplierTitle", bodyKey: "featureSupplierBody", icon: Warehouse }
+];
+
+const buyingSteps: Array<{ titleKey: TranslationKey; bodyKey: TranslationKey; icon: typeof Package; tone: string }> = [
+  { titleKey: "stepLocationTitle", bodyKey: "stepLocationBody", icon: MapPinned, tone: "bg-sky-100" },
+  { titleKey: "chooseProducts", bodyKey: "chooseProductsBody", icon: ShoppingCart, tone: "bg-white" },
+  { titleKey: "pickOrderType", bodyKey: "pickOrderTypeBody", icon: Truck, tone: "bg-orange-50" },
+  { titleKey: "atlasConfirms", bodyKey: "atlasConfirmsBody", icon: ClipboardCheck, tone: "bg-emerald-50" }
+];
+
+const roles: Array<{
+  titleKey: TranslationKey;
+  labelKey: TranslationKey;
+  bodyKey: TranslationKey;
+  points: TranslationKey[];
+  href: NextRoute;
+  ctaKey: TranslationKey;
+  color: string;
+}> = [
+  {
+    titleKey: "member",
+    labelKey: "buyerAccount",
+    bodyKey: "memberBody",
+    points: ["uploadResale", "unlockPricing", "requestFulfillment"],
+    href: "/register/buyer" as NextRoute,
+    ctaKey: "becomeMember",
+    color: "bg-atlas-navy"
+  },
+  {
+    titleKey: "supplierPathTitle",
+    labelKey: "supplierPathLabel",
+    bodyKey: "supplierPathBody",
+    points: ["submitDocs", "uploadSheets", "buyPlacement"],
+    href: "/register/supplier" as NextRoute,
+    ctaKey: "becomeSupplier",
+    color: "bg-atlas-blue"
+  },
+  {
+    titleKey: "selr",
+    labelKey: "salesPartnerLabel",
+    bodyKey: "selrBody",
+    points: ["chooseRoute", "supportReorders", "earnCommission"],
+    href: "/register/route-seller" as NextRoute,
+    ctaKey: "joinSelr",
+    color: "bg-atlas-red"
+  },
+  {
+    titleKey: "fulfillmentPartnerTitle",
+    labelKey: "fulfillmentPartnerLabel",
+    bodyKey: "fulfillmentPartnerBody",
+    points: ["supportCrossDock", "offerDeliveryCapacity", "helpBuildMixedPallets"],
+    href: "/register/supplier" as NextRoute,
+    ctaKey: "becomeFulfillmentPartner",
+    color: "bg-slate-700"
+  }
+];
+
+const tools: Array<{ titleKey: TranslationKey; bodyKey: TranslationKey; icon: typeof Package }> = [
+  { titleKey: "requestSalesRep", bodyKey: "requestSalesRepBody", icon: Headset },
+  { titleKey: "reorderCenter", bodyKey: "reorderCenterBody", icon: Repeat2 },
+  { titleKey: "requestProductSourcing", bodyKey: "requestProductSourcingBody", icon: PackageSearch },
+  { titleKey: "requestBulkQuote", bodyKey: "requestBulkQuoteBody", icon: ClipboardCheck }
+];
+
+export default function HomePage() {
+  const { t } = useI18n();
+
+  return (
+    <>
+      <Nav />
+      <main>
+        <section className="relative overflow-hidden bg-[#1237dc] text-white">
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.13)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.13)_1px,transparent_1px)] bg-[size:170px_170px]" />
+          <div className="atlas-container relative min-h-[620px] py-10">
+            <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+              <div className="max-w-2xl">
+                <p className="w-fit rounded-md border-2 border-yellow-300 px-4 py-2 text-2xl font-black uppercase tracking-normal text-yellow-300">
+                  {t("newMemberRewards")}
+                </p>
+                <p className="mt-5 text-xl font-black uppercase tracking-normal text-sky-100">
+                  {t("heroSubtitle")}
+                </p>
+                <h1 className="mt-4 text-5xl font-black tracking-normal sm:text-7xl">
+                  {t("firstQualifiedOrder")}
+                </h1>
+                <div className="mt-1 flex flex-wrap items-end gap-3">
+                  <span className="text-8xl font-black leading-none text-yellow-300 sm:text-[9rem]">$100</span>
+                  <span className="pb-5 text-4xl font-black uppercase leading-none text-yellow-300 sm:text-5xl">{t("off")}</span>
+                </div>
+                <p className="text-2xl font-semibold text-sky-50">{t("firstOrderRule")}</p>
+                <p className="mt-5 max-w-xl text-lg leading-8 text-sky-50">{t("heroBody")}</p>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <Link className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-yellow-300 px-8 py-3 text-base font-black text-atlas-navy transition hover:bg-yellow-200" href="/register/buyer">
+                    {t("heroPrimaryCta")}
+                    <ArrowRight size={18} />
+                  </Link>
+                  <Link className="inline-flex min-h-12 items-center justify-center rounded-full bg-white px-8 py-3 text-base font-black text-atlas-blue transition hover:bg-sky-50" href="/catalog">
+                    {t("seeWeeklyDeals")}
+                  </Link>
+                </div>
+              </div>
+
+              <div className="relative min-h-[430px]">
+                <div className="absolute right-0 top-0 w-full max-w-[680px] rounded-[2rem] border border-white/25 bg-white/12 p-5 shadow-2xl backdrop-blur">
+                  <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-5 py-4 text-atlas-navy">
                     <div>
                       <p className="text-sm font-black uppercase text-atlas-blue">{t("promoCartLabel")}</p>
                       <h2 className="text-2xl font-black">{t("promoCartTitle")}</h2>
@@ -144,21 +285,6 @@
         </section>
       </main>
     </>
-  );
-}
-
-function LanguageButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      className={`min-h-10 rounded-full px-4 text-sm font-black transition ${
-        active ? "bg-white text-atlas-blue" : "text-white hover:bg-white/15"
-      }`}
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-    >
-      {label}
-    </button>
   );
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, ChevronDown, Languages, LayoutDashboard, LogIn, MapPin, ShieldCheck, ShoppingCart, X } from "lucide-react";
+import { Building2, ChevronDown, LayoutDashboard, LogIn, MapPin, ShieldCheck, ShoppingCart, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/browser";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
@@ -46,7 +46,7 @@ const atlasLocations: Array<{
 ];
 
 export function Nav() {
-  const { t, toggleLanguage } = useI18n();
+  const { t, language, setLanguage } = useI18n();
   const [role, setRole] = useState("");
   const [signedIn, setSignedIn] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
@@ -103,15 +103,25 @@ export function Nav() {
               {t(selectedLocation.nameKey)}
               <ChevronDown size={15} />
             </button>
-            <button
-              className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-black text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue"
-              type="button"
-              onClick={toggleLanguage}
-              aria-label={t("languageLabel")}
-            >
-              <Languages size={15} />
-              {t("languageShort")}
-            </button>
+            <div className="inline-flex items-center gap-1.5 text-sm font-semibold" role="group" aria-label="Language">
+              <button
+                className={`transition ${language === "en" ? "font-bold text-atlas-navy" : "text-slate-400 hover:text-atlas-navy"}`}
+                type="button"
+                onClick={() => setLanguage("en")}
+                aria-pressed={language === "en"}
+              >
+                EN
+              </button>
+              <span className="text-slate-300">/</span>
+              <button
+                className={`transition ${language === "es" ? "font-bold text-atlas-navy" : "text-slate-400 hover:text-atlas-navy"}`}
+                type="button"
+                onClick={() => setLanguage("es")}
+                aria-pressed={language === "es"}
+              >
+                ES
+              </button>
+            </div>
           </div>
         </div>
       </div>

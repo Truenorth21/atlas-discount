@@ -19,9 +19,11 @@ function normalize(row: Record<string, unknown>, index: number): Product {
     sku: get("SKU") || `SKU-${index + 1}`,
     brand: get("brand"),
     upc: get("UPC"),
+    productName: get("product name") || get("description"),
     description: get("description"),
     category: get("category"),
     subcategory: get("subcategory"),
+    unitSize: get("unit size"),
     imageUrl: get("image URL") || "/product-images/disinfecting-wipes.svg",
     productDimensions: get("product dimensions"),
     casePack: number("case pack"),
@@ -34,6 +36,9 @@ function normalize(row: Record<string, unknown>, index: number): Product {
     leadTime: get("lead time"),
     inventoryAvailable: number("inventory available"),
     location: get("pickup/shipping location"),
+    pickupLocation: get("pickup location") || get("pickup/shipping location"),
+    shippingLocation: get("shipping location") || get("pickup/shipping location"),
+    deliveryRadius: get("delivery radius"),
     preferredHub,
     routeRecommendation:
       preferredHub === "Miami hub"
@@ -51,8 +56,10 @@ function validate(product: Product) {
   if (!product.sku) errors.push("Missing SKU");
   if (!product.brand) errors.push("Missing brand");
   if (!product.upc) errors.push("Missing UPC");
+  if (!product.productName) errors.push("Missing product name");
   if (!product.description) errors.push("Missing description");
   if (!product.category) errors.push("Missing category");
+  if (!product.unitSize) errors.push("Missing unit size");
   if (!product.productDimensions) errors.push("Missing product dimensions");
   if (!product.caseDimensions) errors.push("Missing case dimensions");
   if (!product.palletConfiguration) errors.push("Missing pallet configuration");
@@ -61,10 +68,23 @@ function validate(product: Product) {
   if (product.moq <= 0) errors.push("MOQ must be greater than 0");
   if (product.inventoryAvailable < 0) errors.push("Inventory cannot be negative");
   if (!product.location) errors.push("Missing pickup/shipping location");
+  if (!product.pickupLocation) errors.push("Missing pickup location");
+  if (!product.shippingLocation) errors.push("Missing shipping location");
+  if (!product.deliveryRadius) errors.push("Missing delivery radius");
   return errors;
 }
 
-export function ProductUpload() {
+export function ProductUpload({
+  defaultStatus = "pending",
+  supplierName = "Current Supplier",
+  submitLabel = "Submit valid rows",
+  submittedMessage = "valid products submitted for admin review."
+}: {
+  defaultStatus?: Product["status"];
+  supplierName?: string;
+  submitLabel?: string;
+  submittedMessage?: string;
+}) {
   const { addProducts } = useAtlasStore();
   const [message, setMessage] = useState("No upload yet.");
   const [preview, setPreview] = useState<Array<{ product: Product; errors: string[] }>>([]);
@@ -101,7 +121,11 @@ export function ProductUpload() {
         Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""]))
       );
     }
-    const products = rows.map(normalize);
+    const products = rows.map((row, index) => ({
+      ...normalize(row, index),
+      status: defaultStatus,
+      supplierName
+    }));
     setPreview(products.map((product) => ({ product, errors: validate(product) })));
     setMessage(`${products.length} rows parsed. Review validation before submitting.`);
   }
@@ -109,7 +133,7 @@ export function ProductUpload() {
   function submitValidProducts() {
     const validProducts = preview.filter((row) => row.errors.length === 0).map((row) => row.product);
     addProducts(validProducts);
-    setMessage(`${validProducts.length} valid products submitted for admin review.`);
+    setMessage(`${validProducts.length} ${submittedMessage}`);
     setPreview([]);
   }
 
@@ -141,7 +165,7 @@ export function ProductUpload() {
               </p>
             </div>
             <button className="btn-primary" type="button" onClick={submitValidProducts}>
-              Submit valid rows
+              {submitLabel}
             </button>
           </div>
           <div className="max-h-80 overflow-auto">

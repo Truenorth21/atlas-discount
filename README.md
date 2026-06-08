@@ -34,7 +34,8 @@ Supabase Auth is wired for email/password sign-up and sign-in:
 - `/register/route-seller` creates a pending route seller profile for local sellers and territory operators.
 - `/login` signs users in.
 - `/auth/callback` exchanges Supabase auth codes.
-- `/admin` and `/dashboard/*` are protected by middleware when Supabase env vars are configured.
+- `/catalog`, `/quotes/*`, `/admin`, and `/dashboard/*` are protected by middleware when Supabase env vars are configured.
+- `/admin` requires a Supabase user with `app_metadata.role = "admin"`, `user_metadata.role = "admin"`, or an email matching `ATLAS_ADMIN_EMAIL`.
 
 Without Supabase env vars, the app remains in demo mode so the full workflow can be reviewed locally.
 
@@ -46,8 +47,9 @@ Deploy to Vercel with these environment variables:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_APP_URL`
+- `ATLAS_ADMIN_EMAIL`
 
-Set `NEXT_PUBLIC_APP_URL` to the Vercel production URL, then add that URL and `/auth/callback` to Supabase Auth redirect URLs.
+Set `NEXT_PUBLIC_APP_URL` to `https://www.atlasdiscount.com`, then add `https://www.atlasdiscount.com` as the Supabase Auth Site URL and `https://www.atlasdiscount.com/auth/callback` as an allowed redirect URL.
 
 ## MVP workflows
 

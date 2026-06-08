@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "preview:build": "NEXT_DIST_DIR=.next-prod next build",
+    "preview:start": "NEXT_DIST_DIR=.next-prod next start -p 3001"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
