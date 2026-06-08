@@ -178,8 +178,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="bg-atlas-light py-14">
-          <div className="atlas-container grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+        <section className="bg-atlas-light py-16 lg:py-20">
+          <div className="atlas-container grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:gap-16">
             <div>
               <p className="text-sm font-bold uppercase text-atlas-blue">{t("getStartedFast")}</p>
               <h2 className="mt-2 text-4xl font-black text-atlas-navy">{t("buyingProcessTitle")}</h2>
@@ -191,9 +191,9 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="grid gap-5">
+            <div className="grid gap-6">
               {buyingSteps.map(({ titleKey, bodyKey, icon: Icon, tone }, index) => (
-                <div key={titleKey} className={`grid gap-4 rounded-full ${tone} px-6 py-5 shadow-sm md:grid-cols-[88px_1fr] md:items-center`}>
+                <div key={titleKey} className={`grid gap-4 rounded-2xl ${tone} px-7 py-6 shadow-sm md:grid-cols-[88px_1fr] md:items-center`}>
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-atlas-blue shadow-sm">
                     <Icon size={30} />
                   </div>
@@ -208,7 +208,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="bg-white py-12">
+        <section className="bg-white py-16">
           <div className="atlas-container">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
@@ -224,7 +224,7 @@ export default function HomePage() {
                 <ArrowRight size={16} />
               </Link>
             </div>
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
               <PromoCard icon={<Tag />} title={t("weeklyDeals")} body={t("weeklyDealsBody")} />
               <PromoCard icon={<PackageSearch />} title={t("sponsoredCategories")} body={t("sponsoredCategoriesBody")} />
               <PromoCard icon={<Megaphone />} title={t("campaignTracking")} body={t("campaignTrackingBody")} />
@@ -232,8 +232,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="atlas-container py-12">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="atlas-container py-16">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             {roles.map((role) => (
               <div key={role.titleKey} className="panel overflow-hidden">
                 <div className={`${role.color} px-6 py-5 text-white`}>
@@ -260,11 +260,11 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="bg-atlas-light py-12">
+        <section className="bg-atlas-light py-16">
           <div className="atlas-container">
             <p className="text-sm font-bold uppercase text-atlas-blue">{t("wholesaleToolsEyebrow")}</p>
             <h2 className="mt-2 text-3xl font-black text-atlas-navy">{t("wholesaleToolsTitle")}</h2>
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
               {tools.map(({ titleKey, bodyKey, icon: Icon }) => (
                 <div key={titleKey} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                   <Icon className="text-atlas-blue" size={30} />
@@ -276,8 +276,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="bg-atlas-navy py-12 text-white">
-          <div className="atlas-container grid gap-5 lg:grid-cols-3">
+        <section className="bg-atlas-navy py-16 text-white">
+          <div className="atlas-container grid gap-6 lg:grid-cols-3">
             <DarkFeature icon={<Store />} title={t("verifiedBuyers")} body={t("verifiedBuyersBody")} />
             <DarkFeature icon={<MapPinned />} title={t("floridaRouting")} body={t("floridaRoutingBody")} />
             <DarkFeature icon={<ShieldCheck />} title={t("quoteBeforePayment")} body={t("quoteBeforePaymentBody")} />
