@@ -160,16 +160,16 @@ export default function CatalogClient() {
           </section>
         )}
         <section className="grid gap-5">
-          <div className="panel p-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end">
-              <label className="grid flex-1 gap-2">
-                <span className="label">{t("searchProducts")}</span>
-                <span className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input className="field pl-10" value={query} onChange={(event) => setQuery(event.target.value)} />
-                </span>
-              </label>
-              <label className="grid gap-2 md:w-56">
+          <div className="panel grid gap-4 p-5">
+            <label className="grid gap-2">
+              <span className="label">{t("searchProducts")}</span>
+              <span className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input className="field pl-10" value={query} onChange={(event) => setQuery(event.target.value)} />
+              </span>
+            </label>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="grid gap-2">
                 <span className="label">{t("category")}</span>
                 <select className="field" value={category} onChange={(event) => setCategory(event.target.value)}>
                   {categories.map((item) => (
@@ -177,7 +177,7 @@ export default function CatalogClient() {
                   ))}
                 </select>
               </label>
-              <label className="grid gap-2 md:w-56">
+              <label className="grid gap-2">
                 <span className="label">{t("atlasHub")}</span>
                 <select className="field" value={hub} onChange={(event) => setHub(event.target.value)}>
                   <option>All hubs</option>
@@ -186,7 +186,7 @@ export default function CatalogClient() {
                   ))}
                 </select>
               </label>
-              <label className="grid gap-2 md:w-56">
+              <label className="grid gap-2">
                 <span className="label">{t("buyerRegion")}</span>
                 <select className="field" value={buyerRegion} onChange={(event) => setBuyerRegion(event.target.value)}>
                   <option>South Florida</option>
