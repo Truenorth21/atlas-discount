@@ -73,6 +73,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
       phone: String(form.get("phone")),
       status: "pending",
       documents,
+      newsletterOptIn: type === "buyer" ? form.get("newsletterOptIn") === "on" : undefined,
       routePreference:
         type === "route_seller"
           ? {
@@ -140,6 +141,15 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
           <input className="field" name="password" minLength={8} type="password" required />
         </label>
       </div>
+      {type === "buyer" && (
+        <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-atlas-light p-4">
+          <input className="mt-0.5 h-5 w-5 shrink-0 accent-atlas-blue" name="newsletterOptIn" type="checkbox" defaultChecked />
+          <span>
+            <span className="block text-sm font-bold text-atlas-navy">{t("newsletterOptInLabel")}</span>
+            <span className="mt-0.5 block text-xs text-slate-600">{t("newsletterOptInHelp")}</span>
+          </span>
+        </label>
+      )}
       {type === "route_seller" && (
         <div className="grid gap-3 rounded-lg border border-slate-200 bg-atlas-light p-4">
           <div>

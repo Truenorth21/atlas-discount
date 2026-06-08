@@ -56,6 +56,7 @@ export type Application = {
   status: ApprovalStatus;
   documents: BusinessDocument[];
   routePreference?: RouteSellerPreference;
+  newsletterOptIn?: boolean;
   submittedAt: string;
 };
 

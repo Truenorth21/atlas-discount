@@ -159,7 +159,7 @@ export function Nav() {
           ) : (
             <>
               <span className="hidden text-base font-semibold text-slate-700 md:inline">{t("becomeA")}</span>
-              <Link className="rounded-full bg-atlas-blue px-6 py-2.5 text-base font-semibold text-white transition hover:bg-atlas-navy" href="/register/supplier">
+              <Link className="rounded-full bg-atlas-blue px-6 py-2.5 text-base font-semibold text-white transition hover:bg-atlas-navy" href="/sell">
                 {t("supplierPathTitle")}
               </Link>
               <Link className="rounded-full bg-atlas-navy px-6 py-2.5 text-base font-semibold text-white transition hover:bg-atlas-blue" href="/register/buyer">
