@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { Application, ApprovalStatus, AtlasHub, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, RouteSellerPreference } from "@/lib/types";
+import type { Application, ApprovalStatus, AtlasHub, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, PromotionSubmission, RouteSellerPreference } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -464,6 +464,67 @@ export async function loadAdminOrders(): Promise<OrderRequest[] | undefined> {
       createdAt: (order.created_at ?? "").slice(0, 10)
     };
   });
+}
+
+type PromotionSubmissionRow = {
+  id: string;
+  title: string;
+  details: string;
+  status: ApprovalStatus;
+  created_at: string;
+  supplier_profiles?: { legal_name: string | null } | null;
+};
+
+/** A supplier books an ad placement. Looks up the supplier's profile for the FK. */
+export async function savePromotionSubmission(submission: PromotionSubmission): Promise<void> {
+  const supabase = createClient();
+  if (!supabase) return;
+
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return;
+
+  const { data: supplierProfile } = await supabase
+    .from("supplier_profiles")
+    .select("id")
+    .eq("profile_id", userData.user.id)
+    .maybeSingle();
+  if (!supplierProfile) return;
+
+  await supabase.from("promotion_submissions").insert({
+    supplier_profile_id: supplierProfile.id,
+    title: submission.placement,
+    details: submission.note ?? "",
+    status: "pending"
+  });
+}
+
+/** Admin reads all supplier ad requests (requires an admin select policy). */
+export async function loadPromotionSubmissions(): Promise<PromotionSubmission[] | undefined> {
+  const supabase = createClient();
+  if (!supabase) return undefined;
+
+  const { data, error } = await supabase
+    .from("promotion_submissions")
+    .select("*, supplier_profiles(legal_name)")
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return undefined;
+
+  return (data as PromotionSubmissionRow[]).map((row) => ({
+    id: row.id,
+    supplierName: row.supplier_profiles?.legal_name ?? "Supplier",
+    placement: row.title,
+    note: row.details || undefined,
+    status: row.status,
+    submittedAt: (row.created_at ?? "").slice(0, 10)
+  }));
+}
+
+export async function savePromotionSubmissionStatus(id: string, status: ApprovalStatus) {
+  const supabase = createClient();
+  if (!supabase || !isUuid(id)) return;
+
+  await supabase.from("promotion_submissions").update({ status }).eq("id", id);
 }
 
 export async function saveSharedProductPromotion(id: string, promotion?: string) {

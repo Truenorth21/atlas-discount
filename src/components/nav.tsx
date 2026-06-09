@@ -63,16 +63,27 @@ export function Nav() {
 
     if (!isSupabaseConfigured || !supabase) return;
 
-    supabase.auth.getUser().then(({ data }) => {
+    // The authoritative role comes from the user's profile row; fall back to
+    // auth metadata. This keeps the Admin link reliably gated to real admins.
+    async function resolveRole(user: { id: string; app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> } | null) {
+      if (!user || !supabase) return "";
+      const { data } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+      return String(data?.role ?? roleForUser(user));
+    }
+
+    supabase.auth.getUser().then(async ({ data }) => {
       if (!mounted) return;
       setSignedIn(Boolean(data.user));
-      setRole(roleForUser(data.user));
+      const resolved = await resolveRole(data.user);
+      if (mounted) setRole(resolved);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setSignedIn(Boolean(session?.user));
-      setRole(roleForUser(session?.user ?? null));
+      resolveRole(session?.user ?? null).then((resolved) => {
+        if (mounted) setRole(resolved);
+      });
     });
 
     return () => {

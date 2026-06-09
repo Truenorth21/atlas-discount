@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { defaultPricingSettings, documentRequirements, sampleApplications, sampleOrders, sampleProducts, sampleRouteSellers } from "@/lib/data";
-import { loadAdminApplications, loadAdminOrders, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
+import { loadAdminApplications, loadAdminOrders, loadPromotionSubmissions, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, savePromotionSubmission, savePromotionSubmissionStatus, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
 import type { Application, CartLine, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment, RouteSeller } from "@/lib/types";
 
 type Store = {
@@ -192,6 +192,18 @@ export function useAtlasStore() {
       .catch(() => {
         // Keep demo orders if Supabase is unavailable or RLS blocks the read.
       });
+    loadPromotionSubmissions()
+      .then((submissions) => {
+        if (!active || submissions === undefined) return;
+        setStore((current) => {
+          const next = { ...current, promotionSubmissions: submissions };
+          writeStoredState(next);
+          return next;
+        });
+      })
+      .catch(() => {
+        // Keep local submissions if Supabase is unavailable or RLS blocks the read.
+      });
     setReady(true);
 
     return () => {
@@ -230,13 +242,17 @@ export function useAtlasStore() {
         products: current.products.map((product) => (product.id === id ? { ...product, promotion: value } : product))
       }));
     },
-    addPromotionSubmission: (submission: PromotionSubmission) =>
-      commit((current) => ({ ...current, promotionSubmissions: [submission, ...current.promotionSubmissions] })),
-    updatePromotionSubmissionStatus: (id: string, status: PromotionSubmission["status"]) =>
+    addPromotionSubmission: (submission: PromotionSubmission) => {
+      void savePromotionSubmission(submission);
+      commit((current) => ({ ...current, promotionSubmissions: [submission, ...current.promotionSubmissions] }));
+    },
+    updatePromotionSubmissionStatus: (id: string, status: PromotionSubmission["status"]) => {
+      void savePromotionSubmissionStatus(id, status);
       commit((current) => ({
         ...current,
         promotionSubmissions: current.promotionSubmissions.map((item) => (item.id === id ? { ...item, status } : item))
-      })),
+      }));
+    },
     updateApplicationStatus: (id: string, status: Application["status"]) => {
       void saveApplicationStatus(id, status);
       commit((current) => ({
