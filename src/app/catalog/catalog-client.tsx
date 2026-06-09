@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, MapPin, Minus, Plus, Search, ShoppingCart, Sparkles, Tag, Trash2 } from "lucide-react";
 import { Nav } from "@/components/nav";
+import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { StatusBadge } from "@/components/status-badge";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
 import { useAtlasStore } from "@/components/local-store";
@@ -209,23 +210,20 @@ export default function CatalogClient() {
             {filtered.map((product) => (
               <article key={product.id} className="panel p-5">
                 <div className="grid gap-4 lg:grid-cols-[128px_1fr_180px] lg:items-start">
-                  <button
-                    className="h-32 w-32 overflow-hidden rounded-md border border-slate-200 bg-white transition hover:border-atlas-blue focus:outline-none focus:ring-2 focus:ring-atlas-blue"
-                    type="button"
-                    onClick={() =>
-                      setExpandedImage({
-                        src: product.imageUrl || "/product-images/disinfecting-wipes.svg",
-                        label: `${product.brand} ${product.description}`
-                      })
-                    }
-                    aria-label={`Expand ${product.brand} product image`}
-                  >
-                    <img
-                      alt={`${product.brand} ${product.description}`}
-                      className="h-full w-full object-cover"
-                      src={product.imageUrl || "/product-images/disinfecting-wipes.svg"}
-                    />
-                  </button>
+                  {isPlaceholderImage(product) ? (
+                    <div className="h-32 w-32 overflow-hidden rounded-md border border-slate-200">
+                      <ProductImage product={product} className="h-full w-full" iconSize={42} />
+                    </div>
+                  ) : (
+                    <button
+                      className="h-32 w-32 overflow-hidden rounded-md border border-slate-200 bg-white transition hover:border-atlas-blue focus:outline-none focus:ring-2 focus:ring-atlas-blue"
+                      type="button"
+                      onClick={() => setExpandedImage({ src: product.imageUrl, label: `${product.brand} ${product.description}` })}
+                      aria-label={`Expand ${product.brand} product image`}
+                    >
+                      <ProductImage product={product} className="h-full w-full" />
+                    </button>
+                  )}
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusBadge status={product.status} />
@@ -509,11 +507,7 @@ function DealCard({ product, addToCart }: { product: Product; addToCart: (produc
   return (
     <article className="rounded-md border border-slate-200 bg-white p-3">
       <div className="flex gap-3">
-        <img
-          alt={`${product.brand} ${product.description}`}
-          className="h-16 w-16 rounded-md border border-slate-200 object-cover"
-          src={product.imageUrl || "/product-images/disinfecting-wipes.svg"}
-        />
+        <ProductImage product={product} className="h-16 w-16 shrink-0 rounded-md border border-slate-200" iconSize={22} />
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-atlas-navy">{product.brand}</p>
           <p className="line-clamp-2 text-xs font-semibold text-slate-600">{product.description}</p>

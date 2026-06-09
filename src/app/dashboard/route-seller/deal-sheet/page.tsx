@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Plus, Printer, Tag } from "lucide-react";
 import { Nav } from "@/components/nav";
+import { ProductImage } from "@/components/product-image";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
 import { atlasCaseSellPrice, formatMoney } from "@/lib/pricing";
@@ -80,7 +81,7 @@ export default function DealSheetPage() {
                 const selected = lines.some((line) => line.productId === product.id);
                 return (
                   <div key={product.id} className={`flex items-center gap-3 rounded-lg border p-3 ${selected ? "border-atlas-blue bg-sky-50" : "border-slate-200"}`}>
-                    <img alt={product.brand} className="h-12 w-12 rounded-md border border-slate-200 object-cover" src={product.imageUrl} />
+                    <ProductImage product={product} className="h-12 w-12 shrink-0 rounded-md border border-slate-200" iconSize={20} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-black text-atlas-navy">{product.brand}</p>
                       <p className="truncate text-xs text-slate-600">{product.description}</p>
@@ -115,7 +116,7 @@ export default function DealSheetPage() {
               <div className="divide-y divide-slate-200">
                 {sheetProducts.map(({ line, product }) => (
                   <div key={product.id} className="flex items-center gap-4 p-4">
-                    <img alt={product.brand} className="h-16 w-16 rounded-md border border-slate-200 object-cover" src={product.imageUrl} />
+                    <ProductImage product={product} className="h-16 w-16 shrink-0 rounded-md border border-slate-200" iconSize={26} />
                     <div className="min-w-0 flex-1">
                       <p className="font-black text-atlas-navy">{product.brand}</p>
                       <p className="text-sm text-slate-600">{product.description}</p>

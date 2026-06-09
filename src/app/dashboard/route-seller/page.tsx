@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BadgeCheck, FileText, MapPinned, PackageSearch, Repeat2, Route, ShoppingCart, Sparkles, TrendingUp, Trophy } from "lucide-react";
 import { Nav } from "@/components/nav";
+import { ProductImage } from "@/components/product-image";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { getDocumentAlerts } from "@/lib/documents";
@@ -119,7 +120,7 @@ export default function RouteSellerDashboardPage() {
             {routeStaples.map((product) => (
               <div key={product.id} className="rounded-lg border border-slate-200 p-3">
                 <div className="flex items-center gap-3">
-                  <img alt={product.brand} className="h-12 w-12 rounded-md border border-slate-200 object-cover" src={product.imageUrl} />
+                  <ProductImage product={product} className="h-12 w-12 shrink-0 rounded-md border border-slate-200" iconSize={20} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-atlas-navy">{product.brand}</p>
                     <p className="truncate text-xs text-slate-600">{product.preferredHub}</p>
@@ -201,7 +202,7 @@ export default function RouteSellerDashboardPage() {
           <div className="grid gap-4 p-5 md:grid-cols-3">
             {suggestedProducts.map((product) => (
               <div key={product.id} className="rounded-lg border border-slate-200 p-4">
-                <img alt={product.description} className="h-24 w-24 rounded-md object-cover" src={product.imageUrl} />
+                <ProductImage product={product} className="h-24 w-24 rounded-md" iconSize={34} />
                 <h3 className="mt-3 font-black text-atlas-navy">{product.brand}</h3>
                 <p className="mt-1 text-sm text-slate-600">{product.description}</p>
                 <p className="mt-2 text-sm font-bold text-atlas-blue">{t("moqShort")} {product.moq} {t("cases")} • {product.preferredHub}</p>
