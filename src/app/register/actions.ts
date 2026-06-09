@@ -47,6 +47,7 @@ export async function registerUser(formData: FormData) {
       role,
       company_name: companyName,
       contact_name: contactName,
+      email,
       phone,
       status: "pending"
     });

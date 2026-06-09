@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { Application, ApprovalStatus, AtlasHub, DocumentStatus, PricingSettings, Product, RouteSellerPreference } from "@/lib/types";
+import type { Application, ApprovalStatus, AtlasHub, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, RouteSellerPreference } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -266,6 +266,7 @@ type ProfileRow = {
   role: "buyer" | "supplier" | "route_seller" | "admin";
   company_name: string;
   contact_name: string;
+  email: string | null;
   phone: string | null;
   status: ApprovalStatus;
   created_at: string;
@@ -327,7 +328,7 @@ export async function loadAdminApplications(): Promise<Application[] | undefined
       type: profile.role as Application["type"],
       companyName: profile.company_name,
       contactName: profile.contact_name,
-      email: "",
+      email: profile.email ?? "",
       phone: profile.phone ?? "",
       status: profile.status,
       documents: documentRows
@@ -376,6 +377,93 @@ export async function saveDocumentReview(documentId: string, status: DocumentSta
       reviewed_at: new Date().toISOString()
     })
     .eq("id", documentId);
+}
+
+type OrderRow = {
+  id: string;
+  buyer_profile_id: string;
+  fulfillment_type: FulfillmentType;
+  hub_routing: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+};
+
+type OrderItemRow = { order_request_id: string; product_id: string; quantity: number };
+
+/** Persists a buyer's quote/order request and its line items. */
+export async function saveOrderRequest(order: OrderRequest): Promise<void> {
+  const supabase = createClient();
+  if (!supabase) return;
+
+  const { data: userData } = await supabase.auth.getUser();
+  const buyerId = userData.user?.id;
+  if (!buyerId) return;
+
+  const { data, error } = await supabase
+    .from("order_requests")
+    .insert({
+      buyer_profile_id: buyerId,
+      fulfillment_type: order.fulfillmentType,
+      hub_routing: order.hubRouting || "Atlas routing review",
+      status: order.status,
+      notes: order.buyerRegion ? `Region: ${order.buyerRegion}` : null
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) return;
+
+  // Only persist items that reference real Supabase products (UUID ids).
+  const items = (order.lineItems ?? []).filter((line) => isUuid(line.product.id));
+  if (items.length > 0) {
+    await supabase
+      .from("order_request_items")
+      .insert(items.map((line) => ({ order_request_id: data.id, product_id: line.product.id, quantity: line.quantity })));
+  }
+}
+
+/** Loads order/quote requests with their line items for the admin queue. */
+export async function loadAdminOrders(): Promise<OrderRequest[] | undefined> {
+  const supabase = createClient();
+  if (!supabase) return undefined;
+
+  const { data: orders, error } = await supabase.from("order_requests").select("*").order("created_at", { ascending: false });
+  if (error || !orders) return undefined;
+  if (orders.length === 0) return [];
+
+  const [{ data: items }, { data: products }, { data: profiles }] = await Promise.all([
+    supabase.from("order_request_items").select("*"),
+    supabase.from("products").select("*"),
+    supabase.from("profiles").select("id,company_name")
+  ]);
+
+  const productMap = new Map(((products as ProductRow[] | null) ?? []).map((row) => [row.id, productFromRow(row)]));
+  const profileMap = new Map(((profiles as { id: string; company_name: string }[] | null) ?? []).map((row) => [row.id, row.company_name]));
+  const itemRows = (items as OrderItemRow[] | null) ?? [];
+
+  return (orders as OrderRow[]).map((order) => {
+    const lineItems = itemRows
+      .filter((row) => row.order_request_id === order.id)
+      .map((row) => {
+        const product = productMap.get(row.product_id);
+        return product ? { product, quantity: row.quantity } : null;
+      })
+      .filter((line): line is { product: Product; quantity: number } => line !== null);
+
+    return {
+      id: order.id,
+      buyer: profileMap.get(order.buyer_profile_id) ?? "Buyer",
+      buyerRegion: order.notes?.startsWith("Region: ") ? order.notes.slice("Region: ".length) : undefined,
+      totalCases: lineItems.reduce((sum, line) => sum + line.quantity, 0),
+      estimatedValue: 0,
+      fulfillmentType: order.fulfillment_type,
+      hubRouting: order.hub_routing,
+      lineItems,
+      status: order.status as OrderRequest["status"],
+      createdAt: (order.created_at ?? "").slice(0, 10)
+    };
+  });
 }
 
 export async function saveSharedProductPromotion(id: string, promotion?: string) {

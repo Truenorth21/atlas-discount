@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { defaultPricingSettings, documentRequirements, sampleApplications, sampleOrders, sampleProducts, sampleRouteSellers } from "@/lib/data";
-import { loadAdminApplications, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
+import { loadAdminApplications, loadAdminOrders, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
 import type { Application, CartLine, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment, RouteSeller } from "@/lib/types";
 
 type Store = {
@@ -180,6 +180,18 @@ export function useAtlasStore() {
       .catch(() => {
         // Keep demo applications if Supabase is unavailable or RLS blocks the read.
       });
+    loadAdminOrders()
+      .then((orders) => {
+        if (!active || orders === undefined) return;
+        setStore((current) => {
+          const next = normalizeStore({ ...current, orders });
+          writeStoredState(next);
+          return next;
+        });
+      })
+      .catch(() => {
+        // Keep demo orders if Supabase is unavailable or RLS blocks the read.
+      });
     setReady(true);
 
     return () => {
@@ -286,8 +298,10 @@ export function useAtlasStore() {
         cart: current.cart.filter((line) => line.product.id !== productId)
       })),
     setCart: (cart: CartLine[]) => commit((current) => ({ ...current, cart })),
-    addOrder: (order: OrderRequest) =>
-      commit((current) => ({ ...current, orders: [order, ...current.orders], cart: [] })),
+    addOrder: (order: OrderRequest) => {
+      void saveOrderRequest(order);
+      commit((current) => ({ ...current, orders: [order, ...current.orders], cart: [] }));
+    },
     updatePricingSettings: (pricingSettings: PricingSettings) => {
       void saveSharedPricingSettings(pricingSettings);
       commit((current) => ({ ...current, pricingSettings }));

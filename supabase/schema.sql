@@ -16,6 +16,7 @@ create table public.profiles (
   role public.user_role not null,
   company_name text not null,
   contact_name text not null,
+  email text,
   phone text,
   status public.approval_status not null default 'pending',
   created_at timestamptz not null default now(),
