@@ -8,23 +8,27 @@ import {
   BadgeDollarSign,
   CheckCircle2,
   ClipboardCheck,
+  Droplets,
+  FileText,
   MapPinned,
   Megaphone,
   Package,
   PackageSearch,
   ShoppingCart,
+  SprayCan,
   Tag,
   Truck,
+  UtensilsCrossed,
   Warehouse
 } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 
-const heroItems = [
-  "/product-images/disinfecting-wipes.svg",
-  "/product-images/hand-soap.svg",
-  "/product-images/pasta-sauce.svg",
-  "/product-images/copy-paper.svg"
+const heroProducts: Array<{ name: string; icon: typeof Package; tint: string }> = [
+  { name: "BrightPro", icon: SprayCan, tint: "bg-sky-50 text-atlas-blue" },
+  { name: "Pure Harbor", icon: Droplets, tint: "bg-rose-50 text-rose-500" },
+  { name: "North Table", icon: UtensilsCrossed, tint: "bg-amber-50 text-amber-600" },
+  { name: "Deskline", icon: FileText, tint: "bg-emerald-50 text-emerald-600" }
 ];
 
 const valueCards: Array<{ titleKey: TranslationKey; bodyKey: TranslationKey; icon: typeof Package }> = [
@@ -132,9 +136,13 @@ export default function HomePage() {
                     <BadgeDollarSign className="text-atlas-blue" size={42} />
                   </div>
                   <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    {heroItems.map((src) => (
-                      <div key={src} className="rounded-xl bg-white p-4 shadow-lg">
-                        <img alt="" className="h-28 w-full object-contain" src={src} />
+                    {heroProducts.map(({ name, icon: Icon, tint }) => (
+                      <div key={name} className="rounded-xl bg-white p-4 text-center shadow-lg">
+                        <span className={`mx-auto flex h-14 w-14 items-center justify-center rounded-xl ${tint}`}>
+                          <Icon size={26} />
+                        </span>
+                        <p className="mt-3 text-sm font-black text-atlas-navy">{name}</p>
+                        <p className="text-xs font-semibold text-slate-500">{t("perCaseLabel")}</p>
                       </div>
                     ))}
                   </div>
@@ -147,8 +155,8 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-          <div className="atlas-container relative -mt-20 pb-10">
-            <div className="grid gap-4 lg:grid-cols-3">
+          <div className="atlas-container relative -mt-10 pb-12">
+            <div className="grid gap-5 lg:grid-cols-3">
               {valueCards.map(({ titleKey, bodyKey, icon: Icon }) => (
                 <div key={titleKey} className="rounded-lg bg-white p-5 text-atlas-navy shadow-panel">
                   <div className="flex items-center gap-4">
