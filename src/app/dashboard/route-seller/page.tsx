@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { MapPinned, PackageSearch, Route, TrendingUp } from "lucide-react";
+import { BadgeCheck, FileText, MapPinned, PackageSearch, Repeat2, Route, ShoppingCart, Sparkles, TrendingUp, Trophy } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
@@ -11,11 +11,20 @@ import { useI18n } from "@/lib/i18n";
 
 export default function RouteSellerDashboardPage() {
   const { t } = useI18n();
-  const { store } = useAtlasStore();
+  const { store, addToCart } = useAtlasStore();
   const routeSeller = store.routeSellers[0];
   const documentAlerts = getDocumentAlerts(store.applications, "route_seller");
   const routeApplication = store.applications.find((application) => application.type === "route_seller");
-  const suggestedProducts = store.products.filter((product) => product.status === "approved").slice(0, 3);
+  const approvedProducts = store.products.filter((product) => product.status === "approved");
+  const suggestedProducts = approvedProducts.slice(0, 3);
+  const routeStaples = approvedProducts.slice(0, 4);
+  const promoted = approvedProducts.find((product) => product.promotion);
+  const leaderboard = [...store.routeSellers].sort((a, b) => b.monthlySales - a.monthlySales);
+  const insights = [
+    ...(promoted ? [`${promoted.brand} ${t("insightRestockSuffix")}`] : []),
+    t("insightReorder"),
+    t("insightTerms")
+  ];
 
   return (
     <>
@@ -36,6 +45,93 @@ export default function RouteSellerDashboardPage() {
           <Metric icon={<Route />} label={t("assignedHub")} value={routeSeller.assignedHub} />
           <Metric icon={<TrendingUp />} label={t("monthlySales")} value={`$${routeSeller.monthlySales.toLocaleString()}`} />
           <Metric icon={<PackageSearch />} label={t("activeAccounts")} value={String(routeSeller.activeAccounts)} />
+        </section>
+        <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
+          <div className="panel p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-black text-atlas-navy">{t("repToolsTitle")}</h2>
+                <p className="mt-1 text-sm text-slate-600">{t("repToolsBody")}</p>
+              </div>
+              <span className="badge bg-emerald-50 text-emerald-700">{t("termsLabel")}: {t("termsNet7")}</span>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link className="btn-primary" href="/dashboard/route-seller/deal-sheet">
+                <FileText size={16} />
+                {t("createDealSheet")}
+              </Link>
+              <Link className="btn-secondary" href="/playbooks">
+                <BadgeCheck size={16} />
+                {t("routePlaybook")}
+              </Link>
+            </div>
+            <div className="mt-5 rounded-lg border border-sky-200 bg-sky-50 p-4">
+              <p className="flex flex-wrap items-center gap-2 text-sm font-black text-atlas-navy">
+                <Sparkles size={16} className="text-atlas-blue" />
+                {t("repAssistant")}
+                <span className="badge bg-white text-atlas-blue">{t("betaLabel")}</span>
+              </p>
+              <ul className="mt-3 grid gap-2 text-sm text-slate-700">
+                {insights.map((insight, index) => (
+                  <li key={index} className="flex gap-2">
+                    <span className="text-atlas-blue">•</span>
+                    {insight}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="panel p-5">
+            <h2 className="flex items-center gap-2 text-xl font-black text-atlas-navy">
+              <Trophy size={18} className="text-amber-500" />
+              {t("leaderboardTitle")}
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">{t("leaderboardBody")}</p>
+            <div className="mt-4 grid gap-2">
+              {leaderboard.map((seller, index) => {
+                const isYou = seller.id === routeSeller.id;
+                return (
+                  <div key={seller.id} className={`flex items-center gap-3 rounded-md p-3 ${isYou ? "bg-sky-50" : "bg-atlas-light"}`}>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-atlas-navy text-xs font-black text-white">{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-black text-atlas-navy">{seller.name}{isYou ? ` (${t("youLabel")})` : ""}</p>
+                      <p className="text-xs text-slate-600">{seller.activeAccounts} {t("accountsLabel")} • {seller.territory}</p>
+                    </div>
+                    <span className="text-sm font-black text-atlas-blue">${seller.monthlySales.toLocaleString()}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+        <section className="panel p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-black text-atlas-navy">{t("quickReorder")}</h2>
+              <p className="mt-1 text-sm text-slate-600">{t("quickReorderBody")}</p>
+            </div>
+            <Link className="btn-secondary" href="/catalog">
+              <ShoppingCart size={16} />
+              {t("catalog")}
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {routeStaples.map((product) => (
+              <div key={product.id} className="rounded-lg border border-slate-200 p-3">
+                <div className="flex items-center gap-3">
+                  <img alt={product.brand} className="h-12 w-12 rounded-md border border-slate-200 object-cover" src={product.imageUrl} />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-atlas-navy">{product.brand}</p>
+                    <p className="truncate text-xs text-slate-600">{product.preferredHub}</p>
+                  </div>
+                </div>
+                <button className="btn-primary mt-3 w-full" type="button" onClick={() => addToCart(product)}>
+                  <Repeat2 size={15} />
+                  {t("addToCartLabel")}
+                </button>
+              </div>
+            ))}
+          </div>
         </section>
         {documentAlerts.length > 0 && (
           <section className="panel p-5">
