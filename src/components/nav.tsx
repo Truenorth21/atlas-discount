@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, LogIn, MapPin, ShieldCheck, ShoppingCart, X } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogIn, MapPin, ShieldCheck, ShoppingCart, UserRound, X } from "lucide-react";
 import { AtlasMark } from "./atlas-logo";
 import { useEffect, useState } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/browser";
@@ -51,6 +51,7 @@ export function Nav() {
   const [role, setRole] = useState("");
   const [signedIn, setSignedIn] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<(typeof atlasLocations)[number]>(atlasLocations[0]);
 
   useEffect(() => {
@@ -162,17 +163,49 @@ export function Nav() {
                 <ShoppingCart size={16} />
                 {t("catalog")}
               </Link>
-              <Link className="btn-secondary rounded-full" href={dashboardHref}>
-                <LayoutDashboard size={16} />
-                {t("dashboard")}
-              </Link>
-              {role === "admin" && (
-                <Link className="btn-primary rounded-full" href="/admin">
-                  <ShieldCheck size={16} />
-                  {t("admin")}
-                </Link>
-              )}
-              <SignOutButton />
+              <div className="relative">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full bg-atlas-navy px-5 py-2.5 text-base font-semibold text-white transition hover:bg-atlas-blue"
+                  onClick={() => setMenuOpen((open) => !open)}
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                >
+                  <UserRound size={16} />
+                  {t("account")}
+                  <ChevronDown size={15} />
+                </button>
+                {menuOpen && (
+                  <>
+                    <button className="fixed inset-0 z-40 cursor-default" tabIndex={-1} aria-hidden onClick={() => setMenuOpen(false)} />
+                    <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-panel" role="menu">
+                      <Link
+                        className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-atlas-navy hover:bg-atlas-light"
+                        href={dashboardHref}
+                        role="menuitem"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <LayoutDashboard size={16} className="text-atlas-blue" />
+                        {t("dashboard")}
+                      </Link>
+                      {role === "admin" && (
+                        <Link
+                          className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-atlas-navy hover:bg-atlas-light"
+                          href="/admin"
+                          role="menuitem"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <ShieldCheck size={16} className="text-atlas-blue" />
+                          {t("admin")}
+                        </Link>
+                      )}
+                      <div className="border-t border-slate-200 p-2">
+                        <SignOutButton />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </>
           ) : (
             <>
