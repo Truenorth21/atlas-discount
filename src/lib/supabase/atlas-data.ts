@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { AtlasHub, PricingSettings, Product } from "@/lib/types";
+import type { Application, ApprovalStatus, AtlasHub, DocumentStatus, PricingSettings, Product, RouteSellerPreference } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -259,6 +259,123 @@ export async function saveSharedProductStatus(id: string, status: Product["statu
   if (!supabase || !isUuid(id)) return;
 
   await supabase.from("products").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+}
+
+type ProfileRow = {
+  id: string;
+  role: "buyer" | "supplier" | "route_seller" | "admin";
+  company_name: string;
+  contact_name: string;
+  phone: string | null;
+  status: ApprovalStatus;
+  created_at: string;
+};
+
+type BusinessDocumentRow = {
+  id: string;
+  profile_id: string;
+  document_type: string;
+  storage_path: string;
+  status: ApprovalStatus;
+  expires_at: string | null;
+  rejection_reason: string | null;
+};
+
+type RouteProfileRow = {
+  profile_id: string;
+  program: string;
+  territory: string;
+  assigned_hub: AtlasHub;
+  product_lane: string;
+};
+
+function documentStatusFromRow(status: ApprovalStatus): DocumentStatus {
+  // A row only exists once a document is uploaded, so "pending" means "awaiting review".
+  return status === "approved" ? "approved" : status === "rejected" ? "rejected" : "uploaded";
+}
+
+/**
+ * Loads real buyer/supplier/route-seller applications (profiles + documents)
+ * from Supabase. RLS returns all rows to an admin session, the user's own to a
+ * signed-in non-admin, and none to an anonymous request. Returns undefined when
+ * Supabase isn't configured or the query fails (caller keeps demo data).
+ */
+export async function loadAdminApplications(): Promise<Application[] | undefined> {
+  const supabase = createClient();
+  if (!supabase) return undefined;
+
+  const { data: profiles, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .neq("role", "admin")
+    .order("created_at", { ascending: false });
+
+  if (error || !profiles) return undefined;
+
+  const [{ data: documents }, { data: routeProfiles }] = await Promise.all([
+    supabase.from("business_documents").select("*"),
+    supabase.from("route_seller_profiles").select("*")
+  ]);
+
+  const documentRows = (documents as BusinessDocumentRow[] | null) ?? [];
+  const routeRows = (routeProfiles as RouteProfileRow[] | null) ?? [];
+
+  return (profiles as ProfileRow[]).map((profile) => {
+    const routeRow = routeRows.find((row) => row.profile_id === profile.id);
+    return {
+      id: profile.id,
+      type: profile.role as Application["type"],
+      companyName: profile.company_name,
+      contactName: profile.contact_name,
+      email: "",
+      phone: profile.phone ?? "",
+      status: profile.status,
+      documents: documentRows
+        .filter((row) => row.profile_id === profile.id)
+        .map((row) => ({
+          id: row.id,
+          label: row.document_type,
+          fileName: row.storage_path ? row.storage_path.split("/").pop() : undefined,
+          expiresAt: row.expires_at ?? undefined,
+          status: documentStatusFromRow(row.status),
+          rejectionReason: row.rejection_reason ?? undefined
+        })),
+      routePreference:
+        profile.role === "route_seller" && routeRow
+          ? {
+              program: routeRow.program as RouteSellerPreference["program"],
+              hub: routeRow.assigned_hub as Exclude<AtlasHub, "Supplier direct">,
+              territory: routeRow.territory,
+              productLane: routeRow.product_lane
+            }
+          : undefined,
+      submittedAt: (profile.created_at ?? "").slice(0, 10)
+    };
+  });
+}
+
+export async function saveApplicationStatus(id: string, status: ApprovalStatus) {
+  const supabase = createClient();
+  if (!supabase || !isUuid(id)) return;
+
+  await supabase.from("profiles").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+  await supabase.from("supplier_profiles").update({ status }).eq("profile_id", id);
+  await supabase.from("route_seller_profiles").update({ status }).eq("profile_id", id);
+}
+
+export async function saveDocumentReview(documentId: string, status: DocumentStatus, rejectionReason?: string) {
+  const supabase = createClient();
+  if (!supabase || !isUuid(documentId)) return;
+
+  const dbStatus: ApprovalStatus = status === "approved" ? "approved" : status === "rejected" ? "rejected" : "pending";
+  await supabase
+    .from("business_documents")
+    .update({
+      status: dbStatus,
+      rejection_reason: status === "rejected" ? rejectionReason ?? null : null,
+      reviewed_at: new Date().toISOString()
+    })
+    .eq("id", documentId);
 }
 
 export async function saveSharedProductPromotion(id: string, promotion?: string) {

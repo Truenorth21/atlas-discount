@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { defaultPricingSettings, documentRequirements, sampleApplications, sampleOrders, sampleProducts, sampleRouteSellers } from "@/lib/data";
-import { loadSharedAtlasData, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
+import { loadAdminApplications, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
 import type { Application, CartLine, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment, RouteSeller } from "@/lib/types";
 
 type Store = {
@@ -168,6 +168,18 @@ export function useAtlasStore() {
       .catch(() => {
         // Keep the local demo data if Supabase is unavailable or the user cannot read a table yet.
       });
+    loadAdminApplications()
+      .then((applications) => {
+        if (!active || applications === undefined) return;
+        setStore((current) => {
+          const next = normalizeStore({ ...current, applications });
+          writeStoredState(next);
+          return next;
+        });
+      })
+      .catch(() => {
+        // Keep demo applications if Supabase is unavailable or RLS blocks the read.
+      });
     setReady(true);
 
     return () => {
@@ -213,19 +225,22 @@ export function useAtlasStore() {
         ...current,
         promotionSubmissions: current.promotionSubmissions.map((item) => (item.id === id ? { ...item, status } : item))
       })),
-    updateApplicationStatus: (id: string, status: Application["status"]) =>
+    updateApplicationStatus: (id: string, status: Application["status"]) => {
+      void saveApplicationStatus(id, status);
       commit((current) => ({
         ...current,
         applications: current.applications.map((application) =>
           application.id === id ? { ...application, status } : application
         )
-      })),
+      }));
+    },
     updateApplicationDocumentStatus: (
       applicationId: string,
       documentIdToUpdate: string,
       status: Application["documents"][number]["status"],
       rejectionReason?: string
-    ) =>
+    ) => {
+      void saveDocumentReview(documentIdToUpdate, status, rejectionReason);
       commit((current) => ({
         ...current,
         applications: current.applications.map((application) =>
@@ -244,7 +259,8 @@ export function useAtlasStore() {
               }
             : application
         )
-      })),
+      }));
+    },
     addToCart: (product: Product, quantity = 1) =>
       commit((current) => {
         const existing = current.cart.find((line) => line.product.id === product.id);
