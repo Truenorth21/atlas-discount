@@ -26,6 +26,7 @@ function normalize(row: Record<string, unknown>, index: number): Product {
     unitSize: get("unit size"),
     imageUrl: get("image URL") || "/product-images/disinfecting-wipes.svg",
     productDimensions: get("product dimensions"),
+    unitWeight: get("unit weight"),
     casePack: number("case pack"),
     caseDimensions: get("case dimensions"),
     caseWeight: get("case weight"),

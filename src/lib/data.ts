@@ -75,6 +75,15 @@ export const defaultPricingSettings: PricingSettings = {
   supplierMembershipRate: 99
 };
 
+export const productCategories: Record<string, string[]> = {
+  "Janitorial / Cleaning Supplies": ["Disinfecting wipes", "Cleaners & sprays", "Paper towels & tissue", "Trash bags", "Gloves & PPE"],
+  "Grocery / Pantry": ["Pasta & sauce", "Snacks & candy", "Beverages", "Condiments", "Canned & dry goods"],
+  "Health & Beauty (HBA)": ["Hand soap & sanitizer", "Personal care", "Oral care", "First aid"],
+  "Office / Paper": ["Copy & printer paper", "Notebooks & pads", "Writing instruments", "Mailing & shipping"],
+  "Foodservice / Disposables": ["Cups & lids", "Plates & bowls", "Cutlery", "Containers & wraps"],
+  "Closeout / Special buys": ["Assorted closeout"]
+};
+
 export const productFields = [
   "SKU",
   "brand",
@@ -86,6 +95,7 @@ export const productFields = [
   "unit size",
   "image URL",
   "product dimensions",
+  "unit weight",
   "case pack",
   "case dimensions",
   "case weight",

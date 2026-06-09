@@ -21,6 +21,7 @@ export type Product = {
   unitSize: string;
   imageUrl: string;
   productDimensions: string;
+  unitWeight?: string;
   casePack: number;
   caseDimensions: string;
   caseWeight: string;

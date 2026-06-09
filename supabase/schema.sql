@@ -84,6 +84,7 @@ create table public.products (
   unit_size text not null default '',
   image_url text not null default '',
   product_dimensions text not null,
+  unit_weight text default '',
   case_pack integer not null,
   case_dimensions text not null,
   case_weight text not null,

@@ -17,6 +17,7 @@ type ProductRow = {
   unit_size?: string | null;
   image_url?: string | null;
   product_dimensions?: string | null;
+  unit_weight?: string | null;
   case_pack: number;
   case_dimensions?: string | null;
   case_weight?: string | null;
@@ -83,6 +84,7 @@ function productFromRow(row: ProductRow): Product {
     unitSize: row.unit_size ?? "",
     imageUrl: row.image_url || "/product-images/disinfecting-wipes.svg",
     productDimensions: row.product_dimensions ?? "",
+    unitWeight: row.unit_weight ?? "",
     casePack: Number(row.case_pack) || 1,
     caseDimensions: row.case_dimensions ?? "",
     caseWeight: row.case_weight ?? "",
@@ -123,6 +125,7 @@ function productToRow(product: Product, supplierProfileId?: string | null) {
     unit_size: product.unitSize,
     image_url: product.imageUrl,
     product_dimensions: product.productDimensions,
+    unit_weight: product.unitWeight ?? null,
     case_pack: product.casePack,
     case_dimensions: product.caseDimensions,
     case_weight: product.caseWeight,

@@ -17,7 +17,7 @@ import {
   casesPerPallet,
   formatMoney
 } from "@/lib/pricing";
-import { atlasHubs, fulfillmentTypes } from "@/lib/data";
+import { atlasHubs, fulfillmentTypes, productCategories } from "@/lib/data";
 import type { Application, AtlasHub, DocumentStatus, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment } from "@/lib/types";
 
 const documentRejectionReasons = [
@@ -606,6 +606,7 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
     unitSize: "",
     imageUrl: "",
     productDimensions: "",
+    unitWeight: "",
     casePack: "1",
     caseDimensions: "",
     caseWeight: "",
@@ -647,6 +648,7 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
       unitSize: form.unitSize,
       imageUrl: form.imageUrl || "/product-images/disinfecting-wipes.svg",
       productDimensions: form.productDimensions,
+      unitWeight: form.unitWeight,
       casePack: Number(form.casePack) || 1,
       caseDimensions: form.caseDimensions,
       caseWeight: form.caseWeight,
@@ -684,6 +686,7 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
       imageUrl: "",
       unitSize: "",
       productDimensions: "",
+      unitWeight: "",
       caseDimensions: "",
       caseWeight: "",
       palletConfiguration: "",
@@ -718,10 +721,31 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
           <span className="text-sm font-bold text-slate-700">Description</span>
           <textarea className="input min-h-24" value={form.description} onChange={updateField("description")} />
         </label>
-        <AdminProductInput label="Category" value={form.category} onChange={updateField("category")} />
-        <AdminProductInput label="Subcategory" value={form.subcategory} onChange={updateField("subcategory")} />
+        <label className="grid gap-1">
+          <span className="text-sm font-bold text-slate-700">Category</span>
+          <select
+            className="input"
+            value={form.category}
+            onChange={(event) => setForm((current) => ({ ...current, category: event.target.value, subcategory: "" }))}
+          >
+            <option value="">Select category…</option>
+            {Object.keys(productCategories).map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="text-sm font-bold text-slate-700">Subcategory</span>
+          <select className="input" value={form.subcategory} onChange={updateField("subcategory")} disabled={!form.category}>
+            <option value="">{form.category ? "Select subcategory…" : "Choose a category first"}</option>
+            {(productCategories[form.category] ?? []).map((subcategory) => (
+              <option key={subcategory} value={subcategory}>{subcategory}</option>
+            ))}
+          </select>
+        </label>
         <AdminProductInput label="Image URL" value={form.imageUrl} onChange={updateField("imageUrl")} />
-        <AdminProductInput label="Product dimensions" value={form.productDimensions} onChange={updateField("productDimensions")} />
+        <AdminProductInput label="Unit dimensions" value={form.productDimensions} onChange={updateField("productDimensions")} />
+        <AdminProductInput label="Unit weight" value={form.unitWeight} onChange={updateField("unitWeight")} />
         <AdminProductInput label="Case dimensions" value={form.caseDimensions} onChange={updateField("caseDimensions")} />
         <AdminProductInput label="Case weight" value={form.caseWeight} onChange={updateField("caseWeight")} />
         <AdminProductInput label="Case pack" type="number" value={form.casePack} onChange={updateField("casePack")} />
