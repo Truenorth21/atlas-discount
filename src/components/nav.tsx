@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, ChevronDown, LayoutDashboard, LogIn, MapPin, ShieldCheck, ShoppingCart, X } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogIn, MapPin, ShieldCheck, ShoppingCart, X } from "lucide-react";
+import { AtlasMark } from "./atlas-logo";
 import { useEffect, useState } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/browser";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
@@ -133,12 +134,12 @@ export function Nav() {
       </div>
       <div className="atlas-container flex min-h-20 flex-wrap items-center justify-between gap-3 py-4">
         <Link href="/" className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-atlas-navy text-white">
-            <Building2 size={22} />
-          </span>
+          <AtlasMark size={48} />
           <span>
-            <span className="block text-2xl font-black tracking-normal text-atlas-navy">Atlas Discount</span>
-            <span className="block text-xs font-semibold uppercase text-atlas-blue">
+            <span className="block text-2xl font-black leading-none tracking-tight text-atlas-navy">
+              Atlas <span className="text-atlas-blue">Discount</span>
+            </span>
+            <span className="mt-1 block text-xs font-semibold uppercase text-atlas-blue">
               {t("brandSubline")}
             </span>
           </span>

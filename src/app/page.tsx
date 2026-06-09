@@ -22,6 +22,7 @@ import {
   Warehouse
 } from "lucide-react";
 import { Nav } from "@/components/nav";
+import { AtlasMark } from "@/components/atlas-logo";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 
 const heroProducts: Array<{ name: string; icon: typeof Package; tint: string }> = [
@@ -288,8 +289,11 @@ function Footer() {
     <footer className="bg-atlas-navy text-white">
       <div className="atlas-container grid gap-8 py-12 md:grid-cols-[1.5fr_1fr_1fr]">
         <div>
-          <span className="text-2xl font-black">Atlas Discount</span>
-          <p className="mt-2 max-w-xs text-sm text-slate-300">{t("brandSubline")}</p>
+          <span className="flex items-center gap-3">
+            <AtlasMark size={40} />
+            <span className="text-2xl font-black">Atlas Discount</span>
+          </span>
+          <p className="mt-3 max-w-xs text-sm text-slate-300">{t("brandSubline")}</p>
         </div>
         <div>
           <p className="text-sm font-black uppercase tracking-wide text-sky-300">{t("footerShop")}</p>
