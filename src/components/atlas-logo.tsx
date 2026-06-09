@@ -3,7 +3,18 @@
  * crossbar) in a navy squircle. The yellow crossbar ties to the
  * deal/promo theme and keeps it from feeling like a generic corporate icon.
  */
-export function AtlasMark({ size = 48, className = "" }: { size?: number; className?: string }) {
+export function AtlasMark({
+  size = 48,
+  className = "",
+  tone = "navy"
+}: {
+  size?: number;
+  className?: string;
+  /** "navy" = navy box + white A (light backgrounds). "light" = white box + navy A (dark backgrounds). */
+  tone?: "navy" | "light";
+}) {
+  const box = tone === "light" ? "#FFFFFF" : "#10194A";
+  const leg = tone === "light" ? "#10194A" : "#FFFFFF";
   return (
     <svg
       width={size}
@@ -15,9 +26,9 @@ export function AtlasMark({ size = 48, className = "" }: { size?: number; classN
       role="img"
       aria-label="Atlas Discount"
     >
-      <rect width="48" height="48" rx="13" fill="#10194A" />
-      <path d="M24 10.5 L12.5 37.5" stroke="#FFFFFF" strokeWidth="5.4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M24 10.5 L35.5 37.5" stroke="#FFFFFF" strokeWidth="5.4" strokeLinecap="round" strokeLinejoin="round" />
+      <rect width="48" height="48" rx="13" fill={box} />
+      <path d="M24 10.5 L12.5 37.5" stroke={leg} strokeWidth="5.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M24 10.5 L35.5 37.5" stroke={leg} strokeWidth="5.4" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M17.2 29 L30.8 29" stroke="#FCD34D" strokeWidth="5.4" strokeLinecap="round" />
     </svg>
   );

@@ -3,6 +3,7 @@
 import type { TranslationKey } from "@/lib/i18n";
 import { MapPinned, Boxes, BadgeDollarSign, Repeat2, Megaphone, ShieldCheck } from "lucide-react";
 import { Nav } from "@/components/nav";
+import { AtlasMark } from "@/components/atlas-logo";
 import { useI18n } from "@/lib/i18n";
 
 const plays: Array<{ titleKey: TranslationKey; bodyKey: TranslationKey; icon: typeof MapPinned }> = [
@@ -23,6 +24,7 @@ export default function PlaybooksPage() {
       <main>
         <section className="bg-atlas-navy py-14 text-white">
           <div className="atlas-container max-w-3xl">
+            <AtlasMark size={44} tone="light" className="mb-6" />
             <p className="text-sm font-black uppercase tracking-wide text-sky-300">{t("routePlaybook")}</p>
             <h1 className="mt-3 text-4xl font-black">{t("playbookTitle")}</h1>
             <p className="mt-4 text-lg text-slate-200">{t("playbookBody")}</p>

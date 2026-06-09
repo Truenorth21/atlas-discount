@@ -290,7 +290,7 @@ function Footer() {
       <div className="atlas-container grid gap-8 py-12 md:grid-cols-[1.5fr_1fr_1fr]">
         <div>
           <span className="flex items-center gap-3">
-            <AtlasMark size={40} />
+            <AtlasMark size={40} tone="light" />
             <span className="text-2xl font-black">Atlas Discount</span>
           </span>
           <p className="mt-3 max-w-xs text-sm text-slate-300">{t("brandSubline")}</p>

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Plus, Printer, Tag } from "lucide-react";
 import { Nav } from "@/components/nav";
+import { AtlasMark } from "@/components/atlas-logo";
 import { ProductImage } from "@/components/product-image";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
@@ -106,8 +107,11 @@ export default function DealSheetPage() {
 
           <section className="panel overflow-hidden p-0 print:border-0 print:shadow-none">
             <div className="bg-atlas-navy px-6 py-5 text-white print:bg-atlas-navy">
-              <p className="text-sm font-black uppercase tracking-wide text-sky-300">Atlas Discount</p>
-              <h2 className="mt-1 text-2xl font-black">{t("dealSheetPrintHeading")}</h2>
+              <span className="flex items-center gap-2">
+                <AtlasMark size={26} tone="light" />
+                <span className="text-sm font-black uppercase tracking-wide text-sky-300">Atlas Discount</span>
+              </span>
+              <h2 className="mt-2 text-2xl font-black">{t("dealSheetPrintHeading")}</h2>
               <p className="mt-1 text-sm text-sky-100">{t("preparedByLabel")}: {repName}</p>
             </div>
             {sheetProducts.length === 0 ? (
