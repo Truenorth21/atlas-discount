@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-export const protectedRoutes = ["/admin", "/catalog", "/dashboard", "/quotes"];
-const publicRoutes = ["/", "/login", "/register", "/auth/callback"];
+export const protectedRoutes = ["/admin", "/dashboard", "/quotes"];
+const publicRoutes = ["/", "/login", "/register", "/auth/callback", "/catalog", "/sell", "/playbooks"];
 
 function userRole(user: { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown>; email?: string } | null) {
   const userEmail = user?.email?.toLowerCase();

@@ -435,7 +435,11 @@ const translations = {
     chooseYourPathBody: "How do you work with Atlas?",
     footerShop: "Marketplace",
     footerJoin: "Get started",
-    footerRights: "All rights reserved."
+    footerRights: "All rights reserved.",
+    promoBarTag: "Free membership",
+    promoBarText: "$100 off your first $1,000+ approved order.",
+    promoBarCta: "Join free",
+    signInToSeePricing: "Sign in to see wholesale pricing and add products to your cart."
   },
   es: {
     topTagline: "Atlas Discount: un socio para crecer contigo",
@@ -867,7 +871,11 @@ const translations = {
     chooseYourPathBody: "¿Cómo trabajas con Atlas?",
     footerShop: "Mercado",
     footerJoin: "Empieza",
-    footerRights: "Todos los derechos reservados."
+    footerRights: "Todos los derechos reservados.",
+    promoBarTag: "Membresía gratis",
+    promoBarText: "$100 de descuento en tu primer pedido aprobado de $1,000+.",
+    promoBarCta: "Únete gratis",
+    signInToSeePricing: "Inicia sesión para ver precios mayoristas y agregar productos a tu carrito."
   }
 } as const;
 

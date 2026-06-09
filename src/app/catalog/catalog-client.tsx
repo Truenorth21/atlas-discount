@@ -12,7 +12,7 @@ import { useI18n } from "@/lib/i18n";
 import { allocateFulfillmentByCases, calculateLinePricing, calculateQuoteFinancials, formatMoney } from "@/lib/pricing";
 import type { FulfillmentType, OrderRequest, Product } from "@/lib/types";
 
-export default function CatalogClient() {
+export default function CatalogClient({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { t } = useI18n();
   const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, verifyDocuments } = useAtlasStore();
   const [query, setQuery] = useState("");
@@ -22,6 +22,15 @@ export default function CatalogClient() {
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>("Pickup");
   const [submittedQuoteId, setSubmittedQuoteId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; label: string } | null>(null);
+  const canSeePricing = isAuthenticated && store.documentsVerified;
+
+  function guardAdd(product: Product) {
+    if (!isAuthenticated) {
+      window.location.href = "/login?next=/catalog";
+      return;
+    }
+    addToCart(product);
+  }
 
   const approved = store.products.filter((product) => product.status === "approved");
   const categories = ["All", ...Array.from(new Set(approved.map((product) => product.category)))];
@@ -104,6 +113,10 @@ export default function CatalogClient() {
         : `${t("addMoreMinimumPrefix")} ${remainingCases} ${t("addMoreMinimumMiddle")} ${formatMoney(remainingValue)} ${t("addMoreMinimumSuffix")}`;
 
   function requestQuote() {
+    if (!isAuthenticated) {
+      window.location.href = "/login?next=/catalog";
+      return;
+    }
     if (store.cart.length === 0) return;
     const id = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
     addOrder({
@@ -155,7 +168,7 @@ export default function CatalogClient() {
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {weeklyDeals.map((product) => (
-                <DealCard key={`deal-${product.id}`} product={product} addToCart={addToCart} />
+                <DealCard key={`deal-${product.id}`} product={product} addToCart={guardAdd} />
               ))}
             </div>
           </section>
@@ -198,14 +211,21 @@ export default function CatalogClient() {
               </label>
             </div>
           </div>
-          {!store.documentsVerified && (
+          {!isAuthenticated ? (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-atlas-navy">
+              {t("signInToSeePricing")}
+              <Link className="ml-3 font-bold text-atlas-blue underline" href="/login?next=/catalog">
+                {t("signIn")}
+              </Link>
+            </div>
+          ) : !store.documentsVerified ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               {t("docsHidden")}
               <button className="ml-3 font-bold text-atlas-blue underline" type="button" onClick={verifyDocuments}>
                 {t("markDemoDocs")}
               </button>
             </div>
-          )}
+          ) : null}
           <div className="grid gap-4">
             {filtered.map((product) => (
               <article key={product.id} className="panel p-5">
@@ -257,10 +277,10 @@ export default function CatalogClient() {
                   <div className="rounded-lg bg-atlas-light p-4">
                     <p className="text-xs font-bold uppercase text-slate-500">{t("estimatedQuotePrice")}</p>
                     <p className="mt-1 text-2xl font-black text-atlas-navy">
-                      {store.documentsVerified ? formatMoney(calculateLinePricing({ product, quantity: 1 }, store.pricingSettings).casePrice) : t("locked")}
+                      {canSeePricing ? formatMoney(calculateLinePricing({ product, quantity: 1 }, store.pricingSettings).casePrice) : t("locked")}
                     </p>
                     <p className="mt-1 text-sm text-slate-600">{t("looseEstimate")}</p>
-                    <button className="btn-primary mt-4 w-full" type="button" onClick={() => addToCart(product)}>
+                    <button className="btn-primary mt-4 w-full" type="button" onClick={() => guardAdd(product)}>
                       <ShoppingCart size={16} />
                       {t("quickAdd")}
                     </button>

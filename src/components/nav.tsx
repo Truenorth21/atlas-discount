@@ -89,32 +89,38 @@ export function Nav() {
 
   return (
     <header className="border-b border-slate-200 bg-white">
-      <div className="border-b border-slate-200 bg-white">
+      <div className="bg-atlas-navy text-white">
         <div className="atlas-container flex min-h-10 flex-wrap items-center justify-between gap-3 py-2">
-          <p className="text-sm font-black text-atlas-navy">{t("topTagline")}</p>
+          <Link href="/register/buyer" className="group flex flex-wrap items-center gap-2 text-sm font-bold">
+            <span className="rounded-full bg-yellow-300 px-2 py-0.5 text-[11px] font-black uppercase tracking-wide text-atlas-navy">
+              {t("promoBarTag")}
+            </span>
+            <span>{t("promoBarText")}</span>
+            <span className="font-black text-yellow-300 underline-offset-2 group-hover:underline">{t("promoBarCta")} →</span>
+          </Link>
           <div className="flex flex-wrap items-center gap-2">
             <button
-              className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-bold text-atlas-navy"
+              className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-sm font-bold text-white transition hover:bg-white/20"
               type="button"
               onClick={() => setLocationOpen(true)}
               aria-label={t("locationButtonLabel")}
             >
-              <MapPin size={16} className="text-atlas-blue" />
+              <MapPin size={16} className="text-sky-300" />
               {t(selectedLocation.nameKey)}
               <ChevronDown size={15} />
             </button>
             <div className="inline-flex items-center gap-1.5 text-sm font-semibold" role="group" aria-label="Language">
               <button
-                className={`transition ${language === "en" ? "font-bold text-atlas-navy" : "text-slate-400 hover:text-atlas-navy"}`}
+                className={`transition ${language === "en" ? "font-bold text-white" : "text-white/50 hover:text-white"}`}
                 type="button"
                 onClick={() => setLanguage("en")}
                 aria-pressed={language === "en"}
               >
                 EN
               </button>
-              <span className="text-slate-300">/</span>
+              <span className="text-white/30">/</span>
               <button
-                className={`transition ${language === "es" ? "font-bold text-atlas-navy" : "text-slate-400 hover:text-atlas-navy"}`}
+                className={`transition ${language === "es" ? "font-bold text-white" : "text-white/50 hover:text-white"}`}
                 type="button"
                 onClick={() => setLanguage("es")}
                 aria-pressed={language === "es"}
