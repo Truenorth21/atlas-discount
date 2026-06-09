@@ -30,7 +30,7 @@ textarea {
   }
 
   .panel {
-    @apply rounded-lg border border-slate-200 bg-white shadow-panel;
+    @apply rounded-2xl border border-slate-200 bg-white shadow-panel;
   }
 
   .btn-primary {
