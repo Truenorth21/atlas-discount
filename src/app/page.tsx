@@ -8,15 +8,11 @@ import {
   BadgeDollarSign,
   CheckCircle2,
   ClipboardCheck,
-  Headset,
   MapPinned,
   Megaphone,
   Package,
   PackageSearch,
-  Repeat2,
-  ShieldCheck,
   ShoppingCart,
-  Store,
   Tag,
   Truck,
   Warehouse
@@ -91,13 +87,6 @@ const roles: Array<{
   }
 ];
 
-const tools: Array<{ titleKey: TranslationKey; bodyKey: TranslationKey; icon: typeof Package }> = [
-  { titleKey: "requestSalesRep", bodyKey: "requestSalesRepBody", icon: Headset },
-  { titleKey: "reorderCenter", bodyKey: "reorderCenterBody", icon: Repeat2 },
-  { titleKey: "requestProductSourcing", bodyKey: "requestProductSourcingBody", icon: PackageSearch },
-  { titleKey: "requestBulkQuote", bodyKey: "requestBulkQuoteBody", icon: ClipboardCheck }
-];
-
 export default function HomePage() {
   const { t } = useI18n();
 
@@ -112,9 +101,6 @@ export default function HomePage() {
               <div className="max-w-2xl">
                 <p className="w-fit rounded-md border-2 border-yellow-300 px-4 py-2 text-2xl font-black uppercase tracking-normal text-yellow-300">
                   {t("newMemberRewards")}
-                </p>
-                <p className="mt-5 text-xl font-black uppercase tracking-normal text-sky-100">
-                  {t("heroSubtitle")}
                 </p>
                 <h1 className="mt-6 text-4xl font-black tracking-normal sm:text-6xl">
                   {t("firstQualifiedOrder")}
@@ -232,9 +218,12 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="atlas-container py-16">
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-            {roles.map((role) => (
+        <section className="bg-atlas-light py-16">
+          <div className="atlas-container">
+            <p className="text-sm font-bold uppercase text-atlas-blue">{t("chooseYourPath")}</p>
+            <h2 className="mt-2 text-3xl font-black text-atlas-navy">{t("chooseYourPathBody")}</h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+              {roles.map((role) => (
               <div key={role.titleKey} className="panel overflow-hidden">
                 <div className={`${role.color} px-6 py-5 text-white`}>
                   <p className="text-sm font-black uppercase text-white/80">{t(role.labelKey)}</p>
@@ -258,32 +247,10 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-        </section>
-
-        <section className="bg-atlas-light py-16">
-          <div className="atlas-container">
-            <p className="text-sm font-bold uppercase text-atlas-blue">{t("wholesaleToolsEyebrow")}</p>
-            <h2 className="mt-2 text-3xl font-black text-atlas-navy">{t("wholesaleToolsTitle")}</h2>
-            <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-              {tools.map(({ titleKey, bodyKey, icon: Icon }) => (
-                <div key={titleKey} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                  <Icon className="text-atlas-blue" size={30} />
-                  <h3 className="mt-3 text-lg font-black text-atlas-navy">{t(titleKey)}</h3>
-                  <p className="mt-2 text-sm text-slate-600">{t(bodyKey)}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-atlas-navy py-16 text-white">
-          <div className="atlas-container grid gap-6 lg:grid-cols-3">
-            <DarkFeature icon={<Store />} title={t("verifiedBuyers")} body={t("verifiedBuyersBody")} />
-            <DarkFeature icon={<MapPinned />} title={t("floridaRouting")} body={t("floridaRoutingBody")} />
-            <DarkFeature icon={<ShieldCheck />} title={t("quoteBeforePayment")} body={t("quoteBeforePaymentBody")} />
           </div>
         </section>
       </main>
+      <Footer />
     </>
   );
 }
@@ -307,12 +274,36 @@ function PromoCard({ icon, title, body }: { icon: ReactNode; title: string; body
   );
 }
 
-function DarkFeature({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
+function Footer() {
+  const { t } = useI18n();
   return (
-    <div className="rounded-lg border border-white/15 bg-white/10 p-6">
-      <span className="text-sky-200">{icon}</span>
-      <h2 className="mt-3 text-xl font-black">{title}</h2>
-      <p className="mt-2 text-slate-200">{body}</p>
-    </div>
+    <footer className="bg-atlas-navy text-white">
+      <div className="atlas-container grid gap-8 py-12 md:grid-cols-[1.5fr_1fr_1fr]">
+        <div>
+          <span className="text-2xl font-black">Atlas Discount</span>
+          <p className="mt-2 max-w-xs text-sm text-slate-300">{t("brandSubline")}</p>
+        </div>
+        <div>
+          <p className="text-sm font-black uppercase tracking-wide text-sky-300">{t("footerShop")}</p>
+          <ul className="mt-3 grid gap-2 text-sm text-slate-200">
+            <li><Link className="transition hover:text-white" href="/catalog">{t("catalog")}</Link></li>
+            <li><Link className="transition hover:text-white" href="/sell">{t("sellOnAtlas")}</Link></li>
+            <li><Link className="transition hover:text-white" href="/playbooks">{t("routePlaybook")}</Link></li>
+          </ul>
+        </div>
+        <div>
+          <p className="text-sm font-black uppercase tracking-wide text-sky-300">{t("footerJoin")}</p>
+          <ul className="mt-3 grid gap-2 text-sm text-slate-200">
+            <li><Link className="transition hover:text-white" href="/register/buyer">{t("member")}</Link></li>
+            <li><Link className="transition hover:text-white" href="/register/route-seller">{t("selr")}</Link></li>
+            <li><Link className="transition hover:text-white" href="/sell">{t("supplierPathTitle")}</Link></li>
+            <li><Link className="transition hover:text-white" href="/login">{t("signIn")}</Link></li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-white/10">
+        <div className="atlas-container py-5 text-sm text-slate-400">© 2026 Atlas Discount. {t("footerRights")}</div>
+      </div>
+    </footer>
   );
 }

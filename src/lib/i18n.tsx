@@ -430,7 +430,12 @@ const translations = {
     play5Title: "Use the weekly deals",
     play5Body: "Lead with the weekly deals email and a printed deal sheet — limited-time offers drive faster yes.",
     play6Title: "Stay verified",
-    play6Body: "Keep your resale certificate and business documents current so your Rep pricing never pauses."
+    play6Body: "Keep your resale certificate and business documents current so your Rep pricing never pauses.",
+    chooseYourPath: "Choose your path",
+    chooseYourPathBody: "How do you work with Atlas?",
+    footerShop: "Marketplace",
+    footerJoin: "Get started",
+    footerRights: "All rights reserved."
   },
   es: {
     topTagline: "Atlas Discount: un socio para crecer contigo",
@@ -857,7 +862,12 @@ const translations = {
     play5Title: "Usa las ofertas semanales",
     play5Body: "Empieza con el correo de ofertas semanales y una hoja impresa — las ofertas por tiempo limitado aceleran el sí.",
     play6Title: "Mantente verificado",
-    play6Body: "Mantén tu certificado de reventa y documentos al día para que tu precio Rep nunca se pause."
+    play6Body: "Mantén tu certificado de reventa y documentos al día para que tu precio Rep nunca se pause.",
+    chooseYourPath: "Elige tu camino",
+    chooseYourPathBody: "¿Cómo trabajas con Atlas?",
+    footerShop: "Mercado",
+    footerJoin: "Empieza",
+    footerRights: "Todos los derechos reservados."
   }
 } as const;
 
