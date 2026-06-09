@@ -439,7 +439,9 @@ const translations = {
     promoBarTag: "Free membership",
     promoBarText: "$100 off your first $1,000+ approved order.",
     promoBarCta: "Join free",
-    signInToSeePricing: "Sign in to see wholesale pricing and add products to your cart."
+    signInToSeePricing: "Sign in to see wholesale pricing and add products to your cart.",
+    placementLabel: "Placement",
+    adRequestSubmitted: "Promotion request submitted for Atlas review."
   },
   es: {
     topTagline: "Atlas Discount: un socio para crecer contigo",
@@ -875,7 +877,9 @@ const translations = {
     promoBarTag: "Membresía gratis",
     promoBarText: "$100 de descuento en tu primer pedido aprobado de $1,000+.",
     promoBarCta: "Únete gratis",
-    signInToSeePricing: "Inicia sesión para ver precios mayoristas y agregar productos a tu carrito."
+    signInToSeePricing: "Inicia sesión para ver precios mayoristas y agregar productos a tu carrito.",
+    placementLabel: "Ubicación",
+    adRequestSubmitted: "Solicitud de promoción enviada para revisión de Atlas."
   }
 } as const;
 

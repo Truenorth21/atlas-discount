@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { defaultPricingSettings, documentRequirements, sampleApplications, sampleOrders, sampleProducts, sampleRouteSellers } from "@/lib/data";
-import { loadSharedAtlasData, saveSharedPricingSettings, saveSharedProducts, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
-import type { Application, CartLine, OrderRequest, PricingSettings, Product, QuoteAdjustment, RouteSeller } from "@/lib/types";
+import { loadSharedAtlasData, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
+import type { Application, CartLine, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment, RouteSeller } from "@/lib/types";
 
 type Store = {
   applications: Application[];
@@ -12,6 +12,7 @@ type Store = {
   routeSellers: RouteSeller[];
   pricingSettings: PricingSettings;
   quoteAdjustments: QuoteAdjustment[];
+  promotionSubmissions: PromotionSubmission[];
   cart: CartLine[];
   documentsVerified: boolean;
 };
@@ -23,6 +24,7 @@ const initialStore: Store = {
   routeSellers: sampleRouteSellers,
   pricingSettings: defaultPricingSettings,
   quoteAdjustments: [],
+  promotionSubmissions: [],
   cart: [],
   documentsVerified: false
 };
@@ -92,6 +94,7 @@ function normalizeStore(store: Store): Store {
     products: normalizeProducts(store.products),
     orders: normalizeOrders(store.orders),
     quoteAdjustments: store.quoteAdjustments ?? [],
+    promotionSubmissions: store.promotionSubmissions ?? [],
     pricingSettings: {
       ...defaultPricingSettings,
       ...(store.pricingSettings ?? {}),
@@ -195,6 +198,21 @@ export function useAtlasStore() {
         products: current.products.map((product) => (product.id === id ? { ...product, status } : product))
       }));
     },
+    updateProductPromotion: (id: string, promotion: string) => {
+      const value = promotion.trim() || undefined;
+      void saveSharedProductPromotion(id, value);
+      commit((current) => ({
+        ...current,
+        products: current.products.map((product) => (product.id === id ? { ...product, promotion: value } : product))
+      }));
+    },
+    addPromotionSubmission: (submission: PromotionSubmission) =>
+      commit((current) => ({ ...current, promotionSubmissions: [submission, ...current.promotionSubmissions] })),
+    updatePromotionSubmissionStatus: (id: string, status: PromotionSubmission["status"]) =>
+      commit((current) => ({
+        ...current,
+        promotionSubmissions: current.promotionSubmissions.map((item) => (item.id === id ? { ...item, status } : item))
+      })),
     updateApplicationStatus: (id: string, status: Application["status"]) =>
       commit((current) => ({
         ...current,

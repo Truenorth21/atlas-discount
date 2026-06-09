@@ -14,6 +14,12 @@ function userRole(user: { app_metadata?: Record<string, unknown>; user_metadata?
 }
 
 export default async function AdminPage() {
+  // Local-dev only: preview /admin without a Supabase login. Gated to
+  // development, so it can never bypass auth on Vercel (production builds).
+  if (process.env.NODE_ENV === "development" && process.env.DEV_ADMIN === "1") {
+    return <AdminClient />;
+  }
+
   const supabase = await createClient();
 
   if (!supabase) {

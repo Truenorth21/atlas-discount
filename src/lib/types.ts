@@ -60,6 +60,16 @@ export type Application = {
   submittedAt: string;
 };
 
+export type PromotionSubmission = {
+  id: string;
+  supplierName: string;
+  placement: string;
+  productName?: string;
+  note?: string;
+  status: ApprovalStatus;
+  submittedAt: string;
+};
+
 export type RouteSellerPreference = {
   program: "Route Seller" | "Independent Seller" | "Online Seller";
   hub: Exclude<AtlasHub, "Supplier direct">;

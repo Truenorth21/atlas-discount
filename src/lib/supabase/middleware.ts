@@ -29,6 +29,12 @@ export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
   const pathname = request.nextUrl.pathname;
 
+  // Local-dev only: skip route protection so /admin is previewable without
+  // login. Gated to development — never active on Vercel (production builds).
+  if (process.env.NODE_ENV === "development" && process.env.DEV_ADMIN === "1") {
+    return response;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 

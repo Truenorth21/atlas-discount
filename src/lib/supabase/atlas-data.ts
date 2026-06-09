@@ -258,6 +258,16 @@ export async function saveSharedProductStatus(id: string, status: Product["statu
   await supabase.from("products").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
 }
 
+export async function saveSharedProductPromotion(id: string, promotion?: string) {
+  const supabase = createClient();
+  if (!supabase || !isUuid(id)) return;
+
+  await supabase
+    .from("products")
+    .update({ promotion: promotion || null, updated_at: new Date().toISOString() })
+    .eq("id", id);
+}
+
 export async function saveSharedPricingSettings(settings: PricingSettings) {
   const supabase = createClient();
   if (!supabase) return;

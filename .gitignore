@@ -9,3 +9,4 @@ outputs
 work
 .vercel
 .claude
+.env*

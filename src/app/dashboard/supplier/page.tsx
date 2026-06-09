@@ -11,8 +11,16 @@ import { useI18n } from "@/lib/i18n";
 
 export default function SupplierDashboardPage() {
   const { t } = useI18n();
-  const { store, setStore } = useAtlasStore();
+  const { store, setStore, addPromotionSubmission } = useAtlasStore();
   const [promo, setPromo] = useState(t("noPromotionSubmitted"));
+  const adPlacements = [
+    "Weekly deals email",
+    "Sponsored category",
+    "Featured product",
+    "New & trending spotlight",
+    "Closeout listing",
+    "WhatsApp promotion"
+  ];
   const supplierProducts = store.products.filter((product) => product.supplierName === "Current Supplier" || product.supplierName === "Harborline Brands");
   const documentAlerts = getDocumentAlerts(store.applications, "supplier");
   const supplierApplication = store.applications.find((application) => application.type === "supplier");
@@ -27,7 +35,16 @@ export default function SupplierDashboardPage() {
   function submitPromotion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    setPromo(`${t("submittedPrefix")}: ${String(form.get("promotion"))}`);
+    const note = String(form.get("promotion")).trim();
+    addPromotionSubmission({
+      id: `promo-${Date.now()}`,
+      supplierName: supplierApplication?.companyName ?? "Current Supplier",
+      placement: String(form.get("placement")),
+      note: note || undefined,
+      status: "pending",
+      submittedAt: new Date().toISOString().slice(0, 10)
+    });
+    setPromo(t("adRequestSubmitted"));
     event.currentTarget.reset();
   }
 
@@ -78,7 +95,15 @@ export default function SupplierDashboardPage() {
               <Megaphone className="text-atlas-blue" />
               {t("promotionSubmission")}
             </h2>
-            <textarea className="field mt-4 min-h-28" name="promotion" placeholder={t("promotionPlaceholder")} required />
+            <label className="mt-4 grid gap-2">
+              <span className="label">{t("placementLabel")}</span>
+              <select className="field" name="placement" required>
+                {adPlacements.map((placement) => (
+                  <option key={placement}>{placement}</option>
+                ))}
+              </select>
+            </label>
+            <textarea className="field mt-3 min-h-24" name="promotion" placeholder={t("promotionPlaceholder")} />
             <button className="btn-primary mt-3 w-full" type="submit">{t("submitPromotion")}</button>
             <p className="mt-3 text-sm font-semibold text-atlas-blue">{promo}</p>
           </form>

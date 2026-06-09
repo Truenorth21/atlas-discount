@@ -18,7 +18,7 @@ import {
   formatMoney
 } from "@/lib/pricing";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
-import type { Application, AtlasHub, DocumentStatus, OrderRequest, PricingSettings, Product, QuoteAdjustment } from "@/lib/types";
+import type { Application, AtlasHub, DocumentStatus, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment } from "@/lib/types";
 
 const documentRejectionReasons = [
   "Document is expired",
@@ -34,7 +34,7 @@ const documentRejectionReasons = [
 ];
 
 export function AdminClient() {
-  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updatePricingSettings, updateQuoteAdjustment } = useAtlasStore();
+  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updateProductPromotion, updatePricingSettings, updateQuoteAdjustment, updatePromotionSubmissionStatus } = useAtlasStore();
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("overview");
@@ -297,7 +297,16 @@ export function AdminClient() {
           <PricingSettingsPanel settings={store.pricingSettings} updatePricingSettings={updatePricingSettings} />
         )}
         {activeTab === "fulfillment" && <FulfillmentOperationsPanel orders={store.orders} pricingSettings={store.pricingSettings} quoteAdjustments={store.quoteAdjustments} />}
-        {activeTab === "marketing" && <MarketingPanel settings={store.pricingSettings} updatePricingSettings={updatePricingSettings} />}
+        {activeTab === "marketing" && (
+          <MarketingPanel
+            settings={store.pricingSettings}
+            updatePricingSettings={updatePricingSettings}
+            products={store.products}
+            updateProductPromotion={updateProductPromotion}
+            promotionSubmissions={store.promotionSubmissions}
+            updatePromotionSubmissionStatus={updatePromotionSubmissionStatus}
+          />
+        )}
       </main>
     </>
   );
@@ -1279,10 +1288,18 @@ function FulfillmentOperationsPanel({
 
 function MarketingPanel({
   settings,
-  updatePricingSettings
+  updatePricingSettings,
+  products,
+  updateProductPromotion,
+  promotionSubmissions,
+  updatePromotionSubmissionStatus
 }: {
   settings: PricingSettings;
   updatePricingSettings: ReturnType<typeof useAtlasStore>["updatePricingSettings"];
+  products: Product[];
+  updateProductPromotion: ReturnType<typeof useAtlasStore>["updateProductPromotion"];
+  promotionSubmissions: PromotionSubmission[];
+  updatePromotionSubmissionStatus: ReturnType<typeof useAtlasStore>["updatePromotionSubmissionStatus"];
 }) {
   function updateNumber(key: keyof PricingSettings) {
     return (event: ChangeEvent<HTMLInputElement>) => {
@@ -1342,6 +1359,8 @@ function MarketingPanel({
           Track demand and control supplier-funded promotion pricing. These rates should be editable by Atlas, not hardcoded.
         </p>
       </div>
+      <SupplierAdRequests submissions={promotionSubmissions} updateStatus={updatePromotionSubmissionStatus} />
+      <PromoteProductsPanel products={products} updateProductPromotion={updateProductPromotion} />
       <div className="panel p-5">
         <h3 className="text-lg font-black text-atlas-navy">Where promotions show up</h3>
         <p className="mt-1 text-sm text-slate-600">
@@ -1385,6 +1404,123 @@ function MarketingPanel({
         </div>
       </div>
     </section>
+  );
+}
+
+function SupplierAdRequests({
+  submissions,
+  updateStatus
+}: {
+  submissions: PromotionSubmission[];
+  updateStatus: ReturnType<typeof useAtlasStore>["updatePromotionSubmissionStatus"];
+}) {
+  const pending = submissions.filter((item) => item.status === "pending").length;
+  return (
+    <div className="panel p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-black text-atlas-navy">Supplier ad requests</h3>
+          <p className="mt-1 text-sm text-slate-600">Suppliers book a placement; approve to schedule it across the catalog and email.</p>
+        </div>
+        <span className="badge bg-amber-50 text-amber-800">{pending} pending</span>
+      </div>
+      {submissions.length === 0 ? (
+        <p className="mt-4 rounded-md bg-atlas-light p-4 text-sm text-slate-600">No promotion requests yet. They appear here when a supplier books a placement from their dashboard.</p>
+      ) : (
+        <div className="mt-4 grid gap-3">
+          {submissions.map((item) => (
+            <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 p-3">
+              <div className="min-w-0">
+                <p className="font-black text-atlas-navy">{item.supplierName}</p>
+                <p className="text-sm text-slate-600">
+                  {item.placement}
+                  {item.productName ? ` • ${item.productName}` : ""}
+                </p>
+                {item.note && <p className="mt-1 text-xs text-slate-500">{item.note}</p>}
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={item.status} />
+                {item.status === "pending" && (
+                  <>
+                    <button className="btn-secondary px-3" type="button" onClick={() => updateStatus(item.id, "approved")} aria-label="Approve request">
+                      <Check size={16} />
+                    </button>
+                    <button className="btn-danger px-3" type="button" onClick={() => updateStatus(item.id, "rejected")} aria-label="Reject request">
+                      <X size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PromoteProductsPanel({
+  products,
+  updateProductPromotion
+}: {
+  products: Product[];
+  updateProductPromotion: ReturnType<typeof useAtlasStore>["updateProductPromotion"];
+}) {
+  const approved = products.filter((product) => product.status === "approved");
+  const promotedCount = approved.filter((product) => product.promotion).length;
+  return (
+    <div className="panel p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-black text-atlas-navy">Promote products</h3>
+          <p className="mt-1 text-sm text-slate-600">Add a promo label to feature a product in Weekly Deals and show a badge in the catalog.</p>
+        </div>
+        <span className="badge bg-red-50 text-atlas-red">{promotedCount} promoted</span>
+      </div>
+      {approved.length === 0 ? (
+        <p className="mt-4 rounded-md bg-atlas-light p-4 text-sm text-slate-600">Approve products first — then you can promote them here.</p>
+      ) : (
+        <div className="mt-4 grid gap-3">
+          {approved.map((product) => (
+            <PromoteRow key={product.id} product={product} onSave={updateProductPromotion} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PromoteRow({ product, onSave }: { product: Product; onSave: ReturnType<typeof useAtlasStore>["updateProductPromotion"] }) {
+  const [value, setValue] = useState(product.promotion ?? "");
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 p-3">
+      <div className="min-w-0 flex-1">
+        <p className="font-black text-atlas-navy">{product.brand}</p>
+        <p className="truncate text-xs text-slate-600">{product.description}</p>
+      </div>
+      {product.promotion && <span className="badge bg-red-50 text-atlas-red">Promoted</span>}
+      <input
+        className="field w-60"
+        placeholder="e.g. 10% off 50+ cases"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+      />
+      <button className="btn-primary px-4" type="button" onClick={() => onSave(product.id, value)}>
+        Save
+      </button>
+      {product.promotion && (
+        <button
+          className="btn-secondary px-3"
+          type="button"
+          onClick={() => {
+            setValue("");
+            onSave(product.id, "");
+          }}
+        >
+          Clear
+        </button>
+      )}
+    </div>
   );
 }
 
