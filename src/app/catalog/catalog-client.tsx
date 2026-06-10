@@ -5,7 +5,6 @@ import Link from "next/link";
 import { CheckCircle2, MapPin, Minus, Plus, Search, ShoppingCart, Sparkles, Tag, Trash2 } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
-import { StatusBadge } from "@/components/status-badge";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
@@ -246,8 +245,7 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
                   )}
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status={product.status} />
-                      <span className="badge bg-slate-100 text-slate-700">{product.category} / {product.subcategory}</span>
+                      <span className="badge bg-slate-100 text-slate-600">{product.category} / {product.subcategory}</span>
                       {product.promotion && (
                         <span className="badge bg-red-50 text-atlas-red">
                           <Tag size={13} />
