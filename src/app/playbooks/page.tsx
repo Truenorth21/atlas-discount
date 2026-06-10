@@ -22,12 +22,12 @@ export default function PlaybooksPage() {
     <>
       <Nav />
       <main>
-        <section className="bg-atlas-navy py-14 text-white">
+        <section className="border-b border-slate-200 bg-white py-14">
           <div className="atlas-container max-w-3xl">
-            <AtlasMark size={44} tone="light" className="mb-6" />
-            <p className="text-sm font-black uppercase tracking-wide text-sky-300">{t("routePlaybook")}</p>
-            <h1 className="mt-3 text-4xl font-black">{t("playbookTitle")}</h1>
-            <p className="mt-4 text-lg text-slate-200">{t("playbookBody")}</p>
+            <AtlasMark size={44} className="mb-6" />
+            <p className="text-sm font-black uppercase tracking-wide text-atlas-blue">{t("routePlaybook")}</p>
+            <h1 className="mt-3 text-4xl font-black text-atlas-navy">{t("playbookTitle")}</h1>
+            <p className="mt-4 text-lg text-slate-600">{t("playbookBody")}</p>
           </div>
         </section>
         <section className="atlas-container py-12">

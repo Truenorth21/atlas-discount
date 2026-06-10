@@ -53,14 +53,14 @@ export default function SellPage() {
     <>
       <Nav />
       <main>
-        <section className="bg-atlas-navy py-16 text-white lg:py-20">
+        <section className="border-b border-slate-200 bg-white py-16 lg:py-20">
           <div className="atlas-container max-w-3xl">
-            <AtlasMark size={44} tone="light" className="mb-6" />
-            <p className="text-sm font-black uppercase tracking-wide text-sky-300">{t("sellEyebrow")}</p>
-            <h1 className="mt-3 text-4xl font-black sm:text-5xl">{t("sellTitle")}</h1>
-            <p className="mt-5 text-lg leading-8 text-slate-200">{t("sellBody")}</p>
+            <AtlasMark size={44} className="mb-6" />
+            <p className="text-sm font-black uppercase tracking-wide text-atlas-blue">{t("sellEyebrow")}</p>
+            <h1 className="mt-3 text-4xl font-black text-atlas-navy sm:text-5xl">{t("sellTitle")}</h1>
+            <p className="mt-5 text-lg leading-8 text-slate-600">{t("sellBody")}</p>
             <Link
-              className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-yellow-300 px-8 py-3 text-base font-black text-atlas-navy transition hover:bg-yellow-200"
+              className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-atlas-blue px-8 py-3 text-base font-bold text-white transition hover:bg-atlas-navy"
               href="/register/supplier"
             >
               {t("sellCtaPrimary")}
