@@ -18,7 +18,7 @@ import {
   formatMoney
 } from "@/lib/pricing";
 import { atlasHubs, fulfillmentTypes, productCategories } from "@/lib/data";
-import type { Application, AtlasHub, DocumentStatus, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment } from "@/lib/types";
+import type { Application, AtlasHub, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment } from "@/lib/types";
 
 const documentRejectionReasons = [
   "Document is expired",
@@ -594,47 +594,78 @@ function ProductApprovalsList({
   );
 }
 
+const blankProductForm = {
+  sku: "", brand: "", upc: "", gtinCase: "", gtinInner: "",
+  productName: "", unitSize: "", description: "", category: "", subcategory: "", imageUrl: "",
+  unitL: "", unitW: "", unitH: "", unitWeight: "", unitWeightUnit: "lb",
+  innerPack: "", innerL: "", innerW: "", innerH: "", innerWeight: "", innerWeightUnit: "lb",
+  casePack: "1", caseL: "", caseW: "", caseH: "", caseWeight: "", caseWeightUnit: "lb",
+  palletCasesPerFloor: "", palletLayers: "", palletStandardWeight: "40",
+  shippingWarehouse: "Orlando hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
+  supplierCost: "", suggestedRetail: "", moq: "1", leadTime: "", inventoryAvailable: "0",
+  supplierName: "Atlas Admin", promotion: ""
+};
+
+const toNum = (value: string) => {
+  if (value.trim() === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeof useAtlasStore>["addProducts"] }) {
-  const [form, setForm] = useState({
-    sku: "",
-    brand: "",
-    upc: "",
-    productName: "",
-    description: "",
-    category: "",
-    subcategory: "",
-    unitSize: "",
-    imageUrl: "",
-    productDimensions: "",
-    unitWeight: "",
-    casePack: "1",
-    caseDimensions: "",
-    caseWeight: "",
-    palletConfiguration: "",
-    supplierCost: "",
-    suggestedRetail: "",
-    moq: "1",
-    leadTime: "",
-    inventoryAvailable: "0",
-    location: "",
-    pickupLocation: "",
-    shippingLocation: "",
-    deliveryRadius: "",
-    preferredHub: "Orlando hub" as AtlasHub,
-    supplierName: "Atlas Admin",
-    promotion: ""
-  });
+  const [form, setForm] = useState(blankProductForm);
+  const [hasInner, setHasInner] = useState(false);
   const [message, setMessage] = useState("");
 
-  const updateField = (field: keyof typeof form) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const updateField = (field: keyof typeof blankProductForm) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));
   };
 
+  // Live pallet math
+  const casesPerFloor = toNum(form.palletCasesPerFloor) ?? 0;
+  const palletLayers = toNum(form.palletLayers) ?? 0;
+  const totalCases = casesPerFloor * palletLayers;
+  const caseWeightRaw = toNum(form.caseWeight);
+  const caseWeightLb = caseWeightRaw === undefined ? undefined : form.caseWeightUnit === "oz" ? caseWeightRaw / 16 : caseWeightRaw;
+  const palletProductWeight = caseWeightLb !== undefined ? caseWeightLb * totalCases : undefined;
+  const palletStandard = toNum(form.palletStandardWeight) ?? 0;
+  const palletTotalWeight = palletProductWeight !== undefined ? palletProductWeight + palletStandard : undefined;
+
+  const dimWeight = (l: string, w: string, h: string, weight: string, unit: string) => ({
+    length: toNum(l),
+    width: toNum(w),
+    height: toNum(h),
+    weight: toNum(weight),
+    weightUnit: unit as "lb" | "oz"
+  });
+  const dimsLabel = (l: string, w: string, h: string) =>
+    [l, w, h].some((value) => value.trim() !== "") ? `${l || "?"} x ${w || "?"} x ${h || "?"} in` : "";
+
   function addProduct() {
-    if (!form.sku || !form.brand || !form.upc || !form.productName || !form.description || !form.category || !form.caseDimensions || !form.palletConfiguration || !form.location) {
-      setMessage("Please fill in SKU, brand, UPC, product name, description, category, case dimensions, pallet configuration, and location.");
+    if (!form.sku || !form.brand || !form.productName || !form.category) {
+      setMessage("Please fill in at least SKU, brand, product name, and category. Other fields are optional.");
       return;
     }
+
+    const spec: ProductSpec = {
+      unit: dimWeight(form.unitL, form.unitW, form.unitH, form.unitWeight, form.unitWeightUnit),
+      hasInner,
+      innerPack: hasInner ? toNum(form.innerPack) : undefined,
+      inner: hasInner ? dimWeight(form.innerL, form.innerW, form.innerH, form.innerWeight, form.innerWeightUnit) : undefined,
+      caseDims: dimWeight(form.caseL, form.caseW, form.caseH, form.caseWeight, form.caseWeightUnit),
+      gtinCase: form.gtinCase || undefined,
+      gtinInner: hasInner ? form.gtinInner || undefined : undefined,
+      palletCasesPerFloor: toNum(form.palletCasesPerFloor),
+      palletLayers: toNum(form.palletLayers),
+      palletStandardWeight: toNum(form.palletStandardWeight),
+      fulfillmentMode: form.fulfillmentMode as "pickup" | "delivered",
+      shippingWarehouse: form.shippingWarehouse as "Miami hub" | "Orlando hub",
+      pickupAddress: form.fulfillmentMode === "pickup" ? form.pickupAddress || undefined : undefined,
+      pickupPhone: form.fulfillmentMode === "pickup" ? form.pickupPhone || undefined : undefined
+    };
+
+    const location = form.fulfillmentMode === "pickup" && form.pickupAddress ? form.pickupAddress : form.shippingWarehouse;
+    const preferredHub = form.shippingWarehouse as AtlasHub;
 
     const product: Product = {
       id: `admin-${Date.now()}`,
@@ -647,57 +678,39 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
       subcategory: form.subcategory,
       unitSize: form.unitSize,
       imageUrl: form.imageUrl || "/product-images/disinfecting-wipes.svg",
-      productDimensions: form.productDimensions,
-      unitWeight: form.unitWeight,
-      casePack: Number(form.casePack) || 1,
-      caseDimensions: form.caseDimensions,
-      caseWeight: form.caseWeight,
-      palletConfiguration: form.palletConfiguration,
-      supplierCost: Number(form.supplierCost) || 0,
-      suggestedRetail: Number(form.suggestedRetail) || 0,
-      moq: Number(form.moq) || 1,
+      productDimensions: dimsLabel(form.unitL, form.unitW, form.unitH),
+      unitWeight: form.unitWeight ? `${form.unitWeight} ${form.unitWeightUnit}` : "",
+      casePack: toNum(form.casePack) ?? 1,
+      caseDimensions: dimsLabel(form.caseL, form.caseW, form.caseH),
+      caseWeight: form.caseWeight ? `${form.caseWeight} ${form.caseWeightUnit}` : "",
+      palletConfiguration:
+        totalCases > 0
+          ? `${casesPerFloor}/floor × ${palletLayers} high = ${totalCases} cases${palletTotalWeight !== undefined ? ` • ~${Math.round(palletTotalWeight)} lb` : ""}`
+          : "",
+      supplierCost: toNum(form.supplierCost) ?? 0,
+      suggestedRetail: toNum(form.suggestedRetail) ?? 0,
+      moq: toNum(form.moq) ?? 1,
       leadTime: form.leadTime || "Ready now",
-      inventoryAvailable: Number(form.inventoryAvailable) || 0,
-      location: form.location,
-      pickupLocation: form.pickupLocation || form.location,
-      shippingLocation: form.shippingLocation || form.location,
-      deliveryRadius: form.deliveryRadius,
-      preferredHub: form.preferredHub,
+      inventoryAvailable: toNum(form.inventoryAvailable) ?? 0,
+      location,
+      pickupLocation: form.fulfillmentMode === "pickup" ? form.pickupAddress || location : location,
+      shippingLocation: form.shippingWarehouse,
+      deliveryRadius: "",
+      preferredHub,
       routeRecommendation:
-        form.preferredHub === "Miami hub"
+        preferredHub === "Miami hub"
           ? "Stage through Miami for South Florida pickup and delivery."
-          : form.preferredHub === "Orlando hub"
-            ? "Stage through Orlando for Central Florida pickup and delivery."
-            : "Supplier direct fulfillment controlled through Atlas quoting.",
+          : "Stage through Orlando for Central Florida pickup and delivery.",
       status: "approved",
       supplierName: form.supplierName || "Atlas Admin",
-      promotion: form.promotion || undefined
+      promotion: form.promotion || undefined,
+      spec
     };
 
     addProducts([product]);
     setMessage(`${product.brand} ${product.sku} was published to the catalog.`);
-    setForm((current) => ({
-      ...current,
-      sku: "",
-      brand: "",
-      upc: "",
-      productName: "",
-      description: "",
-      imageUrl: "",
-      unitSize: "",
-      productDimensions: "",
-      unitWeight: "",
-      caseDimensions: "",
-      caseWeight: "",
-      palletConfiguration: "",
-      supplierCost: "",
-      suggestedRetail: "",
-      inventoryAvailable: "0",
-      pickupLocation: "",
-      shippingLocation: "",
-      deliveryRadius: "",
-      promotion: ""
-    }));
+    setForm((current) => ({ ...blankProductForm, supplierName: current.supplierName, shippingWarehouse: current.shippingWarehouse, fulfillmentMode: current.fulfillmentMode }));
+    setHasInner(false);
   }
 
   return (
@@ -705,29 +718,27 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-black text-atlas-navy">Add one product</h2>
-          <p className="mt-1 text-sm text-slate-600">Use this when Atlas needs to publish a product without uploading a spreadsheet.</p>
+          <p className="mt-1 text-sm text-slate-600">Only SKU, brand, product name, and category are required — fill in the rest as you have it.</p>
         </div>
         <button className="btn-primary" type="button" onClick={addProduct}>
           Publish product
         </button>
       </div>
+
       <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <AdminProductInput label="SKU" value={form.sku} onChange={updateField("sku")} />
-        <AdminProductInput label="Brand" value={form.brand} onChange={updateField("brand")} />
+        <ProductSectionHeading>Identifiers</ProductSectionHeading>
+        <AdminProductInput label="SKU *" value={form.sku} onChange={updateField("sku")} />
+        <AdminProductInput label="Brand *" value={form.brand} onChange={updateField("brand")} />
         <AdminProductInput label="UPC" value={form.upc} onChange={updateField("upc")} />
-        <AdminProductInput label="Product name" value={form.productName} onChange={updateField("productName")} />
-        <AdminProductInput label="Unit size" value={form.unitSize} onChange={updateField("unitSize")} />
-        <label className="grid gap-1 md:col-span-3">
-          <span className="text-sm font-bold text-slate-700">Description</span>
-          <textarea className="input min-h-24" value={form.description} onChange={updateField("description")} />
-        </label>
+        <AdminProductInput label="GTIN (case)" value={form.gtinCase} onChange={updateField("gtinCase")} />
+        <AdminProductInput label="GTIN (inner)" value={form.gtinInner} onChange={updateField("gtinInner")} />
+        <AdminProductInput label="Supplier name" value={form.supplierName} onChange={updateField("supplierName")} />
+        <AdminProductInput label="Product name *" value={form.productName} onChange={updateField("productName")} />
+        <AdminProductInput label="Unit size (e.g. 16oz)" value={form.unitSize} onChange={updateField("unitSize")} />
+        <AdminProductInput label="Image URL" value={form.imageUrl} onChange={updateField("imageUrl")} />
         <label className="grid gap-1">
-          <span className="text-sm font-bold text-slate-700">Category</span>
-          <select
-            className="input"
-            value={form.category}
-            onChange={(event) => setForm((current) => ({ ...current, category: event.target.value, subcategory: "" }))}
-          >
+          <span className="text-sm font-bold text-slate-700">Category *</span>
+          <select className="input" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value, subcategory: "" }))}>
             <option value="">Select category…</option>
             {Object.keys(productCategories).map((category) => (
               <option key={category} value={category}>{category}</option>
@@ -743,35 +754,145 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
             ))}
           </select>
         </label>
-        <AdminProductInput label="Image URL" value={form.imageUrl} onChange={updateField("imageUrl")} />
-        <AdminProductInput label="Unit dimensions" value={form.productDimensions} onChange={updateField("productDimensions")} />
-        <AdminProductInput label="Unit weight" value={form.unitWeight} onChange={updateField("unitWeight")} />
-        <AdminProductInput label="Case dimensions" value={form.caseDimensions} onChange={updateField("caseDimensions")} />
-        <AdminProductInput label="Case weight" value={form.caseWeight} onChange={updateField("caseWeight")} />
-        <AdminProductInput label="Case pack" type="number" value={form.casePack} onChange={updateField("casePack")} />
-        <AdminProductInput label="Pallet configuration" value={form.palletConfiguration} onChange={updateField("palletConfiguration")} />
-        <AdminProductInput label="MOQ" type="number" value={form.moq} onChange={updateField("moq")} />
-        <AdminProductInput label="Supplier cost" type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
-        <AdminProductInput label="Suggested retail" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
-        <AdminProductInput label="Inventory available" type="number" value={form.inventoryAvailable} onChange={updateField("inventoryAvailable")} />
-        <AdminProductInput label="Lead time" value={form.leadTime} onChange={updateField("leadTime")} />
-        <AdminProductInput label="Pickup/shipping location" value={form.location} onChange={updateField("location")} />
-        <AdminProductInput label="Pickup location" value={form.pickupLocation} onChange={updateField("pickupLocation")} />
-        <AdminProductInput label="Shipping location" value={form.shippingLocation} onChange={updateField("shippingLocation")} />
-        <AdminProductInput label="Delivery radius" value={form.deliveryRadius} onChange={updateField("deliveryRadius")} />
+        <label className="grid gap-1 md:col-span-3">
+          <span className="text-sm font-bold text-slate-700">Description</span>
+          <textarea className="input min-h-20" value={form.description} onChange={updateField("description")} />
+        </label>
+
+        <ProductSectionHeading>Each / unit</ProductSectionHeading>
+        <DimRow label="Unit dimensions" l={form.unitL} w={form.unitW} h={form.unitH} onL={updateField("unitL")} onW={updateField("unitW")} onH={updateField("unitH")} />
+        <WeightInput label="Unit weight" value={form.unitWeight} unit={form.unitWeightUnit} onValue={updateField("unitWeight")} onUnit={updateField("unitWeightUnit")} />
+
+        <ProductSectionHeading>Inner pack (optional)</ProductSectionHeading>
+        <label className="flex items-center gap-2 md:col-span-3">
+          <input type="checkbox" className="h-4 w-4 accent-atlas-blue" checked={hasInner} onChange={(event) => setHasInner(event.target.checked)} />
+          <span className="text-sm font-bold text-slate-700">This product has inner packs</span>
+        </label>
+        {hasInner && (
+          <>
+            <AdminProductInput label="Units per inner" type="number" value={form.innerPack} onChange={updateField("innerPack")} />
+            <DimRow label="Inner dimensions" l={form.innerL} w={form.innerW} h={form.innerH} onL={updateField("innerL")} onW={updateField("innerW")} onH={updateField("innerH")} />
+            <WeightInput label="Inner weight" value={form.innerWeight} unit={form.innerWeightUnit} onValue={updateField("innerWeight")} onUnit={updateField("innerWeightUnit")} />
+          </>
+        )}
+
+        <ProductSectionHeading>Master case</ProductSectionHeading>
+        <AdminProductInput label="Case pack (units)" type="number" value={form.casePack} onChange={updateField("casePack")} />
+        <DimRow label="Case dimensions" l={form.caseL} w={form.caseW} h={form.caseH} onL={updateField("caseL")} onW={updateField("caseW")} onH={updateField("caseH")} />
+        <WeightInput label="Case weight" value={form.caseWeight} unit={form.caseWeightUnit} onValue={updateField("caseWeight")} onUnit={updateField("caseWeightUnit")} />
+
+        <ProductSectionHeading>Pallet configuration</ProductSectionHeading>
+        <AdminProductInput label="Cases per floor (Ti)" type="number" value={form.palletCasesPerFloor} onChange={updateField("palletCasesPerFloor")} />
+        <AdminProductInput label="Layers high (Hi)" type="number" value={form.palletLayers} onChange={updateField("palletLayers")} />
+        <AdminProductInput label="Standard pallet weight (lb)" type="number" value={form.palletStandardWeight} onChange={updateField("palletStandardWeight")} />
+        {totalCases > 0 && (
+          <div className="rounded-md bg-sky-50 p-3 text-sm text-atlas-navy md:col-span-3">
+            <span className="font-black">{casesPerFloor} per floor × {palletLayers} layers = {totalCases} cases.</span>
+            {palletTotalWeight !== undefined && (
+              <> Est. pallet weight ≈ <span className="font-black">{Math.round(palletTotalWeight)} lb</span> ({Math.round(palletProductWeight ?? 0)} lb product + {palletStandard} lb pallet).</>
+            )}
+          </div>
+        )}
+
+        <ProductSectionHeading>Fulfillment</ProductSectionHeading>
         <label className="grid gap-1">
-          <span className="text-sm font-bold text-slate-700">Atlas route</span>
-          <select className="input" value={form.preferredHub} onChange={updateField("preferredHub")}>
-            {atlasHubs.map((hub) => (
-              <option key={hub} value={hub}>{hub}</option>
-            ))}
+          <span className="text-sm font-bold text-slate-700">Shipping warehouse</span>
+          <select className="input" value={form.shippingWarehouse} onChange={updateField("shippingWarehouse")}>
+            <option value="Orlando hub">Orlando hub</option>
+            <option value="Miami hub">Miami hub</option>
           </select>
         </label>
-        <AdminProductInput label="Supplier name" value={form.supplierName} onChange={updateField("supplierName")} />
-        <AdminProductInput label="Promotion" value={form.promotion} onChange={updateField("promotion")} />
+        <label className="grid gap-1">
+          <span className="text-sm font-bold text-slate-700">Pickup or delivered</span>
+          <select className="input" value={form.fulfillmentMode} onChange={updateField("fulfillmentMode")}>
+            <option value="delivered">Delivered</option>
+            <option value="pickup">Pickup</option>
+          </select>
+        </label>
+        {form.fulfillmentMode === "pickup" && (
+          <>
+            <AdminProductInput label="Pickup phone" value={form.pickupPhone} onChange={updateField("pickupPhone")} />
+            <label className="grid gap-1 md:col-span-3">
+              <span className="text-sm font-bold text-slate-700">Pickup address (full)</span>
+              <input className="input" value={form.pickupAddress} onChange={updateField("pickupAddress")} />
+            </label>
+          </>
+        )}
+
+        <ProductSectionHeading>Commercial &amp; stock</ProductSectionHeading>
+        <AdminProductInput label="Supplier cost" type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
+        <AdminProductInput label="Suggested retail" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
+        <AdminProductInput label="MOQ (cases)" type="number" value={form.moq} onChange={updateField("moq")} />
+        <AdminProductInput label="Inventory available" type="number" value={form.inventoryAvailable} onChange={updateField("inventoryAvailable")} />
+        <AdminProductInput label="Lead time" value={form.leadTime} onChange={updateField("leadTime")} />
+        <AdminProductInput label="Promotion label" value={form.promotion} onChange={updateField("promotion")} />
       </div>
       {message && <p className="mt-4 rounded-md bg-sky-50 p-3 text-sm font-bold text-atlas-blue">{message}</p>}
     </section>
+  );
+}
+
+function ProductSectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="mt-2 border-b border-slate-200 pb-1 text-sm font-black uppercase tracking-wide text-atlas-blue md:col-span-3">
+      {children}
+    </h3>
+  );
+}
+
+function DimRow({
+  label,
+  l,
+  w,
+  h,
+  onL,
+  onW,
+  onH
+}: {
+  label: string;
+  l: string;
+  w: string;
+  h: string;
+  onL: (event: ChangeEvent<HTMLInputElement>) => void;
+  onW: (event: ChangeEvent<HTMLInputElement>) => void;
+  onH: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="md:col-span-2">
+      <span className="text-sm font-bold text-slate-700">{label} (in)</span>
+      <div className="mt-1 grid grid-cols-3 gap-2">
+        <input className="input" type="number" placeholder="L" value={l} onChange={onL} />
+        <input className="input" type="number" placeholder="W" value={w} onChange={onW} />
+        <input className="input" type="number" placeholder="H" value={h} onChange={onH} />
+      </div>
+    </div>
+  );
+}
+
+function WeightInput({
+  label,
+  value,
+  unit,
+  onValue,
+  onUnit
+}: {
+  label: string;
+  value: string;
+  unit: string;
+  onValue: (event: ChangeEvent<HTMLInputElement>) => void;
+  onUnit: (event: ChangeEvent<HTMLSelectElement>) => void;
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <div className="grid grid-cols-[1fr_5rem] gap-2">
+        <input className="input" type="number" value={value} onChange={onValue} />
+        <select className="input" value={unit} onChange={onUnit}>
+          <option value="lb">lb</option>
+          <option value="oz">oz</option>
+        </select>
+      </div>
+    </label>
   );
 }
 

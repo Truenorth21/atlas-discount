@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { Application, ApprovalStatus, AtlasHub, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, PromotionSubmission, RouteSellerPreference } from "@/lib/types";
+import type { Application, ApprovalStatus, AtlasHub, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, RouteSellerPreference } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -18,6 +18,7 @@ type ProductRow = {
   image_url?: string | null;
   product_dimensions?: string | null;
   unit_weight?: string | null;
+  spec?: ProductSpec | null;
   case_pack: number;
   case_dimensions?: string | null;
   case_weight?: string | null;
@@ -85,6 +86,7 @@ function productFromRow(row: ProductRow): Product {
     imageUrl: row.image_url || "/product-images/disinfecting-wipes.svg",
     productDimensions: row.product_dimensions ?? "",
     unitWeight: row.unit_weight ?? "",
+    spec: (row.spec as ProductSpec) ?? undefined,
     casePack: Number(row.case_pack) || 1,
     caseDimensions: row.case_dimensions ?? "",
     caseWeight: row.case_weight ?? "",
@@ -126,6 +128,7 @@ function productToRow(product: Product, supplierProfileId?: string | null) {
     image_url: product.imageUrl,
     product_dimensions: product.productDimensions,
     unit_weight: product.unitWeight ?? null,
+    spec: product.spec ?? {},
     case_pack: product.casePack,
     case_dimensions: product.caseDimensions,
     case_weight: product.caseWeight,

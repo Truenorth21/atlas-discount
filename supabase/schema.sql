@@ -86,6 +86,7 @@ create table public.products (
   image_url text not null default '',
   product_dimensions text not null,
   unit_weight text default '',
+  spec jsonb not null default '{}'::jsonb,
   case_pack integer not null,
   case_dimensions text not null,
   case_weight text not null,

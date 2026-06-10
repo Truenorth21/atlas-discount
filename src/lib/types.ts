@@ -40,6 +40,34 @@ export type Product = {
   status: ApprovalStatus;
   supplierName: string;
   promotion?: string;
+  spec?: ProductSpec;
+};
+
+/** Dimensions (inches) + weight (with unit) for a single packaging level. */
+export type DimWeight = {
+  length?: number;
+  width?: number;
+  height?: number;
+  weight?: number;
+  weightUnit?: "lb" | "oz";
+};
+
+/** Rich item-setup spec: unit / inner / master case + pallet + fulfillment. */
+export type ProductSpec = {
+  unit?: DimWeight;
+  hasInner?: boolean;
+  innerPack?: number;
+  inner?: DimWeight;
+  caseDims?: DimWeight;
+  gtinCase?: string;
+  gtinInner?: string;
+  palletCasesPerFloor?: number;
+  palletLayers?: number;
+  palletStandardWeight?: number;
+  fulfillmentMode?: "pickup" | "delivered";
+  shippingWarehouse?: "Miami hub" | "Orlando hub";
+  pickupAddress?: string;
+  pickupPhone?: string;
 };
 
 export type CartLine = {
