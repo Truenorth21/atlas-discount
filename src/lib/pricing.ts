@@ -1,4 +1,68 @@
-import type { CartLine, FulfillmentType, OrderRequest, PricingSettings, QuoteAdjustment, QuoteFinancials, QuoteLineOverride } from "./types";
+import type { CartLine, CustomerTier, FulfillmentType, OrderRequest, PricingSettings, Product, QuoteAdjustment, QuoteFinancials, QuoteLineOverride } from "./types";
+
+export const REFERENCE_TIER_ID = "retailer";
+
+export function customerTiers(settings: PricingSettings): CustomerTier[] {
+  return settings.customerTiers ?? [];
+}
+
+export function findTier(settings: PricingSettings, tierId: string): CustomerTier | undefined {
+  return customerTiers(settings).find((tier) => tier.id === tierId);
+}
+
+export function tierLabel(settings: PricingSettings, tierId: string): string {
+  return findTier(settings, tierId)?.label ?? "Retailer";
+}
+
+/**
+ * Resolve the discount % a buyer gets on a product, most-specific rule first:
+ * 1. by product (per-tier override on the product) → 2. per account override →
+ * 3. tier default → 4. standard (0). The standard price is always the reference.
+ */
+export function resolveTierDiscount(args: {
+  settings: PricingSettings;
+  product: Product;
+  tierId: string;
+  accountId?: string;
+}): { pct: number; source: "product" | "account" | "tier" | "standard" } {
+  const { settings, product, tierId, accountId } = args;
+
+  const productPct = product.spec?.tierDiscounts?.[tierId];
+  if (typeof productPct === "number") return { pct: productPct, source: "product" };
+
+  if (accountId) {
+    const account = (settings.accountPricing ?? []).find((entry) => entry.accountId === accountId);
+    if (account && typeof account.adjustmentPct === "number") {
+      return { pct: account.adjustmentPct, source: "account" };
+    }
+  }
+
+  const tier = findTier(settings, tierId);
+  if (tier) return { pct: tier.discountPct, source: "tier" };
+
+  return { pct: 0, source: "standard" };
+}
+
+export function applyTierDiscount(standardPrice: number, pct: number) {
+  return standardPrice * (1 - pct / 100);
+}
+
+/** Standard (reference) loose-case sell price for a product, before any tier discount. */
+export function standardCasePrice(product: Product, settings: PricingSettings) {
+  return calculateLinePricing({ product, quantity: 1 }, settings).casePrice;
+}
+
+/** The loose-case price a specific buyer tier/account pays for a product. */
+export function buyerCasePrice(args: {
+  settings: PricingSettings;
+  product: Product;
+  tierId: string;
+  accountId?: string;
+}) {
+  const standard = standardCasePrice(args.product, args.settings);
+  const { pct } = resolveTierDiscount(args);
+  return applyTierDiscount(standard, pct);
+}
 
 export function casesPerPallet(palletConfiguration: string) {
   const match = palletConfiguration.match(/(\d+)\s*cases?/i);

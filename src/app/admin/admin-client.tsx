@@ -10,15 +10,17 @@ import { useAtlasStore } from "@/components/local-store";
 import { getDocumentAlerts, getExpirationState } from "@/lib/documents";
 import {
   allocateFulfillmentByCases,
+  applyTierDiscount,
   atlasCaseSellPrice,
   atlasPalletSellPrice,
   calculateLinePricing,
   calculateQuoteFinancials,
   casesPerPallet,
-  formatMoney
+  formatMoney,
+  standardCasePrice
 } from "@/lib/pricing";
 import { atlasHubs, fulfillmentTypes, productCategories } from "@/lib/data";
-import type { Application, AtlasHub, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment } from "@/lib/types";
+import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment } from "@/lib/types";
 
 const documentRejectionReasons = [
   "Document is expired",
@@ -34,7 +36,7 @@ const documentRejectionReasons = [
 ];
 
 export function AdminClient() {
-  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updateProductPromotion, updatePricingSettings, updateQuoteAdjustment, updatePromotionSubmissionStatus } = useAtlasStore();
+  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updateProductPromotion, updateProductTierDiscounts, updatePricingSettings, updateQuoteAdjustment, updatePromotionSubmissionStatus } = useAtlasStore();
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("overview");
@@ -61,6 +63,7 @@ export function AdminClient() {
     { id: "quotes", label: "Quotes", count: store.orders.length },
     { id: "fulfillment", label: "Fulfillment", count: quoteReviewOrders.length },
     { id: "pricing", label: "Pricing", count: 1 },
+    { id: "customerPricing", label: "Customer pricing", count: store.pricingSettings.customerTiers?.length ?? 0 },
     { id: "marketing", label: "Marketing", count: 8 }
   ];
 
@@ -295,6 +298,15 @@ export function AdminClient() {
         </section>}
         {activeTab === "pricing" && (
           <PricingSettingsPanel settings={store.pricingSettings} updatePricingSettings={updatePricingSettings} />
+        )}
+        {activeTab === "customerPricing" && (
+          <CustomerPricingPanel
+            settings={store.pricingSettings}
+            updatePricingSettings={updatePricingSettings}
+            applications={store.applications}
+            products={store.products}
+            updateProductTierDiscounts={updateProductTierDiscounts}
+          />
         )}
         {activeTab === "fulfillment" && <FulfillmentOperationsPanel orders={store.orders} pricingSettings={store.pricingSettings} quoteAdjustments={store.quoteAdjustments} />}
         {activeTab === "marketing" && (
@@ -1528,7 +1540,7 @@ function MarketingPanel({
           {promotionRates.map(([key, label, help]) => (
             <label key={key} className="grid gap-2">
               <span className="label">{label}</span>
-              <input className="field" min="0" step="1" type="number" value={settings[key]} onChange={updateNumber(key)} />
+              <input className="field" min="0" step="1" type="number" value={settings[key] as number} onChange={updateNumber(key)} />
               <span className="text-xs text-slate-500">{help}</span>
             </label>
           ))}
@@ -2220,6 +2232,286 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
       <div className="text-atlas-blue">{icon}</div>
       <p className="mt-3 text-3xl font-black text-atlas-navy">{value}</p>
       <p className="text-sm font-semibold text-slate-600">{label}</p>
+    </div>
+  );
+}
+
+function CustomerPricingPanel({
+  settings,
+  updatePricingSettings,
+  applications,
+  products,
+  updateProductTierDiscounts
+}: {
+  settings: PricingSettings;
+  updatePricingSettings: (settings: PricingSettings) => void;
+  applications: Application[];
+  products: Product[];
+  updateProductTierDiscounts: (id: string, tierDiscounts: Record<string, number>) => void;
+}) {
+  const [tierDraft, setTierDraft] = useState<CustomerTier[]>(settings.customerTiers ?? []);
+  const [accountDraft, setAccountDraft] = useState<AccountPricing[]>(settings.accountPricing ?? []);
+  const [savedNote, setSavedNote] = useState(false);
+
+  const approvedAccounts = applications.filter(
+    (application) => application.status === "approved" && (application.type === "buyer" || application.type === "route_seller")
+  );
+  const approvedProducts = products.filter((product) => product.status === "approved");
+
+  function updateTier(id: string, patch: Partial<CustomerTier>) {
+    setTierDraft((current) => current.map((tier) => (tier.id === id ? { ...tier, ...patch } : tier)));
+  }
+  function addTier() {
+    setTierDraft((current) => [
+      ...current,
+      { id: `tier_${Date.now().toString(36)}`, label: "New tier", discountPct: 0 }
+    ]);
+  }
+  function removeTier(id: string) {
+    setTierDraft((current) => current.filter((tier) => tier.id !== id));
+  }
+  function accountEntry(accountId: string) {
+    return accountDraft.find((entry) => entry.accountId === accountId);
+  }
+  function setAccount(accountId: string, patch: Partial<AccountPricing>) {
+    setAccountDraft((current) => {
+      const existing = current.find((entry) => entry.accountId === accountId);
+      if (existing) return current.map((entry) => (entry.accountId === accountId ? { ...entry, ...patch } : entry));
+      return [...current, { accountId, tierId: "retailer", ...patch }];
+    });
+  }
+  function saveTiersAndAccounts() {
+    updatePricingSettings({ ...settings, customerTiers: tierDraft, accountPricing: accountDraft });
+    setSavedNote(true);
+    setTimeout(() => setSavedNote(false), 2500);
+  }
+
+  return (
+    <div className="grid gap-6">
+      <section className="panel p-5">
+        <h2 className="text-xl font-black text-atlas-navy">Customer pricing</h2>
+        <p className="mt-2 max-w-3xl text-sm text-slate-600">
+          The <span className="font-bold">standard price</span> (supplier cost + standard markup) is always the reference. Overrides apply
+          most-specific first: <span className="font-bold">by product → per account → tier default → standard</span>. Customers only see
+          their resolved price after they are signed in and verified — margins and supplier cost are never shown to buyers.
+        </p>
+      </section>
+
+      <section className="panel p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-black text-atlas-navy">Pricing tiers</h3>
+            <p className="mt-1 text-sm text-slate-600">Default discount each customer type gets off the standard price.</p>
+          </div>
+          <button className="btn-secondary" type="button" onClick={addTier}>
+            Add tier
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {tierDraft.map((tier) => (
+            <div key={tier.id} className="grid items-end gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-[1fr_160px_auto]">
+              <label className="grid gap-1">
+                <span className="label">Tier name</span>
+                <input className="field" value={tier.label} onChange={(event) => updateTier(tier.id, { label: event.target.value })} />
+              </label>
+              <label className="grid gap-1">
+                <span className="label">Discount off standard (%)</span>
+                <input
+                  className="field"
+                  type="number"
+                  step="0.5"
+                  value={tier.discountPct}
+                  disabled={tier.isReference}
+                  onChange={(event) => updateTier(tier.id, { discountPct: Number(event.target.value) })}
+                />
+              </label>
+              <div className="flex items-center gap-2 pb-2">
+                {tier.isReference ? (
+                  <span className="badge bg-sky-50 text-atlas-blue">Reference</span>
+                ) : (
+                  <button
+                    className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-atlas-red"
+                    type="button"
+                    onClick={() => removeTier(tier.id)}
+                    aria-label={`Remove ${tier.label} tier`}
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel p-5">
+        <h3 className="text-lg font-black text-atlas-navy">Account assignments</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Assign each approved buyer/rep a tier. The account override % is optional — leave blank to use the tier default; set it to give
+          that account a custom margin across all products.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-slate-500">
+                <th className="px-2 py-2">Account</th>
+                <th className="px-2 py-2">Type</th>
+                <th className="px-2 py-2">Tier</th>
+                <th className="px-2 py-2">Account override %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {approvedAccounts.length === 0 ? (
+                <tr>
+                  <td className="px-2 py-3 text-slate-500" colSpan={4}>
+                    No approved buyer or rep accounts yet.
+                  </td>
+                </tr>
+              ) : (
+                approvedAccounts.map((account) => {
+                  const entry = accountEntry(account.id);
+                  return (
+                    <tr key={account.id} className="border-t border-slate-100">
+                      <td className="px-2 py-2 font-bold text-atlas-navy">{account.companyName}</td>
+                      <td className="px-2 py-2 text-slate-600">{account.type === "route_seller" ? "Atlas Rep" : "Buyer"}</td>
+                      <td className="px-2 py-2">
+                        <select
+                          className="field h-9 min-h-9"
+                          value={entry?.tierId ?? "retailer"}
+                          onChange={(event) => setAccount(account.id, { tierId: event.target.value })}
+                        >
+                          {tierDraft.map((tier) => (
+                            <option key={tier.id} value={tier.id}>
+                              {tier.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-2 py-2">
+                        <input
+                          className="field h-9 min-h-9 w-28"
+                          type="number"
+                          step="0.5"
+                          placeholder="Tier default"
+                          value={entry?.adjustmentPct ?? ""}
+                          onChange={(event) =>
+                            setAccount(account.id, {
+                              adjustmentPct: event.target.value === "" ? undefined : Number(event.target.value)
+                            })
+                          }
+                        />
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="flex items-center gap-3">
+        <button className="btn-primary" type="button" onClick={saveTiersAndAccounts}>
+          Save tiers & accounts
+        </button>
+        {savedNote && <span className="text-sm font-bold text-emerald-700">Saved.</span>}
+      </div>
+
+      <section className="panel p-5">
+        <h3 className="text-lg font-black text-atlas-navy">Per-product overrides</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Optional. Override the discount on a single product for a tier — leave blank to inherit the tier default. The standard case price is
+          shown as the reference.
+        </p>
+        <div className="mt-4 grid max-h-[32rem] gap-3 overflow-y-auto pr-1">
+          {approvedProducts.length === 0 ? (
+            <p className="text-sm text-slate-500">No approved products yet.</p>
+          ) : (
+            approvedProducts.map((product) => (
+              <ProductTierOverrideRow
+                key={product.id}
+                product={product}
+                tiers={tierDraft}
+                settings={settings}
+                onSave={updateProductTierDiscounts}
+              />
+            ))
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ProductTierOverrideRow({
+  product,
+  tiers,
+  settings,
+  onSave
+}: {
+  product: Product;
+  tiers: CustomerTier[];
+  settings: PricingSettings;
+  onSave: (id: string, tierDiscounts: Record<string, number>) => void;
+}) {
+  const seed: Record<string, string> = {};
+  for (const tier of tiers) {
+    const value = product.spec?.tierDiscounts?.[tier.id];
+    seed[tier.id] = typeof value === "number" ? String(value) : "";
+  }
+  const [draft, setDraft] = useState<Record<string, string>>(seed);
+  const [saved, setSaved] = useState(false);
+  const standard = standardCasePrice(product, settings);
+
+  function save() {
+    const out: Record<string, number> = {};
+    for (const [tierId, value] of Object.entries(draft)) {
+      const numeric = Number(value);
+      if (value.trim() !== "" && !Number.isNaN(numeric)) out[tierId] = numeric;
+    }
+    onSave(product.id, out);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div className="rounded-md border border-slate-200 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-bold text-atlas-navy">{product.brand}</p>
+          <p className="truncate text-xs text-slate-500">{product.sku} · {product.category}</p>
+        </div>
+        <p className="text-sm font-black text-atlas-navy">
+          Standard <span className="text-atlas-blue">{formatMoney(standard)}</span>
+        </p>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {tiers.map((tier) => {
+          const raw = draft[tier.id] ?? "";
+          const effectivePct = raw.trim() === "" ? tier.discountPct : Number(raw) || 0;
+          const resolved = applyTierDiscount(standard, effectivePct);
+          return (
+            <label key={tier.id} className="grid gap-1 rounded-md bg-atlas-light p-2">
+              <span className="text-xs font-bold text-slate-600">{tier.label}</span>
+              <input
+                className="field h-9 min-h-9"
+                type="number"
+                step="0.5"
+                placeholder={`${tier.discountPct}% (tier)`}
+                value={raw}
+                onChange={(event) => setDraft((current) => ({ ...current, [tier.id]: event.target.value }))}
+              />
+              <span className="text-xs font-semibold text-atlas-navy">{formatMoney(resolved)}</span>
+            </label>
+          );
+        })}
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <button className="btn-secondary px-4 py-2 text-sm" type="button" onClick={save}>
+          Save overrides
+        </button>
+        {saved && <span className="text-sm font-bold text-emerald-700">Saved.</span>}
+      </div>
     </div>
   );
 }

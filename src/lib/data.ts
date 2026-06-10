@@ -72,7 +72,13 @@ export const defaultPricingSettings: PricingSettings = {
   sponsoredCategoryRate: 650,
   newProductLaunchRate: 900,
   closeoutListingRate: 75,
-  supplierMembershipRate: 99
+  supplierMembershipRate: 99,
+  customerTiers: [
+    { id: "retailer", label: "Retailer", discountPct: 0, isReference: true },
+    { id: "distributor", label: "Distributor", discountPct: 8 },
+    { id: "atlas_rep", label: "Atlas Rep", discountPct: 15 }
+  ],
+  accountPricing: []
 };
 
 export const productCategories: Record<string, string[]> = {

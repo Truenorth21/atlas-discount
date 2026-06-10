@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { Application, ApprovalStatus, AtlasHub, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, RouteSellerPreference } from "@/lib/types";
+import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, RouteSellerPreference } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -68,6 +68,7 @@ type PricingRow = {
   new_product_launch_rate: number;
   closeout_listing_rate: number;
   supplier_membership_rate: number;
+  customer_pricing?: { customerTiers?: CustomerTier[]; accountPricing?: AccountPricing[] } | null;
 };
 
 function productFromRow(row: ProductRow): Product {
@@ -181,7 +182,9 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     sponsoredCategoryRate: Number(row.sponsored_category_rate),
     newProductLaunchRate: Number(row.new_product_launch_rate),
     closeoutListingRate: Number(row.closeout_listing_rate),
-    supplierMembershipRate: Number(row.supplier_membership_rate)
+    supplierMembershipRate: Number(row.supplier_membership_rate),
+    customerTiers: row.customer_pricing?.customerTiers ?? defaultPricingSettings.customerTiers,
+    accountPricing: row.customer_pricing?.accountPricing ?? defaultPricingSettings.accountPricing
   };
 }
 
@@ -216,6 +219,10 @@ function pricingToRow(settings: PricingSettings) {
     new_product_launch_rate: settings.newProductLaunchRate,
     closeout_listing_rate: settings.closeoutListingRate,
     supplier_membership_rate: settings.supplierMembershipRate,
+    customer_pricing: {
+      customerTiers: settings.customerTiers ?? [],
+      accountPricing: settings.accountPricing ?? []
+    },
     updated_at: new Date().toISOString()
   };
 }
@@ -537,6 +544,16 @@ export async function saveSharedProductPromotion(id: string, promotion?: string)
   await supabase
     .from("products")
     .update({ promotion: promotion || null, updated_at: new Date().toISOString() })
+    .eq("id", id);
+}
+
+export async function saveSharedProductSpec(id: string, spec: ProductSpec) {
+  const supabase = createClient();
+  if (!supabase || !isUuid(id)) return;
+
+  await supabase
+    .from("products")
+    .update({ spec: spec ?? {}, updated_at: new Date().toISOString() })
     .eq("id", id);
 }
 

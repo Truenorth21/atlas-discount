@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { defaultPricingSettings, documentRequirements, sampleApplications, sampleOrders, sampleProducts, sampleRouteSellers } from "@/lib/data";
-import { loadAdminApplications, loadAdminOrders, loadPromotionSubmissions, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, savePromotionSubmission, savePromotionSubmissionStatus, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
-import type { Application, CartLine, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment, RouteSeller } from "@/lib/types";
+import { loadAdminApplications, loadAdminOrders, loadPromotionSubmissions, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, savePromotionSubmission, savePromotionSubmissionStatus, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductSpec, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
+import type { Application, CartLine, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, RouteSeller } from "@/lib/types";
 
 type Store = {
   applications: Application[];
@@ -15,6 +15,8 @@ type Store = {
   promotionSubmissions: PromotionSubmission[];
   cart: CartLine[];
   documentsVerified: boolean;
+  /** The signed-in buyer's pricing tier (drives catalog prices). Defaults to the reference tier. */
+  currentTierId: string;
 };
 
 const initialStore: Store = {
@@ -26,7 +28,8 @@ const initialStore: Store = {
   quoteAdjustments: [],
   promotionSubmissions: [],
   cart: [],
-  documentsVerified: false
+  documentsVerified: false,
+  currentTierId: "retailer"
 };
 
 const key = "atlas-discount-store";
@@ -95,6 +98,7 @@ function normalizeStore(store: Store): Store {
     orders: normalizeOrders(store.orders),
     quoteAdjustments: store.quoteAdjustments ?? [],
     promotionSubmissions: store.promotionSubmissions ?? [],
+    currentTierId: store.currentTierId ?? "retailer",
     pricingSettings: {
       ...defaultPricingSettings,
       ...(store.pricingSettings ?? {}),
@@ -242,6 +246,22 @@ export function useAtlasStore() {
         products: current.products.map((product) => (product.id === id ? { ...product, promotion: value } : product))
       }));
     },
+    updateProductTierDiscounts: (id: string, tierDiscounts: Record<string, number>) => {
+      commit((current) => ({
+        ...current,
+        products: current.products.map((product) => {
+          if (product.id !== id) return product;
+          const cleaned: Record<string, number> = {};
+          for (const [tierId, pct] of Object.entries(tierDiscounts)) {
+            if (typeof pct === "number" && !Number.isNaN(pct)) cleaned[tierId] = pct;
+          }
+          const nextSpec: ProductSpec = { ...(product.spec ?? {}), tierDiscounts: cleaned };
+          void saveSharedProductSpec(id, nextSpec);
+          return { ...product, spec: nextSpec };
+        })
+      }));
+    },
+    setCurrentTier: (tierId: string) => commit((current) => ({ ...current, currentTierId: tierId })),
     addPromotionSubmission: (submission: PromotionSubmission) => {
       void savePromotionSubmission(submission);
       commit((current) => ({ ...current, promotionSubmissions: [submission, ...current.promotionSubmissions] }));

@@ -68,6 +68,26 @@ export type ProductSpec = {
   shippingWarehouse?: "Miami hub" | "Orlando hub";
   pickupAddress?: string;
   pickupPhone?: string;
+  /** Per-tier discount % off this product's standard price (tierId -> percent). "By product" override. */
+  tierDiscounts?: Record<string, number>;
+};
+
+/** A customer pricing tier (e.g. Retailer / Distributor / Atlas Rep). Discount is off the standard price. */
+export type CustomerTier = {
+  id: string;
+  label: string;
+  /** Percent off the standard (reference) price. Reference tier is 0. */
+  discountPct: number;
+  /** Marks the standard/reference tier shown as the baseline in admin. */
+  isReference?: boolean;
+};
+
+/** Per-account pricing assignment: which tier, plus an optional account-wide override. */
+export type AccountPricing = {
+  accountId: string;
+  tierId: string;
+  /** Optional blanket adjustment % for this account, overriding the tier default across all products. */
+  adjustmentPct?: number;
 };
 
 export type CartLine = {
@@ -193,6 +213,10 @@ export type PricingSettings = {
   newProductLaunchRate: number;
   closeoutListingRate: number;
   supplierMembershipRate: number;
+  /** Customer pricing tiers (tier defaults). First/reference tier pays the standard price. */
+  customerTiers: CustomerTier[];
+  /** Per-account tier assignments + optional account-wide overrides. */
+  accountPricing: AccountPricing[];
 };
 
 export type QuoteFinancials = {

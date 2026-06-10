@@ -8,7 +8,7 @@ import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
-import { allocateFulfillmentByCases, calculateLinePricing, calculateQuoteFinancials, formatMoney } from "@/lib/pricing";
+import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, standardCasePrice, tierLabel } from "@/lib/pricing";
 import type { FulfillmentType, OrderRequest, Product } from "@/lib/types";
 
 export default function CatalogClient({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -273,10 +273,24 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
                     </p>
                   </div>
                   <div className="rounded-lg bg-atlas-light p-4">
-                    <p className="text-xs font-bold uppercase text-slate-500">{t("estimatedQuotePrice")}</p>
-                    <p className="mt-1 text-2xl font-black text-atlas-navy">
-                      {canSeePricing ? formatMoney(calculateLinePricing({ product, quantity: 1 }, store.pricingSettings).casePrice) : t("locked")}
-                    </p>
+                    {(() => {
+                      const standard = standardCasePrice(product, store.pricingSettings);
+                      const yourPrice = buyerCasePrice({ settings: store.pricingSettings, product, tierId: store.currentTierId });
+                      const discounted = yourPrice < standard - 0.001;
+                      return (
+                        <>
+                          <p className="text-xs font-bold uppercase text-slate-500">
+                            {canSeePricing ? `${t("yourPrice")} · ${tierLabel(store.pricingSettings, store.currentTierId)}` : t("estimatedQuotePrice")}
+                          </p>
+                          <p className="mt-1 flex items-baseline gap-2 text-2xl font-black text-atlas-navy">
+                            {canSeePricing ? formatMoney(yourPrice) : t("locked")}
+                            {canSeePricing && discounted && (
+                              <span className="text-sm font-semibold text-slate-400 line-through">{formatMoney(standard)}</span>
+                            )}
+                          </p>
+                        </>
+                      );
+                    })()}
                     <p className="mt-1 text-sm text-slate-600">{t("looseEstimate")}</p>
                     <button className="btn-primary mt-4 w-full" type="button" onClick={() => guardAdd(product)}>
                       <ShoppingCart size={16} />
