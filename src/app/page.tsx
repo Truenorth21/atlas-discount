@@ -209,6 +209,16 @@ export default function HomePage() {
                   {t("applyBusinessAccess")}
                 </Link>
               </div>
+
+              {/* Customer-focused promotions filling the left column */}
+              <div className="mt-8">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-500">{t("shopThisWeek")}</p>
+                <div className="mt-3 grid max-w-xl grid-cols-3 gap-3">
+                  <PromoTile icon={<Flame size={18} />} label={t("weeklyDeals")} tint="bg-rose-50 text-rose-500" />
+                  <PromoTile icon={<Tag size={18} />} label={t("promoNewArrivals")} tint="bg-sky-50 text-atlas-blue" />
+                  <PromoTile icon={<BadgePercent size={18} />} label={t("promoCloseouts")} tint="bg-amber-50 text-amber-600" />
+                </div>
+              </div>
             </div>
 
             {/* Ordering portal card — pricing locked until signed in + verified */}
@@ -370,6 +380,18 @@ export default function HomePage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+function PromoTile({ icon, label, tint }: { icon: ReactNode; label: string; tint: string }) {
+  return (
+    <Link
+      href="/catalog"
+      className="flex flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:-translate-y-0.5 hover:border-atlas-blue hover:shadow-sm"
+    >
+      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${tint}`}>{icon}</span>
+      <span className="text-sm font-black leading-tight text-atlas-navy">{label}</span>
+    </Link>
   );
 }
 
