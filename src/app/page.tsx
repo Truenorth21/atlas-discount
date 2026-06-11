@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import type { Route as NextRoute } from "next";
 import {
   Apple,
   ArrowRight,
@@ -9,14 +10,17 @@ import {
   BadgePercent,
   Boxes,
   Car,
+  CheckCircle2,
   Clock,
   Droplets,
   FileText,
   Flame,
   HeartPulse,
   Lock,
+  Megaphone,
   MessageCircle,
   Minus,
+  PackageSearch,
   Plus,
   PawPrint,
   Repeat2,
@@ -101,6 +105,53 @@ const darkStrip: { titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
   { titleKey: "stripMixedTitle", bodyKey: "stripMixedBody" },
   { titleKey: "stripPaymentTitle", bodyKey: "stripPaymentBody" },
   { titleKey: "stripFulfillmentTitle", bodyKey: "stripFulfillmentBody" },
+];
+
+const roles: Array<{
+  titleKey: TranslationKey;
+  labelKey: TranslationKey;
+  bodyKey: TranslationKey;
+  points: TranslationKey[];
+  href: NextRoute;
+  ctaKey: TranslationKey;
+  color: string;
+}> = [
+  {
+    titleKey: "member",
+    labelKey: "buyerAccount",
+    bodyKey: "memberBody",
+    points: ["uploadResale", "unlockPricing", "requestFulfillment"],
+    href: "/register/buyer" as NextRoute,
+    ctaKey: "becomeMember",
+    color: "bg-atlas-navy"
+  },
+  {
+    titleKey: "supplierPathTitle",
+    labelKey: "supplierPathLabel",
+    bodyKey: "supplierPathBody",
+    points: ["submitDocs", "uploadSheets", "buyPlacement"],
+    href: "/register/supplier" as NextRoute,
+    ctaKey: "becomeSupplier",
+    color: "bg-atlas-blue"
+  },
+  {
+    titleKey: "selr",
+    labelKey: "salesPartnerLabel",
+    bodyKey: "selrBody",
+    points: ["chooseRoute", "supportReorders", "earnCommission"],
+    href: "/register/route-seller" as NextRoute,
+    ctaKey: "joinSelr",
+    color: "bg-atlas-red"
+  },
+  {
+    titleKey: "fulfillmentPartnerTitle",
+    labelKey: "fulfillmentPartnerLabel",
+    bodyKey: "fulfillmentPartnerBody",
+    points: ["supportCrossDock", "offerDeliveryCapacity", "helpBuildMixedPallets"],
+    href: "/register/supplier" as NextRoute,
+    ctaKey: "becomeFulfillmentPartner",
+    color: "bg-slate-700"
+  }
 ];
 
 export default function HomePage() {
@@ -247,7 +298,7 @@ export default function HomePage() {
         </section>
 
         {/* Why Atlas */}
-        <section className="atlas-container pb-14">
+        <section className="atlas-container py-14">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {featureCards.map(({ icon: Icon, titleKey, bodyKey }) => (
               <div key={titleKey} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -260,9 +311,75 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+
+        {/* Supplier promotions & advertising */}
+        <section className="bg-white py-14">
+          <div className="atlas-container">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="flex items-center gap-2 text-sm font-bold uppercase text-atlas-blue">
+                  <Megaphone size={16} />
+                  {t("promotionsEyebrow")}
+                </p>
+                <h2 className="mt-2 text-3xl font-black text-atlas-navy">{t("promotionsTitle")}</h2>
+                <p className="mt-2 max-w-3xl text-slate-600">{t("promotionsHomeBody")}</p>
+              </div>
+              <Link className="btn-primary rounded-full" href="/catalog">
+                {t("seeWeeklyDeals")}
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+            <div className="mt-8 grid gap-6 md:grid-cols-3">
+              <PromoCard icon={<Tag />} title={t("weeklyDeals")} body={t("weeklyDealsBody")} />
+              <PromoCard icon={<PackageSearch />} title={t("sponsoredCategories")} body={t("sponsoredCategoriesBody")} />
+              <PromoCard icon={<Megaphone />} title={t("campaignTracking")} body={t("campaignTrackingBody")} />
+            </div>
+          </div>
+        </section>
+
+        {/* Choose your path */}
+        <section className="bg-atlas-light py-14">
+          <div className="atlas-container">
+            <p className="text-sm font-bold uppercase text-atlas-blue">{t("chooseYourPath")}</p>
+            <h2 className="mt-2 text-3xl font-black text-atlas-navy">{t("chooseYourPathBody")}</h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+              {roles.map((role) => (
+                <div key={role.titleKey} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase text-white ${role.color}`}>
+                    {t(role.labelKey)}
+                  </span>
+                  <h3 className="mt-3 text-2xl font-black text-atlas-navy">{t(role.titleKey)}</h3>
+                  <p className="mt-2 text-sm text-slate-600">{t(role.bodyKey)}</p>
+                  <ul className="mt-4 grid gap-2 text-sm text-slate-700">
+                    {role.points.map((point) => (
+                      <li key={point} className="flex gap-2">
+                        <CheckCircle2 className="mt-0.5 shrink-0 text-atlas-blue" size={16} />
+                        {t(point)}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link className="btn-secondary mt-5 w-fit rounded-full" href={role.href}>
+                    {t(role.ctaKey)}
+                    <ArrowRight size={16} />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
       <Footer />
     </>
+  );
+}
+
+function PromoCard({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-atlas-light p-5">
+      <span className="text-atlas-blue">{icon}</span>
+      <h3 className="mt-3 text-lg font-black text-atlas-navy">{title}</h3>
+      <p className="mt-2 text-sm text-slate-600">{body}</p>
+    </div>
   );
 }
 
