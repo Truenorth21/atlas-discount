@@ -32,8 +32,11 @@ import {
 } from "lucide-react";
 
 import { AtlasMark } from "@/components/atlas-logo";
+import { useAtlasStore } from "@/components/local-store";
 import { Nav } from "@/components/nav";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
+
+type PortalDeal = { name: string; pack: string; meta: string; tag: string };
 
 const portalDeals = [
   {
@@ -102,6 +105,20 @@ const darkStrip: { titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
 
 export default function HomePage() {
   const { t } = useI18n();
+  const { store } = useAtlasStore();
+
+  // Admin-controlled deals: promoted, approved products replace the mockup rows.
+  // Admin edits/removes these from Marketing → Promote products (the promotion flag).
+  const livePortalDeals: PortalDeal[] = store.products
+    .filter((product) => product.status === "approved" && product.promotion)
+    .slice(0, 4)
+    .map((product) => ({
+      name: product.brand || product.productName,
+      pack: product.unitSize || `${product.casePack} / case`,
+      meta: [product.preferredHub, product.location].filter(Boolean).join(" · ") || "Local delivery available",
+      tag: product.promotion || "Featured"
+    }));
+  const deals: PortalDeal[] = livePortalDeals.length > 0 ? livePortalDeals : portalDeals;
 
   return (
     <>
@@ -175,7 +192,7 @@ export default function HomePage() {
               </div>
 
               <div className="mt-3 grid gap-2">
-                {portalDeals.map((deal) => (
+                {deals.map((deal) => (
                   <PortalDealRow key={deal.name} deal={deal} />
                 ))}
               </div>
@@ -249,7 +266,7 @@ export default function HomePage() {
   );
 }
 
-function PortalDealRow({ deal }: { deal: (typeof portalDeals)[number] }) {
+function PortalDealRow({ deal }: { deal: PortalDeal }) {
   const { t } = useI18n();
   const [qty, setQty] = useState(1);
 
