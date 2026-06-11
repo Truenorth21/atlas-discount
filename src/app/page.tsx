@@ -26,6 +26,7 @@ import {
   Repeat2,
   Search,
   ShieldCheck,
+  Sparkles,
   SprayCan,
   Tag,
   Truck,
@@ -252,11 +253,24 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-2">
+              <div className="mt-3 flex items-center justify-between px-1">
+                <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-slate-500">
+                  <Sparkles size={13} className="text-atlas-blue" />
+                  {t("featuredPlacements")}
+                </p>
+              </div>
+              <div className="mt-2 grid gap-2">
                 {deals.map((deal) => (
                   <PortalDealRow key={deal.name} deal={deal} />
                 ))}
               </div>
+              <Link
+                href="/catalog"
+                className="mt-3 flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white py-2.5 text-sm font-bold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue"
+              >
+                {t("seeFullCatalog")}
+                <ArrowRight size={16} />
+              </Link>
             </div>
           </div>
         </section>
