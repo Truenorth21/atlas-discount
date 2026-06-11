@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   Apple,
@@ -15,6 +16,8 @@ import {
   HeartPulse,
   Lock,
   MessageCircle,
+  Minus,
+  Plus,
   PawPrint,
   Repeat2,
   Search,
@@ -172,32 +175,8 @@ export default function HomePage() {
               </div>
 
               <div className="mt-3 grid gap-2">
-                {portalDeals.map(({ name, pack, meta, tag, icon: Icon, tint }) => (
-                  <div key={name} className="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
-                    <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg ${tint}`}>
-                      <Icon size={22} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">
-                        {tag}
-                      </span>
-                      <p className="mt-1 truncate font-black text-atlas-navy">{name}</p>
-                      <p className="truncate text-xs text-slate-500">{pack}</p>
-                      <p className="truncate text-[11px] text-slate-400">{meta}</p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="flex items-center justify-end gap-1 text-xs font-bold text-slate-400">
-                        <Lock size={12} />
-                        {t("memberPricing")}
-                      </p>
-                      <Link
-                        href="/login?next=/catalog"
-                        className="mt-2 inline-flex rounded-full bg-atlas-blue px-4 py-2 text-xs font-bold text-white transition hover:bg-atlas-navy"
-                      >
-                        {t("quickAdd")}
-                      </Link>
-                    </div>
-                  </div>
+                {portalDeals.map((deal) => (
+                  <PortalDealRow key={deal.name} deal={deal} />
                 ))}
               </div>
             </div>
@@ -267,6 +246,57 @@ export default function HomePage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+function PortalDealRow({ deal }: { deal: (typeof portalDeals)[number] }) {
+  const { t } = useI18n();
+  const [qty, setQty] = useState(1);
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">
+            {deal.tag}
+          </span>
+          <p className="mt-1 truncate font-black text-atlas-navy">{deal.name}</p>
+          <p className="truncate text-xs text-slate-500">{deal.pack}</p>
+        </div>
+        <p className="flex shrink-0 items-center gap-1 text-xs font-bold text-slate-400">
+          <Lock size={12} />
+          {t("memberPricing")}
+        </p>
+      </div>
+      <p className="mt-1 truncate text-[11px] text-slate-400">{deal.meta}</p>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setQty((current) => Math.max(1, current - 1))}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-atlas-blue hover:text-atlas-blue"
+            aria-label={`Decrease ${deal.name} quantity`}
+          >
+            <Minus size={14} />
+          </button>
+          <span className="w-8 text-center text-sm font-black text-atlas-navy">{qty}</span>
+          <button
+            type="button"
+            onClick={() => setQty((current) => current + 1)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-atlas-blue hover:text-atlas-blue"
+            aria-label={`Increase ${deal.name} quantity`}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
+        <Link
+          href="/login?next=/catalog"
+          className="inline-flex rounded-full bg-atlas-blue px-4 py-2 text-xs font-bold text-white transition hover:bg-atlas-navy"
+        >
+          {t("quickAdd")}
+        </Link>
+      </div>
+    </div>
   );
 }
 
