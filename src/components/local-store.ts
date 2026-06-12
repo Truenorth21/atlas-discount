@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { defaultPricingSettings, documentRequirements, sampleApplications, sampleOrders, sampleProducts, sampleRouteSellers } from "@/lib/data";
-import { loadAdminApplications, loadAdminOrders, loadPromotionSubmissions, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, savePromotionSubmission, savePromotionSubmissionStatus, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPlacements, saveSharedProductPromotion, saveSharedProductTierPricing, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
+import { deleteSharedProduct, loadAdminApplications, loadAdminOrders, loadPromotionSubmissions, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, savePromotionSubmission, savePromotionSubmissionStatus, saveSharedPricingSettings, saveSharedProduct, saveSharedProducts, saveSharedProductPlacements, saveSharedProductPromotion, saveSharedProductTierPricing, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
 import type { Application, CartLine, OrderRequest, PricingSettings, Product, ProductPlacements, PromotionSubmission, QuoteAdjustment, RouteSeller, TierPricing } from "@/lib/types";
 
 type Store = {
@@ -259,6 +259,21 @@ export function useAtlasStore() {
         ...current,
         products: current.products.map((product) => (product.id === id ? { ...product, placements } : product))
       }));
+    },
+    updateProduct: (id: string, patch: Partial<Product>) => {
+      commit((current) => ({
+        ...current,
+        products: current.products.map((product) => {
+          if (product.id !== id) return product;
+          const next = { ...product, ...patch, spec: { ...(product.spec ?? {}), ...(patch.spec ?? {}) } };
+          void saveSharedProduct(next);
+          return next;
+        })
+      }));
+    },
+    deleteProduct: (id: string) => {
+      void deleteSharedProduct(id);
+      commit((current) => ({ ...current, products: current.products.filter((product) => product.id !== id) }));
     },
     setCurrentTier: (tierId: string) => commit((current) => ({ ...current, currentTierId: tierId })),
     addPromotionSubmission: (submission: PromotionSubmission) => {

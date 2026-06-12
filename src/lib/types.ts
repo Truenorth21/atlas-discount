@@ -32,7 +32,10 @@ export type Product = {
   tierPricing?: TierPricing;
   /** Suggested retail (MSRP) per master case — optional reference for buyer margin. */
   suggestedRetail: number;
+  /** Minimum order quantity for this product, in master cases. */
   moq: number;
+  /** Optional minimum order value ($) for this product. Buyer must meet cases OR value. */
+  minOrderValue?: number;
   leadTime: string;
   inventoryAvailable: number;
   location: string;
@@ -78,6 +81,8 @@ export type ProductSpec = {
   gtinInner?: string;
   palletCasesPerFloor?: number;
   palletLayers?: number;
+  /** Direct cases-per-pallet override (wins over Ti×Hi when set). */
+  casesPerPallet?: number;
   palletStandardWeight?: number;
   fulfillmentMode?: "pickup" | "delivered";
   shippingWarehouse?: "Miami hub" | "Orlando hub";

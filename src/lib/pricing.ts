@@ -70,17 +70,21 @@ export function casesPerPallet(palletConfiguration: string) {
   return match ? Number(match[1]) : 0;
 }
 
-/** Pallet size for a product: structured Ti×Hi spec wins over the legacy free-text field. */
+/** Pallet size: a direct cases-per-pallet override wins, then Ti×Hi spec, then the legacy text field. */
 export function productPalletSize(product: Product) {
+  const direct = product.spec?.casesPerPallet ?? 0;
+  if (direct > 0) return direct;
   const fromSpec = (product.spec?.palletCasesPerFloor ?? 0) * (product.spec?.palletLayers ?? 0);
   return fromSpec > 0 ? fromSpec : casesPerPallet(product.palletConfiguration);
 }
 
 /** Human-readable pallet configuration ("16/floor × 10 high = 160 cases") from spec, else the raw field. */
 export function palletConfigLabel(product: Product) {
+  const direct = product.spec?.casesPerPallet ?? 0;
   const floor = product.spec?.palletCasesPerFloor;
   const layers = product.spec?.palletLayers;
   if (floor && layers) return `${floor}/floor × ${layers} high = ${floor * layers} cases`;
+  if (direct > 0) return `${direct} cases`;
   return product.palletConfiguration;
 }
 

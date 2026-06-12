@@ -285,7 +285,7 @@ export default function CatalogClient({
                     <dl className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
                       <div><dt className="font-bold">SKU</dt><dd>{product.sku}</dd></div>
                       <div><dt className="font-bold">UPC</dt><dd>{product.upc}</dd></div>
-                    <div><dt className="font-bold">{t("directMoq")}</dt><dd>{product.moq} {t("cases")}</dd></div>
+                    <div><dt className="font-bold">{t("directMoq")}</dt><dd>{product.moq} {t("cases")}{product.minOrderValue ? ` / ${formatMoney(product.minOrderValue)}` : ""}</dd></div>
                       <div><dt className="font-bold">{t("productDimensions")}</dt><dd>{product.productDimensions || t("notProvided")}</dd></div>
                       <div><dt className="font-bold">{t("caseDimensions")}</dt><dd>{product.caseDimensions || t("notProvided")}</dd></div>
                       <div><dt className="font-bold">{t("palletConfiguration")}</dt><dd>{palletConfigLabel(product) || t("notProvided")}</dd></div>

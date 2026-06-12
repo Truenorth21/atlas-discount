@@ -27,6 +27,7 @@ type ProductRow = {
   tier_pricing?: TierPricing | null;
   suggested_retail: number;
   moq: number;
+  min_order_value?: number | null;
   lead_time: string;
   inventory_available: number;
   pickup_shipping_location?: string | null;
@@ -103,6 +104,7 @@ function productFromRow(row: ProductRow): Product {
     tierPricing: row.tier_pricing ?? undefined,
     suggestedRetail: Number(row.suggested_retail) || 0,
     moq: Number(row.moq) || 1,
+    minOrderValue: row.min_order_value != null ? Number(row.min_order_value) : undefined,
     leadTime: row.lead_time,
     inventoryAvailable: Number(row.inventory_available) || 0,
     location,
@@ -147,6 +149,7 @@ function productToRow(product: Product, supplierProfileId?: string | null) {
     tier_pricing: product.tierPricing ?? { case: {} },
     suggested_retail: product.suggestedRetail,
     moq: product.moq,
+    min_order_value: product.minOrderValue ?? 0,
     lead_time: product.leadTime,
     inventory_available: product.inventoryAvailable,
     pickup_shipping_location: product.location,
@@ -579,6 +582,28 @@ export async function saveSharedProductSpec(id: string, spec: ProductSpec) {
     .from("products")
     .update({ spec: spec ?? {}, updated_at: new Date().toISOString() })
     .eq("id", id);
+}
+
+export async function saveSharedProduct(product: Product) {
+  const supabase = createClient();
+  if (!supabase || !isUuid(product.id)) return;
+
+  // Drop id + supplier link so an edit never reassigns ownership.
+  const { id: _id, supplier_profile_id: _sp, ...row } = productToRow(product) as {
+    id?: string;
+    supplier_profile_id?: string | null;
+  } & Record<string, unknown>;
+  await supabase
+    .from("products")
+    .update({ ...row, updated_at: new Date().toISOString() })
+    .eq("id", product.id);
+}
+
+export async function deleteSharedProduct(id: string) {
+  const supabase = createClient();
+  if (!supabase || !isUuid(id)) return;
+
+  await supabase.from("products").delete().eq("id", id);
 }
 
 export async function saveSharedProductPlacements(id: string, placements: ProductPlacements) {

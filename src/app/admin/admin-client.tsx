@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Check, DollarSign, FileCheck2, Megaphone, PackageCheck, Settings, UsersRound, X } from "lucide-react";
+import { BarChart3, Check, DollarSign, FileCheck2, Megaphone, PackageCheck, Settings, Trash2, UsersRound, X } from "lucide-react";
 import { useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Nav } from "@/components/nav";
@@ -36,7 +36,7 @@ const documentRejectionReasons = [
 ];
 
 export function AdminClient() {
-  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updateProductPromotion, updateProductPlacements, updateProductTierPricing, updatePricingSettings, updateQuoteAdjustment, updatePromotionSubmissionStatus } = useAtlasStore();
+  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updateProductPromotion, updateProductPlacements, updateProductTierPricing, updateProduct, deleteProduct, updatePricingSettings, updateQuoteAdjustment, updatePromotionSubmissionStatus } = useAtlasStore();
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("overview");
@@ -178,6 +178,8 @@ export function AdminClient() {
             products={store.products}
             pricingSettings={store.pricingSettings}
             updateProductStatus={updateProductStatus}
+            updateProduct={updateProduct}
+            deleteProduct={deleteProduct}
           />
         )}
         {activeTab === "quotes" && <section className="panel overflow-hidden">
@@ -330,15 +332,19 @@ function ProductAdminPanel({
   pendingProducts,
   products,
   pricingSettings,
-  updateProductStatus
+  updateProductStatus,
+  updateProduct,
+  deleteProduct
 }: {
   addProducts: ReturnType<typeof useAtlasStore>["addProducts"];
   pendingProducts: Product[];
   products: Product[];
   pricingSettings: PricingSettings;
   updateProductStatus: ReturnType<typeof useAtlasStore>["updateProductStatus"];
+  updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
+  deleteProduct: ReturnType<typeof useAtlasStore>["deleteProduct"];
 }) {
-  const [activeProductTab, setActiveProductTab] = useState("upload");
+  const [activeProductTab, setActiveProductTab] = useState("manage");
   const approvedCount = products.filter((product) => product.status === "approved").length;
 
   return (
@@ -359,8 +365,9 @@ function ProductAdminPanel({
         </div>
         <div className="mt-4 flex flex-wrap gap-2 rounded-md bg-atlas-light p-2">
           {[
-            ["upload", "Upload sheet"],
+            ["manage", "Manage / edit"],
             ["single", "Add one product"],
+            ["upload", "Upload sheet"],
             ["approvals", "Supplier approvals"]
           ].map(([id, label]) => (
             <button
@@ -375,6 +382,9 @@ function ProductAdminPanel({
         </div>
       </div>
 
+      {activeProductTab === "manage" && (
+        <ManageProductsList products={products} updateProduct={updateProduct} deleteProduct={deleteProduct} />
+      )}
       {activeProductTab === "upload" && (
         <ProductUpload
           defaultStatus="approved"
@@ -392,6 +402,159 @@ function ProductAdminPanel({
         />
       )}
     </section>
+  );
+}
+
+function ManageProductsList({
+  products,
+  updateProduct,
+  deleteProduct
+}: {
+  products: Product[];
+  updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
+  deleteProduct: ReturnType<typeof useAtlasStore>["deleteProduct"];
+}) {
+  const grouped = Array.from(
+    products.reduce((map, product) => {
+      const key = product.category || "Uncategorized";
+      const list = map.get(key) ?? [];
+      list.push(product);
+      map.set(key, list);
+      return map;
+    }, new Map<string, Product[]>())
+  ).sort((a, b) => a[0].localeCompare(b[0]));
+
+  return (
+    <section className="panel p-5">
+      <h2 className="text-lg font-black text-atlas-navy">Manage products</h2>
+      <p className="mt-1 max-w-3xl text-sm text-slate-600">
+        Edit any product&apos;s order rules and pallet, or remove it. <span className="font-bold">Min cases</span> and
+        <span className="font-bold"> min order value</span> are per product — a buyer must meet either one. <span className="font-bold">Cases per pallet</span> can
+        differ for every item. Prices are set in the Product prices tab.
+      </p>
+      {products.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">No products yet. Use &ldquo;Add one product&rdquo;.</p>
+      ) : (
+        <div className="mt-4 grid gap-6">
+          {grouped.map(([category, items]) => (
+            <div key={category}>
+              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                <h4 className="text-sm font-black uppercase tracking-wide text-atlas-blue">{category}</h4>
+                <span className="text-xs font-semibold text-slate-400">{items.length}</span>
+              </div>
+              <div className="mt-3 grid gap-3">
+                {items.map((product) => (
+                  <ManageProductRow key={product.id} product={product} updateProduct={updateProduct} deleteProduct={deleteProduct} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ManageProductRow({
+  product,
+  updateProduct,
+  deleteProduct
+}: {
+  product: Product;
+  updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
+  deleteProduct: ReturnType<typeof useAtlasStore>["deleteProduct"];
+}) {
+  const [form, setForm] = useState({
+    brand: product.brand,
+    supplierCost: product.supplierCost ? String(product.supplierCost) : "",
+    inventoryAvailable: String(product.inventoryAvailable ?? 0),
+    moq: String(product.moq || 1),
+    minOrderValue: product.minOrderValue ? String(product.minOrderValue) : "",
+    casesPerPallet: String(productPalletSize(product) || ""),
+    leadTime: product.leadTime ?? ""
+  });
+  const [saved, setSaved] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function set(field: keyof typeof form) {
+    return (event: ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [field]: event.target.value }));
+  }
+  function save() {
+    const cpp = toNum(form.casesPerPallet);
+    updateProduct(product.id, {
+      brand: form.brand.trim() || product.brand,
+      supplierCost: toNum(form.supplierCost) ?? 0,
+      inventoryAvailable: toNum(form.inventoryAvailable) ?? 0,
+      moq: toNum(form.moq) ?? 1,
+      minOrderValue: toNum(form.minOrderValue) ?? 0,
+      leadTime: form.leadTime || "Ready now",
+      spec: { casesPerPallet: cpp && cpp > 0 ? cpp : undefined }
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  }
+
+  return (
+    <div className="rounded-md border border-slate-200 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-2 text-sm font-bold text-atlas-navy">
+          <span>{product.sku}</span>
+          {product.status === "pending" && <span className="badge bg-amber-50 text-amber-800">Pending</span>}
+          {product.status === "approved" && <span className="badge bg-emerald-50 text-emerald-700">Live</span>}
+        </p>
+        {confirmDelete ? (
+          <span className="flex items-center gap-2 text-sm">
+            <span className="font-bold text-atlas-red">Delete {product.brand}?</span>
+            <button className="rounded-md bg-atlas-red px-3 py-1.5 text-xs font-bold text-white" type="button" onClick={() => deleteProduct(product.id)}>
+              Yes, delete
+            </button>
+            <button className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600" type="button" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <button className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-atlas-red" type="button" onClick={() => setConfirmDelete(true)} aria-label={`Delete ${product.brand}`}>
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <ManageField label="Product name" value={form.brand} onChange={set("brand")} />
+        <ManageField label="Case cost ($)" type="number" value={form.supplierCost} onChange={set("supplierCost")} />
+        <ManageField label="Min order (cases)" type="number" value={form.moq} onChange={set("moq")} />
+        <ManageField label="Min order value ($)" type="number" value={form.minOrderValue} onChange={set("minOrderValue")} placeholder="optional" />
+        <ManageField label="Cases per pallet" type="number" value={form.casesPerPallet} onChange={set("casesPerPallet")} placeholder="e.g. 40" />
+        <ManageField label="Inventory (cases)" type="number" value={form.inventoryAvailable} onChange={set("inventoryAvailable")} />
+        <ManageField label="Lead time" value={form.leadTime} onChange={set("leadTime")} placeholder="Ready now" />
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <button className="btn-secondary px-4 py-2 text-sm" type="button" onClick={save}>
+          {saved ? "Saved" : "Save changes"}
+        </button>
+        <span className="text-xs text-slate-500">Min order: buyer must reach {form.moq || 1} cases{form.minOrderValue ? ` or ${formatMoney(toNum(form.minOrderValue) ?? 0)}` : ""}.</span>
+      </div>
+    </div>
+  );
+}
+
+function ManageField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder
+}: {
+  label: string;
+  value: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-xs font-bold text-slate-600">{label}</span>
+      <input className="field h-9 min-h-9" type={type} step="0.01" value={value} onChange={onChange} placeholder={placeholder} />
+    </label>
   );
 }
 
@@ -615,7 +778,7 @@ const blankProductForm = {
   casePack: "1", caseL: "", caseW: "", caseH: "", caseWeight: "", caseWeightUnit: "lb",
   palletCasesPerFloor: "", palletLayers: "", palletStandardWeight: "40",
   shippingWarehouse: "Orlando hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
-  supplierCost: "", suggestedRetail: "", moq: "1", leadTime: "", inventoryAvailable: "0",
+  supplierCost: "", suggestedRetail: "", moq: "1", minOrderValue: "", leadTime: "", inventoryAvailable: "0",
   priceRetailer: "", priceDistributor: "", priceAtlasRep: "",
   palletPriceRetailer: "", palletPriceDistributor: "", palletPriceAtlasRep: "",
   supplierName: "Atlas Admin", promotion: ""
@@ -737,6 +900,7 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
       tierPricing: buildTierPricing(form),
       suggestedRetail: toNum(form.suggestedRetail) ?? 0,
       moq: toNum(form.moq) ?? 1,
+      minOrderValue: toNum(form.minOrderValue) ?? 0,
       leadTime: form.leadTime || "Ready now",
       inventoryAvailable: toNum(form.inventoryAvailable) ?? 0,
       location,
@@ -909,8 +1073,9 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
           })}
         </div>
 
-        <ProductSectionHeading>Stock</ProductSectionHeading>
-        <AdminProductInput label="MOQ (cases)" type="number" value={form.moq} onChange={updateField("moq")} />
+        <ProductSectionHeading>Stock &amp; order minimum</ProductSectionHeading>
+        <AdminProductInput label="Min order (cases)" type="number" value={form.moq} onChange={updateField("moq")} />
+        <AdminProductInput label="Min order value ($, optional)" type="number" value={form.minOrderValue} onChange={updateField("minOrderValue")} />
         <AdminProductInput label="Inventory available" type="number" value={form.inventoryAvailable} onChange={updateField("inventoryAvailable")} />
         <AdminProductInput label="Lead time" value={form.leadTime} onChange={updateField("leadTime")} />
         <AdminProductInput label="Promotion label" value={form.promotion} onChange={updateField("promotion")} />

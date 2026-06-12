@@ -95,6 +95,7 @@ create table public.products (
   tier_pricing jsonb not null default '{"case":{}}'::jsonb,
   suggested_retail numeric(12, 2) not null,
   moq integer not null,
+  min_order_value numeric(12, 2) not null default 0,
   lead_time text not null,
   inventory_available integer not null default 0,
   pickup_shipping_location text not null,
@@ -341,7 +342,7 @@ select
   p.id, p.sku, p.brand, p.upc, p.product_name, p.description, p.category, p.subcategory,
   p.unit_size, p.image_url, p.product_dimensions, p.unit_weight, p.spec,
   p.case_pack, p.case_dimensions, p.case_weight, p.pallet_configuration,
-  p.suggested_retail, p.moq, p.lead_time, p.inventory_available,
+  p.suggested_retail, p.moq, p.min_order_value, p.lead_time, p.inventory_available,
   p.pickup_shipping_location, p.pickup_location, p.shipping_location, p.delivery_radius,
   p.preferred_hub, p.route_recommendation, p.supplier_name, p.promotion, p.placements, p.status, p.created_at,
   -- Admin-entered per-tier sell prices (master case + optional full-pallet). No cost/margin.
