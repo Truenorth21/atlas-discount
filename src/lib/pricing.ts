@@ -105,7 +105,8 @@ export function atlasPalletSellPrice(supplierCost: number, settings: PricingSett
   return Math.max(percentagePrice, floorPrice);
 }
 
-export function calculateLinePricing(line: CartLine, settings: PricingSettings, override?: QuoteLineOverride) {
+export function calculateLinePricing(line: CartLine, settings: PricingSettings, override?: QuoteLineOverride, discountPct = 0) {
+  const d = 1 - discountPct / 100;
   const manualSellPrice = override?.sellPricePerCase;
   if (typeof manualSellPrice === "number" && manualSellPrice >= 0) {
     const supplierCost = line.product.supplierCost * line.quantity;
@@ -128,7 +129,7 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
   if (line.product.preferredHub === "Supplier direct") {
     // Buyer-side rows from the catalog view carry a precomputed per-case price; cost stays hidden.
     if (hasViewPricing(line.product)) {
-      const price = line.product.supplierDirectPrice ?? (line.product.casePrice as number);
+      const price = (line.product.supplierDirectPrice ?? (line.product.casePrice as number)) * d;
       return {
         palletSize: productPalletSize(line.product),
         palletCases: 0,
@@ -145,7 +146,8 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
 
     const supplierCost = line.product.supplierCost * line.quantity;
     const fee = Math.max(supplierCost * (settings.supplierDirectFeePercent / 100), settings.supplierDirectMinimumFee);
-    const price = (supplierCost + fee) / line.quantity;
+    const price = ((supplierCost + fee) / line.quantity) * d;
+    const revenue = price * line.quantity;
 
     return {
       palletSize: productPalletSize(line.product),
@@ -155,8 +157,8 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
       casePrice: price,
       palletPrice: price,
       supplierCost,
-      revenue: supplierCost + fee,
-      margin: fee,
+      revenue,
+      margin: revenue - supplierCost,
       pricingModel: "Supplier direct fulfillment fee" as const
     };
   }
@@ -165,10 +167,12 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
   const palletCases = palletSize > 0 ? Math.floor(line.quantity / palletSize) * palletSize : 0;
   const looseCases = line.quantity - palletCases;
   const viewPriced = hasViewPricing(line.product);
-  const casePrice = viewPriced ? (line.product.casePrice as number) : atlasCaseSellPrice(line.product.supplierCost, settings);
-  const palletPrice = viewPriced
-    ? (line.product.palletPrice ?? (line.product.casePrice as number))
-    : atlasPalletSellPrice(line.product.supplierCost, settings);
+  const casePrice =
+    (viewPriced ? (line.product.casePrice as number) : atlasCaseSellPrice(line.product.supplierCost, settings)) * d;
+  const palletPrice =
+    (viewPriced
+      ? (line.product.palletPrice ?? (line.product.casePrice as number))
+      : atlasPalletSellPrice(line.product.supplierCost, settings)) * d;
   const supplierCost = line.product.supplierCost * line.quantity;
   const revenue = palletCases * palletPrice + looseCases * casePrice;
 
@@ -250,7 +254,13 @@ export function recommendFulfillment(order: OrderRequest, settings: PricingSetti
   };
 }
 
-export function calculateQuoteFinancials(order: OrderRequest, settings: PricingSettings, adjustment?: QuoteAdjustment): QuoteFinancials {
+export function calculateQuoteFinancials(
+  order: OrderRequest,
+  settings: PricingSettings,
+  adjustment?: QuoteAdjustment,
+  /** Per-line tier/account discount % off the standard price (buyer-facing carts). */
+  discountFor?: (product: Product) => number
+): QuoteFinancials {
   const effectiveSettings = {
     ...settings,
     caseMarkupPercent: adjustment?.caseMarkupPercent ?? settings.caseMarkupPercent,
@@ -275,7 +285,8 @@ export function calculateQuoteFinancials(order: OrderRequest, settings: PricingS
     calculateLinePricing(
       line,
       effectiveSettings,
-      adjustment?.lineOverrides?.find((override) => override.productId === line.product.id)
+      adjustment?.lineOverrides?.find((override) => override.productId === line.product.id),
+      discountFor?.(line.product) ?? 0
     )
   );
   const productRevenue = lineFinancials.reduce((sum, line) => sum + line.revenue, 0);

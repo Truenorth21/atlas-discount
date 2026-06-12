@@ -9,12 +9,22 @@ import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
-import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel } from "@/lib/pricing";
+import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, resolveTierDiscount, standardCasePrice, tierLabel } from "@/lib/pricing";
 import type { FulfillmentType, OrderRequest, Product } from "@/lib/types";
 
 type ReceivingHub = "Miami hub" | "Orlando hub";
 
-export default function CatalogClient({ isAuthenticated }: { isAuthenticated: boolean }) {
+export default function CatalogClient({
+  isAuthenticated,
+  userId,
+  userRole,
+  isApproved = false
+}: {
+  isAuthenticated: boolean;
+  userId?: string;
+  userRole?: string;
+  isApproved?: boolean;
+}) {
   const { t } = useI18n();
   const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, verifyDocuments } = useAtlasStore();
   const searchParams = useSearchParams();
@@ -26,7 +36,15 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>("Pickup");
   const [submittedQuoteId, setSubmittedQuoteId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; label: string } | null>(null);
-  const canSeePricing = isAuthenticated && store.documentsVerified;
+  const canSeePricing = isAuthenticated && (isApproved || store.documentsVerified);
+  // Real tier: the admin's per-account assignment wins; otherwise the role default
+  // (Atlas Reps buy at the rep tier, everyone else at the retailer reference tier).
+  const accountEntry = userId ? (store.pricingSettings.accountPricing ?? []).find((entry) => entry.accountId === userId) : undefined;
+  const buyerTierId = accountEntry?.tierId ?? (userRole === "route_seller" ? "atlas_rep" : store.currentTierId);
+  const discountFor = (product: Product) =>
+    canSeePricing
+      ? resolveTierDiscount({ settings: store.pricingSettings, product, tierId: buyerTierId, accountId: userId }).pct
+      : 0;
 
   function guardAdd(product: Product) {
     if (!isAuthenticated) {
@@ -77,7 +95,7 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
     status: "Quote requested",
     createdAt: new Date().toISOString().slice(0, 10)
   };
-  const quoteFinancials = calculateQuoteFinancials(draftOrder, store.pricingSettings);
+  const quoteFinancials = calculateQuoteFinancials(draftOrder, store.pricingSettings, undefined, discountFor);
   const fulfillmentAllocations = allocateFulfillmentByCases(draftOrder, quoteFinancials.fulfillmentFee);
   const estimatedQuoteTotal = quoteFinancials.buyerTotal;
   const hasSupplierDirectItems = store.cart.some((line) => line.product.preferredHub === "Supplier direct");
@@ -283,12 +301,12 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
                   <div className="rounded-lg bg-atlas-light p-4">
                     {(() => {
                       const standard = standardCasePrice(product, store.pricingSettings);
-                      const yourPrice = buyerCasePrice({ settings: store.pricingSettings, product, tierId: store.currentTierId });
+                      const yourPrice = buyerCasePrice({ settings: store.pricingSettings, product, tierId: buyerTierId, accountId: userId });
                       const discounted = yourPrice < standard - 0.001;
                       return (
                         <>
                           <p className="text-xs font-bold uppercase text-slate-500">
-                            {canSeePricing ? `${t("yourPrice")} · ${tierLabel(store.pricingSettings, store.currentTierId)}` : t("estimatedQuotePrice")}
+                            {canSeePricing ? `${t("yourPrice")} · ${tierLabel(store.pricingSettings, buyerTierId)}` : t("estimatedQuotePrice")}
                           </p>
                           <p className="mt-1 flex items-baseline gap-2 text-2xl font-black text-atlas-navy">
                             {canSeePricing ? formatMoney(yourPrice) : t("locked")}
@@ -362,7 +380,7 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
                       )}
                   </p>
                   {(() => {
-                    const linePricing = calculateLinePricing(line, store.pricingSettings);
+                    const linePricing = calculateLinePricing(line, store.pricingSettings, undefined, discountFor(line.product));
                     const allocation = fulfillmentAllocations.find((item) => item.productId === line.product.id)?.allocation ?? 0;
                     const casesToPallet =
                       linePricing.palletSize > 0 && linePricing.looseCases > 0
