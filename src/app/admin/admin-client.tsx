@@ -10,17 +10,16 @@ import { useAtlasStore } from "@/components/local-store";
 import { getDocumentAlerts, getExpirationState } from "@/lib/documents";
 import {
   allocateFulfillmentByCases,
-  applyTierDiscount,
   atlasCaseSellPrice,
   atlasPalletSellPrice,
   calculateLinePricing,
   calculateQuoteFinancials,
   casesPerPallet,
   formatMoney,
-  standardCasePrice
+  tierPriceFromCost
 } from "@/lib/pricing";
 import { atlasHubs, fulfillmentTypes, productCategories } from "@/lib/data";
-import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment } from "@/lib/types";
+import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, TierPricing } from "@/lib/types";
 
 const documentRejectionReasons = [
   "Document is expired",
@@ -36,7 +35,7 @@ const documentRejectionReasons = [
 ];
 
 export function AdminClient() {
-  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updateProductPromotion, updateProductTierDiscounts, updatePricingSettings, updateQuoteAdjustment, updatePromotionSubmissionStatus } = useAtlasStore();
+  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updateProductPromotion, updateProductTierPricing, updatePricingSettings, updateQuoteAdjustment, updatePromotionSubmissionStatus } = useAtlasStore();
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("overview");
@@ -305,7 +304,7 @@ export function AdminClient() {
             updatePricingSettings={updatePricingSettings}
             applications={store.applications}
             products={store.products}
-            updateProductTierDiscounts={updateProductTierDiscounts}
+            updateProductTierPricing={updateProductTierPricing}
           />
         )}
         {activeTab === "fulfillment" && <FulfillmentOperationsPanel orders={store.orders} pricingSettings={store.pricingSettings} quoteAdjustments={store.quoteAdjustments} />}
@@ -615,6 +614,8 @@ const blankProductForm = {
   palletCasesPerFloor: "", palletLayers: "", palletStandardWeight: "40",
   shippingWarehouse: "Orlando hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
   supplierCost: "", suggestedRetail: "", moq: "1", leadTime: "", inventoryAvailable: "0",
+  priceRetailer: "", priceDistributor: "", priceAtlasRep: "",
+  palletPriceRetailer: "", palletPriceDistributor: "", palletPriceAtlasRep: "",
   supplierName: "Atlas Admin", promotion: ""
 };
 
@@ -623,6 +624,37 @@ const toNum = (value: string) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
 };
+
+/** Build the explicit per-tier pricing (master case + optional full pallet) from the product form. */
+function buildTierPricing(form: typeof blankProductForm): TierPricing {
+  const caseEntries: Array<[string, string]> = [
+    ["retailer", form.priceRetailer],
+    ["distributor", form.priceDistributor],
+    ["atlas_rep", form.priceAtlasRep]
+  ];
+  const palletEntries: Array<[string, string]> = [
+    ["retailer", form.palletPriceRetailer],
+    ["distributor", form.palletPriceDistributor],
+    ["atlas_rep", form.palletPriceAtlasRep]
+  ];
+  const casePrices: Record<string, number> = {};
+  for (const [id, value] of caseEntries) {
+    const n = toNum(value);
+    if (n !== undefined && n > 0) casePrices[id] = n;
+  }
+  const palletPrices: Record<string, number> = {};
+  for (const [id, value] of palletEntries) {
+    const n = toNum(value);
+    if (n !== undefined && n > 0) palletPrices[id] = n;
+  }
+  return Object.keys(palletPrices).length > 0 ? { case: casePrices, pallet: palletPrices } : { case: casePrices };
+}
+
+const PRODUCT_FORM_TIERS: Array<{ id: string; label: string; priceField: keyof typeof blankProductForm; palletField: keyof typeof blankProductForm; defaultMarkup: number }> = [
+  { id: "retailer", label: "Retailer", priceField: "priceRetailer", palletField: "palletPriceRetailer", defaultMarkup: 30 },
+  { id: "distributor", label: "Distributor", priceField: "priceDistributor", palletField: "palletPriceDistributor", defaultMarkup: 22 },
+  { id: "atlas_rep", label: "Sales Rep", priceField: "priceAtlasRep", palletField: "palletPriceAtlasRep", defaultMarkup: 15 }
+];
 
 function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeof useAtlasStore>["addProducts"] }) {
   const [form, setForm] = useState(blankProductForm);
@@ -700,6 +732,7 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
           ? `${casesPerFloor}/floor × ${palletLayers} high = ${totalCases} cases${palletTotalWeight !== undefined ? ` • ~${Math.round(palletTotalWeight)} lb` : ""}`
           : "",
       supplierCost: toNum(form.supplierCost) ?? 0,
+      tierPricing: buildTierPricing(form),
       suggestedRetail: toNum(form.suggestedRetail) ?? 0,
       moq: toNum(form.moq) ?? 1,
       leadTime: form.leadTime || "Ready now",
@@ -831,9 +864,50 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
           </>
         )}
 
-        <ProductSectionHeading>Commercial &amp; stock</ProductSectionHeading>
-        <AdminProductInput label="Supplier cost" type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
-        <AdminProductInput label="Suggested retail" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
+        <ProductSectionHeading>Pricing (per master case)</ProductSectionHeading>
+        <AdminProductInput label="Case cost to Atlas" type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
+        <AdminProductInput label="Suggested retail (MSRP, optional)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
+        <div className="hidden md:block" />
+        <div className="md:col-span-3 grid gap-3 rounded-md border border-slate-200 bg-atlas-light p-3 sm:grid-cols-3">
+          {PRODUCT_FORM_TIERS.map((tier) => {
+            const cost = toNum(form.supplierCost) ?? 0;
+            const priceRaw = form[tier.priceField];
+            const effective = priceRaw.trim() === "" ? tierPriceFromCost(cost, tier.defaultMarkup) : toNum(priceRaw) ?? 0;
+            const marginPct = effective > 0 && cost > 0 ? Math.round(((effective - cost) / effective) * 100) : 0;
+            return (
+              <div key={tier.id} className="grid gap-1 rounded-md bg-white p-2">
+                <span className="text-xs font-black uppercase tracking-wide text-atlas-blue">{tier.label}</span>
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold text-slate-500">Case price $</span>
+                  <input
+                    className="field h-9 min-h-9"
+                    type="number"
+                    step="0.01"
+                    placeholder={cost > 0 ? `${formatMoney(tierPriceFromCost(cost, tier.defaultMarkup))} (default)` : "0.00"}
+                    value={priceRaw}
+                    onChange={updateField(tier.priceField)}
+                  />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold text-slate-500">Full-pallet price $ (optional)</span>
+                  <input
+                    className="field h-9 min-h-9"
+                    type="number"
+                    step="0.01"
+                    placeholder="same as case"
+                    value={form[tier.palletField]}
+                    onChange={updateField(tier.palletField)}
+                  />
+                </label>
+                <span className="text-[11px] font-semibold text-emerald-700">
+                  {cost > 0 ? `${marginPct}% margin · ${formatMoney(effective - cost)}/case` : "Enter cost for margin"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <ProductSectionHeading>Stock</ProductSectionHeading>
         <AdminProductInput label="MOQ (cases)" type="number" value={form.moq} onChange={updateField("moq")} />
         <AdminProductInput label="Inventory available" type="number" value={form.inventoryAvailable} onChange={updateField("inventoryAvailable")} />
         <AdminProductInput label="Lead time" value={form.leadTime} onChange={updateField("leadTime")} />
@@ -2243,13 +2317,13 @@ function CustomerPricingPanel({
   updatePricingSettings,
   applications,
   products,
-  updateProductTierDiscounts
+  updateProductTierPricing
 }: {
   settings: PricingSettings;
   updatePricingSettings: (settings: PricingSettings) => void;
   applications: Application[];
   products: Product[];
-  updateProductTierDiscounts: (id: string, tierDiscounts: Record<string, number>) => void;
+  updateProductTierPricing: (id: string, tierPricing: TierPricing) => void;
 }) {
   const [tierDraft, setTierDraft] = useState<CustomerTier[]>(settings.customerTiers ?? []);
   const [accountDraft, setAccountDraft] = useState<AccountPricing[]>(settings.accountPricing ?? []);
@@ -2264,10 +2338,7 @@ function CustomerPricingPanel({
     setTierDraft((current) => current.map((tier) => (tier.id === id ? { ...tier, ...patch } : tier)));
   }
   function addTier() {
-    setTierDraft((current) => [
-      ...current,
-      { id: `tier_${Date.now().toString(36)}`, label: "New tier", discountPct: 0 }
-    ]);
+    setTierDraft((current) => [...current, { id: `tier_${Date.now().toString(36)}`, label: "New level", defaultMarkupPct: 25 }]);
   }
   function removeTier(id: string) {
     setTierDraft((current) => current.filter((tier) => tier.id !== id));
@@ -2293,38 +2364,37 @@ function CustomerPricingPanel({
       <section className="panel p-5">
         <h2 className="text-xl font-black text-atlas-navy">Customer pricing</h2>
         <p className="mt-2 max-w-3xl text-sm text-slate-600">
-          The <span className="font-bold">standard price</span> (supplier cost + standard markup) is always the reference. Overrides apply
-          most-specific first: <span className="font-bold">by product → per account → tier default → standard</span>. Customers only see
-          their resolved price after they are signed in and verified — margins and supplier cost are never shown to buyers.
+          Atlas sells by the <span className="font-bold">master case</span>. For each product you enter the price each
+          customer type pays (you see your case cost and the margin). New products pre-fill from the default markups below,
+          and you can change any price. Buyers only see their own tier&apos;s price after sign-in — cost and margin are never shown to them.
         </p>
       </section>
 
       <section className="panel p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-black text-atlas-navy">Pricing tiers</h3>
-            <p className="mt-1 text-sm text-slate-600">Default discount each customer type gets off the standard price.</p>
+            <h3 className="text-lg font-black text-atlas-navy">Price levels</h3>
+            <p className="mt-1 text-sm text-slate-600">Customer types and the default markup over cost used to pre-fill new products.</p>
           </div>
           <button className="btn-secondary" type="button" onClick={addTier}>
-            Add tier
+            Add level
           </button>
         </div>
         <div className="mt-4 grid gap-3">
           {tierDraft.map((tier) => (
-            <div key={tier.id} className="grid items-end gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-[1fr_160px_auto]">
+            <div key={tier.id} className="grid items-end gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-[1fr_180px_auto]">
               <label className="grid gap-1">
-                <span className="label">Tier name</span>
+                <span className="label">Level name</span>
                 <input className="field" value={tier.label} onChange={(event) => updateTier(tier.id, { label: event.target.value })} />
               </label>
               <label className="grid gap-1">
-                <span className="label">Discount off standard (%)</span>
+                <span className="label">Default markup over cost (%)</span>
                 <input
                   className="field"
                   type="number"
                   step="0.5"
-                  value={tier.discountPct}
-                  disabled={tier.isReference}
-                  onChange={(event) => updateTier(tier.id, { discountPct: Number(event.target.value) })}
+                  value={tier.defaultMarkupPct}
+                  onChange={(event) => updateTier(tier.id, { defaultMarkupPct: Number(event.target.value) })}
                 />
               </label>
               <div className="flex items-center gap-2 pb-2">
@@ -2335,7 +2405,7 @@ function CustomerPricingPanel({
                     className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-atlas-red"
                     type="button"
                     onClick={() => removeTier(tier.id)}
-                    aria-label={`Remove ${tier.label} tier`}
+                    aria-label={`Remove ${tier.label} level`}
                   >
                     <X size={16} />
                   </button>
@@ -2349,8 +2419,8 @@ function CustomerPricingPanel({
       <section className="panel p-5">
         <h3 className="text-lg font-black text-atlas-navy">Account assignments</h3>
         <p className="mt-1 text-sm text-slate-600">
-          Assign each approved buyer/rep a tier. The account override % is optional — leave blank to use the tier default; set it to give
-          that account a custom margin across all products.
+          Assign each approved buyer/rep a price level. The account override % is optional — leave blank to use that level&apos;s price; set it
+          to give one account an extra % off across all products.
         </p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
@@ -2358,7 +2428,7 @@ function CustomerPricingPanel({
               <tr className="text-left text-xs uppercase text-slate-500">
                 <th className="px-2 py-2">Account</th>
                 <th className="px-2 py-2">Type</th>
-                <th className="px-2 py-2">Tier</th>
+                <th className="px-2 py-2">Price level</th>
                 <th className="px-2 py-2">Account override %</th>
               </tr>
             </thead>
@@ -2375,7 +2445,7 @@ function CustomerPricingPanel({
                   return (
                     <tr key={account.id} className="border-t border-slate-100">
                       <td className="px-2 py-2 font-bold text-atlas-navy">{account.companyName}</td>
-                      <td className="px-2 py-2 text-slate-600">{account.type === "route_seller" ? "Atlas Rep" : "Buyer"}</td>
+                      <td className="px-2 py-2 text-slate-600">{account.type === "route_seller" ? "Sales Rep" : "Buyer"}</td>
                       <td className="px-2 py-2">
                         <select
                           className="field h-9 min-h-9"
@@ -2394,7 +2464,7 @@ function CustomerPricingPanel({
                           className="field h-9 min-h-9 w-28"
                           type="number"
                           step="0.5"
-                          placeholder="Tier default"
+                          placeholder="None"
                           value={entry?.adjustmentPct ?? ""}
                           onChange={(event) =>
                             setAccount(account.id, {
@@ -2414,28 +2484,26 @@ function CustomerPricingPanel({
 
       <div className="flex items-center gap-3">
         <button className="btn-primary" type="button" onClick={saveTiersAndAccounts}>
-          Save tiers & accounts
+          Save levels &amp; accounts
         </button>
         {savedNote && <span className="text-sm font-bold text-emerald-700">Saved.</span>}
       </div>
 
       <section className="panel p-5">
-        <h3 className="text-lg font-black text-atlas-navy">Per-product overrides</h3>
+        <h3 className="text-lg font-black text-atlas-navy">Product prices</h3>
         <p className="mt-1 text-sm text-slate-600">
-          Optional. Override the discount on a single product for a tier — leave blank to inherit the tier default. The standard case price is
-          shown as the reference.
+          Set the case price each level pays. Your cost and margin show beside each price. Blank fields use the default markup over cost.
         </p>
-        <div className="mt-4 grid max-h-[32rem] gap-3 overflow-y-auto pr-1">
+        <div className="mt-4 grid max-h-[34rem] gap-3 overflow-y-auto pr-1">
           {approvedProducts.length === 0 ? (
             <p className="text-sm text-slate-500">No approved products yet.</p>
           ) : (
             approvedProducts.map((product) => (
-              <ProductTierOverrideRow
+              <ProductTierPriceRow
                 key={product.id}
                 product={product}
                 tiers={tierDraft}
-                settings={settings}
-                onSave={updateProductTierDiscounts}
+                onSave={updateProductTierPricing}
               />
             ))
           )}
@@ -2445,33 +2513,31 @@ function CustomerPricingPanel({
   );
 }
 
-function ProductTierOverrideRow({
+function ProductTierPriceRow({
   product,
   tiers,
-  settings,
   onSave
 }: {
   product: Product;
   tiers: CustomerTier[];
-  settings: PricingSettings;
-  onSave: (id: string, tierDiscounts: Record<string, number>) => void;
+  onSave: (id: string, tierPricing: TierPricing) => void;
 }) {
+  const cost = product.supplierCost;
   const seed: Record<string, string> = {};
   for (const tier of tiers) {
-    const value = product.spec?.tierDiscounts?.[tier.id];
+    const value = product.tierPricing?.case?.[tier.id];
     seed[tier.id] = typeof value === "number" ? String(value) : "";
   }
   const [draft, setDraft] = useState<Record<string, string>>(seed);
   const [saved, setSaved] = useState(false);
-  const standard = standardCasePrice(product, settings);
 
   function save() {
-    const out: Record<string, number> = {};
+    const casePrices: Record<string, number> = {};
     for (const [tierId, value] of Object.entries(draft)) {
       const numeric = Number(value);
-      if (value.trim() !== "" && !Number.isNaN(numeric)) out[tierId] = numeric;
+      if (value.trim() !== "" && !Number.isNaN(numeric) && numeric > 0) casePrices[tierId] = numeric;
     }
-    onSave(product.id, out);
+    onSave(product.id, { case: casePrices, pallet: product.tierPricing?.pallet });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -2484,33 +2550,35 @@ function ProductTierOverrideRow({
           <p className="truncate text-xs text-slate-500">{product.sku} · {product.category}</p>
         </div>
         <p className="text-sm font-black text-atlas-navy">
-          Standard <span className="text-atlas-blue">{formatMoney(standard)}</span>
+          Case cost <span className="text-atlas-red">{formatMoney(cost)}</span>
         </p>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {tiers.map((tier) => {
           const raw = draft[tier.id] ?? "";
-          const effectivePct = raw.trim() === "" ? tier.discountPct : Number(raw) || 0;
-          const resolved = applyTierDiscount(standard, effectivePct);
+          const effective = raw.trim() === "" ? tierPriceFromCost(cost, tier.defaultMarkupPct) : Number(raw) || 0;
+          const marginPct = effective > 0 && cost > 0 ? Math.round(((effective - cost) / effective) * 100) : 0;
           return (
             <label key={tier.id} className="grid gap-1 rounded-md bg-atlas-light p-2">
-              <span className="text-xs font-bold text-slate-600">{tier.label}</span>
+              <span className="text-xs font-bold text-slate-600">{tier.label} · $ / case</span>
               <input
                 className="field h-9 min-h-9"
                 type="number"
-                step="0.5"
-                placeholder={`${tier.discountPct}% (tier)`}
+                step="0.01"
+                placeholder={`${formatMoney(tierPriceFromCost(cost, tier.defaultMarkupPct))} (default)`}
                 value={raw}
                 onChange={(event) => setDraft((current) => ({ ...current, [tier.id]: event.target.value }))}
               />
-              <span className="text-xs font-semibold text-atlas-navy">{formatMoney(resolved)}</span>
+              <span className="text-xs font-semibold text-emerald-700">
+                {cost > 0 ? `${marginPct}% margin · ${formatMoney(effective - cost)}/case` : "Enter cost to see margin"}
+              </span>
             </label>
           );
         })}
       </div>
       <div className="mt-3 flex items-center gap-3">
         <button className="btn-secondary px-4 py-2 text-sm" type="button" onClick={save}>
-          Save overrides
+          Save prices
         </button>
         {saved && <span className="text-sm font-bold text-emerald-700">Saved.</span>}
       </div>

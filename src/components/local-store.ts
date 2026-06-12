@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { defaultPricingSettings, documentRequirements, sampleApplications, sampleOrders, sampleProducts, sampleRouteSellers } from "@/lib/data";
-import { loadAdminApplications, loadAdminOrders, loadPromotionSubmissions, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, savePromotionSubmission, savePromotionSubmissionStatus, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductSpec, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
-import type { Application, CartLine, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, RouteSeller } from "@/lib/types";
+import { loadAdminApplications, loadAdminOrders, loadPromotionSubmissions, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, savePromotionSubmission, savePromotionSubmissionStatus, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductTierPricing, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
+import type { Application, CartLine, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment, RouteSeller, TierPricing } from "@/lib/types";
 
 type Store = {
   applications: Application[];
@@ -246,19 +246,11 @@ export function useAtlasStore() {
         products: current.products.map((product) => (product.id === id ? { ...product, promotion: value } : product))
       }));
     },
-    updateProductTierDiscounts: (id: string, tierDiscounts: Record<string, number>) => {
+    updateProductTierPricing: (id: string, tierPricing: TierPricing) => {
+      void saveSharedProductTierPricing(id, tierPricing);
       commit((current) => ({
         ...current,
-        products: current.products.map((product) => {
-          if (product.id !== id) return product;
-          const cleaned: Record<string, number> = {};
-          for (const [tierId, pct] of Object.entries(tierDiscounts)) {
-            if (typeof pct === "number" && !Number.isNaN(pct)) cleaned[tierId] = pct;
-          }
-          const nextSpec: ProductSpec = { ...(product.spec ?? {}), tierDiscounts: cleaned };
-          void saveSharedProductSpec(id, nextSpec);
-          return { ...product, spec: nextSpec };
-        })
+        products: current.products.map((product) => (product.id === id ? { ...product, tierPricing } : product))
       }));
     },
     setCurrentTier: (tierId: string) => commit((current) => ({ ...current, currentTierId: tierId })),

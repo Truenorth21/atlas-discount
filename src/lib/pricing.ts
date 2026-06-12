@@ -14,59 +14,55 @@ export function tierLabel(settings: PricingSettings, tierId: string): string {
   return findTier(settings, tierId)?.label ?? "Retailer";
 }
 
+export function tierDefaultMarkupPct(settings: PricingSettings, tierId: string): number {
+  return findTier(settings, tierId)?.defaultMarkupPct ?? 0;
+}
+
+/** Auto-fill helper: master-case price at a markup over cost (admin can override). */
+export function tierPriceFromCost(cost: number, markupPct: number) {
+  return Math.round(cost * (1 + markupPct / 100) * 100) / 100;
+}
+
+/** Per-account % off the tier price (special deals). 0 when none. */
+function accountAdjustmentPct(settings: PricingSettings, accountId?: string): number {
+  if (!accountId) return 0;
+  const entry = (settings.accountPricing ?? []).find((item) => item.accountId === accountId);
+  return typeof entry?.adjustmentPct === "number" ? entry.adjustmentPct : 0;
+}
+
 /**
- * Resolve the discount % a buyer gets on a product, most-specific rule first:
- * 1. by product (per-tier override on the product) → 2. per account override →
- * 3. tier default → 4. standard (0). The standard price is always the reference.
+ * Master-case price a tier pays: the admin's explicit price first; if none is set
+ * yet, fall back to cost × the tier's default markup (admin rows only).
  */
-export function resolveTierDiscount(args: {
-  settings: PricingSettings;
-  product: Product;
-  tierId: string;
-  accountId?: string;
-}): { pct: number; source: "product" | "account" | "tier" | "standard" } {
-  const { settings, product, tierId, accountId } = args;
-
-  const productPct = product.spec?.tierDiscounts?.[tierId];
-  if (typeof productPct === "number") return { pct: productPct, source: "product" };
-
-  if (accountId) {
-    const account = (settings.accountPricing ?? []).find((entry) => entry.accountId === accountId);
-    if (account && typeof account.adjustmentPct === "number") {
-      return { pct: account.adjustmentPct, source: "account" };
-    }
-  }
-
-  const tier = findTier(settings, tierId);
-  if (tier) return { pct: tier.discountPct, source: "tier" };
-
-  return { pct: 0, source: "standard" };
+export function tierCasePrice(product: Product, settings: PricingSettings, tierId: string): number | undefined {
+  const explicit = product.tierPricing?.case?.[tierId];
+  if (typeof explicit === "number" && explicit > 0) return explicit;
+  if (product.supplierCost > 0) return tierPriceFromCost(product.supplierCost, tierDefaultMarkupPct(settings, tierId));
+  return undefined;
 }
 
-export function applyTierDiscount(standardPrice: number, pct: number) {
-  return standardPrice * (1 - pct / 100);
+/** Full-pallet per-case price: explicit pallet price first, else the case price. */
+export function tierPalletPrice(product: Product, settings: PricingSettings, tierId: string): number | undefined {
+  const explicit = product.tierPricing?.pallet?.[tierId];
+  if (typeof explicit === "number" && explicit > 0) return explicit;
+  return tierCasePrice(product, settings, tierId);
 }
 
-/** Standard (reference) loose-case sell price for a product, before any tier discount. */
+/** Buyer's per-case price for their tier, including any per-account adjustment. */
+export function buyerCasePrice(args: { settings: PricingSettings; product: Product; tierId: string; accountId?: string }) {
+  const base = tierCasePrice(args.product, args.settings, args.tierId) ?? 0;
+  return base * (1 - accountAdjustmentPct(args.settings, args.accountId) / 100);
+}
+
+/** Buyer's full-pallet per-case price for their tier, including any per-account adjustment. */
+export function buyerPalletPrice(args: { settings: PricingSettings; product: Product; tierId: string; accountId?: string }) {
+  const base = tierPalletPrice(args.product, args.settings, args.tierId) ?? 0;
+  return base * (1 - accountAdjustmentPct(args.settings, args.accountId) / 100);
+}
+
+/** Reference (Retailer) case price — used as the struck-through "list" comparison. */
 export function standardCasePrice(product: Product, settings: PricingSettings) {
-  if (hasViewPricing(product)) {
-    return product.preferredHub === "Supplier direct" && product.supplierDirectPrice
-      ? product.supplierDirectPrice
-      : (product.casePrice as number);
-  }
-  return calculateLinePricing({ product, quantity: 1 }, settings).casePrice;
-}
-
-/** The loose-case price a specific buyer tier/account pays for a product. */
-export function buyerCasePrice(args: {
-  settings: PricingSettings;
-  product: Product;
-  tierId: string;
-  accountId?: string;
-}) {
-  const standard = standardCasePrice(args.product, args.settings);
-  const { pct } = resolveTierDiscount(args);
-  return applyTierDiscount(standard, pct);
+  return tierCasePrice(product, settings, REFERENCE_TIER_ID) ?? 0;
 }
 
 export function casesPerPallet(palletConfiguration: string) {
@@ -88,11 +84,6 @@ export function palletConfigLabel(product: Product) {
   return product.palletConfiguration;
 }
 
-/** True when the row came from the public catalog view (cost hidden, sell prices precomputed). */
-function hasViewPricing(product: Product) {
-  return (!product.supplierCost || product.supplierCost <= 0) && typeof product.casePrice === "number" && product.casePrice > 0;
-}
-
 export function atlasCaseSellPrice(supplierCost: number, settings: PricingSettings) {
   const percentagePrice = supplierCost * (1 + settings.caseMarkupPercent / 100);
   const floorPrice = supplierCost + settings.minimumCaseMarginPerCase;
@@ -105,15 +96,22 @@ export function atlasPalletSellPrice(supplierCost: number, settings: PricingSett
   return Math.max(percentagePrice, floorPrice);
 }
 
-export function calculateLinePricing(line: CartLine, settings: PricingSettings, override?: QuoteLineOverride, discountPct = 0) {
-  const d = 1 - discountPct / 100;
+/** Optional buyer context: which tier/account is shopping (drives explicit tier prices). */
+export type PricingContext = { tierId?: string; accountId?: string };
+
+export function calculateLinePricing(
+  line: CartLine,
+  settings: PricingSettings,
+  override?: QuoteLineOverride,
+  ctx?: PricingContext
+) {
   const manualSellPrice = override?.sellPricePerCase;
   if (typeof manualSellPrice === "number" && manualSellPrice >= 0) {
     const supplierCost = line.product.supplierCost * line.quantity;
     const revenue = manualSellPrice * line.quantity;
 
     return {
-      palletSize: casesPerPallet(line.product.palletConfiguration),
+      palletSize: productPalletSize(line.product),
       palletCases: 0,
       looseCases: line.product.preferredHub === "Supplier direct" ? 0 : line.quantity,
       supplierDirectCases: line.product.preferredHub === "Supplier direct" ? line.quantity : 0,
@@ -126,28 +124,51 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
     };
   }
 
-  if (line.product.preferredHub === "Supplier direct") {
-    // Buyer-side rows from the catalog view carry a precomputed per-case price; cost stays hidden.
-    if (hasViewPricing(line.product)) {
-      const price = (line.product.supplierDirectPrice ?? (line.product.casePrice as number)) * d;
+  // Buyer-facing: price from the admin's explicit per-tier prices (cost hidden).
+  if (ctx?.tierId) {
+    const casePrice = buyerCasePrice({ settings, product: line.product, tierId: ctx.tierId, accountId: ctx.accountId });
+    const palletUnit = buyerPalletPrice({ settings, product: line.product, tierId: ctx.tierId, accountId: ctx.accountId });
+    const supplierCost = line.product.supplierCost * line.quantity;
+
+    if (line.product.preferredHub === "Supplier direct") {
       return {
         palletSize: productPalletSize(line.product),
         palletCases: 0,
         looseCases: 0,
         supplierDirectCases: line.quantity,
-        casePrice: price,
-        palletPrice: price,
-        supplierCost: 0,
-        revenue: price * line.quantity,
-        margin: 0,
-        pricingModel: "Supplier direct fulfillment fee" as const
+        casePrice,
+        palletPrice: casePrice,
+        supplierCost,
+        revenue: casePrice * line.quantity,
+        margin: casePrice * line.quantity - supplierCost,
+        pricingModel: "Atlas hub product margin" as const
       };
     }
 
+    const palletSize = productPalletSize(line.product);
+    const palletCases = palletSize > 0 ? Math.floor(line.quantity / palletSize) * palletSize : 0;
+    const looseCases = line.quantity - palletCases;
+    const revenue = palletCases * palletUnit + looseCases * casePrice;
+
+    return {
+      palletSize,
+      palletCases,
+      looseCases,
+      supplierDirectCases: 0,
+      casePrice,
+      palletPrice: palletUnit,
+      supplierCost,
+      revenue,
+      margin: revenue - supplierCost,
+      pricingModel: "Atlas hub product margin" as const
+    };
+  }
+
+  // Admin/internal (no tier context): cost-based pricing for margin tooling.
+  if (line.product.preferredHub === "Supplier direct") {
     const supplierCost = line.product.supplierCost * line.quantity;
     const fee = Math.max(supplierCost * (settings.supplierDirectFeePercent / 100), settings.supplierDirectMinimumFee);
-    const price = ((supplierCost + fee) / line.quantity) * d;
-    const revenue = price * line.quantity;
+    const price = (supplierCost + fee) / line.quantity;
 
     return {
       palletSize: productPalletSize(line.product),
@@ -157,8 +178,8 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
       casePrice: price,
       palletPrice: price,
       supplierCost,
-      revenue,
-      margin: revenue - supplierCost,
+      revenue: supplierCost + fee,
+      margin: fee,
       pricingModel: "Supplier direct fulfillment fee" as const
     };
   }
@@ -166,13 +187,8 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
   const palletSize = productPalletSize(line.product);
   const palletCases = palletSize > 0 ? Math.floor(line.quantity / palletSize) * palletSize : 0;
   const looseCases = line.quantity - palletCases;
-  const viewPriced = hasViewPricing(line.product);
-  const casePrice =
-    (viewPriced ? (line.product.casePrice as number) : atlasCaseSellPrice(line.product.supplierCost, settings)) * d;
-  const palletPrice =
-    (viewPriced
-      ? (line.product.palletPrice ?? (line.product.casePrice as number))
-      : atlasPalletSellPrice(line.product.supplierCost, settings)) * d;
+  const casePrice = atlasCaseSellPrice(line.product.supplierCost, settings);
+  const palletPrice = atlasPalletSellPrice(line.product.supplierCost, settings);
   const supplierCost = line.product.supplierCost * line.quantity;
   const revenue = palletCases * palletPrice + looseCases * casePrice;
 
@@ -258,8 +274,8 @@ export function calculateQuoteFinancials(
   order: OrderRequest,
   settings: PricingSettings,
   adjustment?: QuoteAdjustment,
-  /** Per-line tier/account discount % off the standard price (buyer-facing carts). */
-  discountFor?: (product: Product) => number
+  /** Buyer context: when set, lines price from the buyer's explicit tier prices. */
+  ctx?: PricingContext
 ): QuoteFinancials {
   const effectiveSettings = {
     ...settings,
@@ -286,7 +302,7 @@ export function calculateQuoteFinancials(
       line,
       effectiveSettings,
       adjustment?.lineOverrides?.find((override) => override.productId === line.product.id),
-      discountFor?.(line.product) ?? 0
+      ctx
     )
   );
   const productRevenue = lineFinancials.reduce((sum, line) => sum + line.revenue, 0);

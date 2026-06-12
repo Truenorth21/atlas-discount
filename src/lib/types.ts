@@ -26,11 +26,11 @@ export type Product = {
   caseDimensions: string;
   caseWeight: string;
   palletConfiguration: string;
+  /** Atlas's cost per master case. Admin-only — never sent to buyers (excluded from the catalog view). */
   supplierCost: number;
-  /** Computed sell prices from the public catalog view (cost stays hidden from buyers). */
-  casePrice?: number;
-  palletPrice?: number;
-  supplierDirectPrice?: number;
+  /** Explicit per-tier sell prices the admin enters per master case (and optional full-pallet price). */
+  tierPricing?: TierPricing;
+  /** Suggested retail (MSRP) per master case — optional reference for buyer margin. */
   suggestedRetail: number;
   moq: number;
   leadTime: string;
@@ -72,17 +72,23 @@ export type ProductSpec = {
   shippingWarehouse?: "Miami hub" | "Orlando hub";
   pickupAddress?: string;
   pickupPhone?: string;
-  /** Per-tier discount % off this product's standard price (tierId -> percent). "By product" override. */
-  tierDiscounts?: Record<string, number>;
 };
 
-/** A customer pricing tier (e.g. Retailer / Distributor / Atlas Rep). Discount is off the standard price. */
+/** Explicit per-tier prices for one product. tierId -> price per master case (and optional full-pallet per-case price). */
+export type TierPricing = {
+  /** Per-master-case price each tier pays. */
+  case: Record<string, number>;
+  /** Optional lower per-case price when buying full pallets, per tier. */
+  pallet?: Record<string, number>;
+};
+
+/** A customer price level (e.g. Retailer / Distributor / Sales Rep). */
 export type CustomerTier = {
   id: string;
   label: string;
-  /** Percent off the standard (reference) price. Reference tier is 0. */
-  discountPct: number;
-  /** Marks the standard/reference tier shown as the baseline in admin. */
+  /** Default markup % over case cost used to pre-fill this tier's price on new products. */
+  defaultMarkupPct: number;
+  /** Marks the reference/standard price level. */
   isReference?: boolean;
 };
 

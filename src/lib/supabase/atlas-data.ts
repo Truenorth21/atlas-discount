@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, RouteSellerPreference } from "@/lib/types";
+import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, RouteSellerPreference, TierPricing } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -24,9 +24,7 @@ type ProductRow = {
   case_weight?: string | null;
   pallet_configuration?: string | null;
   supplier_cost?: number | null;
-  case_price?: number | null;
-  pallet_price?: number | null;
-  supplier_direct_price?: number | null;
+  tier_pricing?: TierPricing | null;
   suggested_retail: number;
   moq: number;
   lead_time: string;
@@ -101,9 +99,7 @@ function productFromRow(row: ProductRow): Product {
     caseWeight: row.case_weight ?? "",
     palletConfiguration: row.pallet_configuration ?? "",
     supplierCost: Number(row.supplier_cost) || 0,
-    casePrice: row.case_price != null ? Number(row.case_price) : undefined,
-    palletPrice: row.pallet_price != null ? Number(row.pallet_price) : undefined,
-    supplierDirectPrice: row.supplier_direct_price != null ? Number(row.supplier_direct_price) : undefined,
+    tierPricing: row.tier_pricing ?? undefined,
     suggestedRetail: Number(row.suggested_retail) || 0,
     moq: Number(row.moq) || 1,
     leadTime: row.lead_time,
@@ -146,6 +142,7 @@ function productToRow(product: Product, supplierProfileId?: string | null) {
     case_weight: product.caseWeight,
     pallet_configuration: product.palletConfiguration,
     supplier_cost: product.supplierCost,
+    tier_pricing: product.tierPricing ?? { case: {} },
     suggested_retail: product.suggestedRetail,
     moq: product.moq,
     lead_time: product.leadTime,
@@ -578,6 +575,16 @@ export async function saveSharedProductSpec(id: string, spec: ProductSpec) {
   await supabase
     .from("products")
     .update({ spec: spec ?? {}, updated_at: new Date().toISOString() })
+    .eq("id", id);
+}
+
+export async function saveSharedProductTierPricing(id: string, tierPricing: TierPricing) {
+  const supabase = createClient();
+  if (!supabase || !isUuid(id)) return;
+
+  await supabase
+    .from("products")
+    .update({ tier_pricing: tierPricing, updated_at: new Date().toISOString() })
     .eq("id", id);
 }
 

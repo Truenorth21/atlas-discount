@@ -9,7 +9,8 @@ import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
-import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, resolveTierDiscount, standardCasePrice, tierLabel } from "@/lib/pricing";
+import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel } from "@/lib/pricing";
+import type { PricingContext } from "@/lib/pricing";
 import type { FulfillmentType, OrderRequest, Product } from "@/lib/types";
 
 type ReceivingHub = "Miami hub" | "Orlando hub";
@@ -41,10 +42,8 @@ export default function CatalogClient({
   // (Atlas Reps buy at the rep tier, everyone else at the retailer reference tier).
   const accountEntry = userId ? (store.pricingSettings.accountPricing ?? []).find((entry) => entry.accountId === userId) : undefined;
   const buyerTierId = accountEntry?.tierId ?? (userRole === "route_seller" ? "atlas_rep" : store.currentTierId);
-  const discountFor = (product: Product) =>
-    canSeePricing
-      ? resolveTierDiscount({ settings: store.pricingSettings, product, tierId: buyerTierId, accountId: userId }).pct
-      : 0;
+  // Buyer context drives explicit per-tier pricing; only applied once the buyer can see pricing.
+  const pricingCtx: PricingContext | undefined = canSeePricing ? { tierId: buyerTierId, accountId: userId } : undefined;
 
   function guardAdd(product: Product) {
     if (!isAuthenticated) {
@@ -95,7 +94,7 @@ export default function CatalogClient({
     status: "Quote requested",
     createdAt: new Date().toISOString().slice(0, 10)
   };
-  const quoteFinancials = calculateQuoteFinancials(draftOrder, store.pricingSettings, undefined, discountFor);
+  const quoteFinancials = calculateQuoteFinancials(draftOrder, store.pricingSettings, undefined, pricingCtx);
   const fulfillmentAllocations = allocateFulfillmentByCases(draftOrder, quoteFinancials.fulfillmentFee);
   const estimatedQuoteTotal = quoteFinancials.buyerTotal;
   const hasSupplierDirectItems = store.cart.some((line) => line.product.preferredHub === "Supplier direct");
@@ -303,17 +302,24 @@ export default function CatalogClient({
                       const standard = standardCasePrice(product, store.pricingSettings);
                       const yourPrice = buyerCasePrice({ settings: store.pricingSettings, product, tierId: buyerTierId, accountId: userId });
                       const discounted = yourPrice < standard - 0.001;
+                      const msrp = product.suggestedRetail || 0;
+                      const marginPct = msrp > 0 && yourPrice > 0 ? Math.round(((msrp - yourPrice) / msrp) * 100) : 0;
                       return (
                         <>
                           <p className="text-xs font-bold uppercase text-slate-500">
                             {canSeePricing ? `${t("yourPrice")} · ${tierLabel(store.pricingSettings, buyerTierId)}` : t("estimatedQuotePrice")}
                           </p>
                           <p className="mt-1 flex items-baseline gap-2 text-2xl font-black text-atlas-navy">
-                            {canSeePricing ? formatMoney(yourPrice) : t("locked")}
-                            {canSeePricing && discounted && (
+                            {!canSeePricing ? t("locked") : yourPrice > 0 ? `${formatMoney(yourPrice)} / ${t("caseLabel")}` : t("pricePending")}
+                            {canSeePricing && discounted && yourPrice > 0 && (
                               <span className="text-sm font-semibold text-slate-400 line-through">{formatMoney(standard)}</span>
                             )}
                           </p>
+                          {canSeePricing && msrp > 0 && (
+                            <p className="mt-1 text-xs font-semibold text-emerald-700">
+                              {t("msrpLabel")} {formatMoney(msrp)}{marginPct > 0 ? ` · ${marginPct}% ${t("marginLabel")}` : ""}
+                            </p>
+                          )}
                         </>
                       );
                     })()}
@@ -380,7 +386,7 @@ export default function CatalogClient({
                       )}
                   </p>
                   {(() => {
-                    const linePricing = calculateLinePricing(line, store.pricingSettings, undefined, discountFor(line.product));
+                    const linePricing = calculateLinePricing(line, store.pricingSettings, undefined, pricingCtx);
                     const allocation = fulfillmentAllocations.find((item) => item.productId === line.product.id)?.allocation ?? 0;
                     const casesToPallet =
                       linePricing.palletSize > 0 && linePricing.looseCases > 0
