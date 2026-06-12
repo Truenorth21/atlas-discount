@@ -16,8 +16,9 @@ import {
   calculateQuoteFinancials,
   casesPerPallet,
   formatMoney,
+  marginOfSale,
   productPalletSize,
-  tierPriceFromCost
+  suggestedCasePrice
 } from "@/lib/pricing";
 import { atlasHubs, fulfillmentTypes, productCategories } from "@/lib/data";
 import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, TierPricing } from "@/lib/types";
@@ -308,6 +309,7 @@ export function AdminClient() {
             applications={store.applications}
             products={store.products}
             updateProductTierPricing={updateProductTierPricing}
+            updateProduct={updateProduct}
           />
         )}
         {activeTab === "fulfillment" && <FulfillmentOperationsPanel orders={store.orders} pricingSettings={store.pricingSettings} quoteAdjustments={store.quoteAdjustments} />}
@@ -467,6 +469,7 @@ function ManageProductRow({
   const [form, setForm] = useState({
     brand: product.brand,
     supplierCost: product.supplierCost ? String(product.supplierCost) : "",
+    suggestedRetail: product.suggestedRetail ? String(product.suggestedRetail) : "",
     inventoryAvailable: String(product.inventoryAvailable ?? 0),
     moq: String(product.moq || 1),
     minOrderValue: product.minOrderValue ? String(product.minOrderValue) : "",
@@ -484,6 +487,7 @@ function ManageProductRow({
     updateProduct(product.id, {
       brand: form.brand.trim() || product.brand,
       supplierCost: toNum(form.supplierCost) ?? 0,
+      suggestedRetail: toNum(form.suggestedRetail) ?? 0,
       inventoryAvailable: toNum(form.inventoryAvailable) ?? 0,
       moq: toNum(form.moq) ?? 1,
       minOrderValue: toNum(form.minOrderValue) ?? 0,
@@ -520,6 +524,7 @@ function ManageProductRow({
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <ManageField label="Product name" value={form.brand} onChange={set("brand")} />
+        <ManageField label="SRP / unit ($)" type="number" value={form.suggestedRetail} onChange={set("suggestedRetail")} placeholder="e.g. 4.99" />
         <ManageField label="Case cost ($)" type="number" value={form.supplierCost} onChange={set("supplierCost")} />
         <ManageField label="Min order (cases)" type="number" value={form.moq} onChange={set("moq")} />
         <ManageField label="Min order value ($)" type="number" value={form.minOrderValue} onChange={set("minOrderValue")} placeholder="optional" />
@@ -815,11 +820,17 @@ function buildTierPricing(form: typeof blankProductForm): TierPricing {
   return Object.keys(palletPrices).length > 0 ? { case: casePrices, pallet: palletPrices } : { case: casePrices };
 }
 
-const PRODUCT_FORM_TIERS: Array<{ id: string; label: string; priceField: keyof typeof blankProductForm; palletField: keyof typeof blankProductForm; defaultMarkup: number }> = [
-  { id: "retailer", label: "Retailer", priceField: "priceRetailer", palletField: "palletPriceRetailer", defaultMarkup: 30 },
-  { id: "distributor", label: "Distributor", priceField: "priceDistributor", palletField: "palletPriceDistributor", defaultMarkup: 22 },
-  { id: "atlas_rep", label: "Sales Rep", priceField: "priceAtlasRep", palletField: "palletPriceAtlasRep", defaultMarkup: 15 }
+const PRODUCT_FORM_TIERS: Array<{ id: string; label: string; priceField: keyof typeof blankProductForm; palletField: keyof typeof blankProductForm; marginPct: number }> = [
+  { id: "retailer", label: "Retailer", priceField: "priceRetailer", palletField: "palletPriceRetailer", marginPct: 33 },
+  { id: "distributor", label: "Distributor", priceField: "priceDistributor", palletField: "palletPriceDistributor", marginPct: 40 },
+  { id: "atlas_rep", label: "Sales Rep", priceField: "priceAtlasRep", palletField: "palletPriceAtlasRep", marginPct: 45 }
 ];
+
+/** Suggested case price from SRP/unit × pack × (1 − buyer margin). 0 when no SRP. */
+function suggestedFromSrp(srpPerUnit: number, casePack: number, marginPct: number) {
+  if (!srpPerUnit || srpPerUnit <= 0) return 0;
+  return Math.round(srpPerUnit * (casePack || 1) * (1 - marginPct / 100) * 100) / 100;
+}
 
 function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeof useAtlasStore>["addProducts"] }) {
   const [form, setForm] = useState(blankProductForm);
@@ -1030,26 +1041,34 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
           </>
         )}
 
-        <ProductSectionHeading>Pricing (per master case)</ProductSectionHeading>
-        <AdminProductInput label="Case cost to Atlas" type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
-        <AdminProductInput label="Suggested retail (MSRP, optional)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
+        <ProductSectionHeading>Pricing</ProductSectionHeading>
+        <AdminProductInput label="Case cost to Atlas (for margin)" type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
+        <AdminProductInput label="Suggested retail per UNIT ($)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
         <div className="hidden md:block" />
+        <p className="md:col-span-3 -mb-1 text-xs text-slate-500">
+          Enter the retail price per unit and each level&apos;s case price is calculated as SRP × units-per-case × (1 − the level&apos;s margin).
+          Leave a price blank to use that calculation, or type an exact price. Cost just shows Atlas&apos;s margin.
+        </p>
         <div className="md:col-span-3 grid gap-3 rounded-md border border-slate-200 bg-atlas-light p-3 sm:grid-cols-3">
           {PRODUCT_FORM_TIERS.map((tier) => {
             const cost = toNum(form.supplierCost) ?? 0;
+            const srp = toNum(form.suggestedRetail) ?? 0;
+            const pack = toNum(form.casePack) ?? 1;
+            const suggested = suggestedFromSrp(srp, pack, tier.marginPct);
             const priceRaw = form[tier.priceField];
-            const effective = priceRaw.trim() === "" ? tierPriceFromCost(cost, tier.defaultMarkup) : toNum(priceRaw) ?? 0;
-            const marginPct = effective > 0 && cost > 0 ? Math.round(((effective - cost) / effective) * 100) : 0;
+            const effective = priceRaw.trim() === "" ? suggested : toNum(priceRaw) ?? 0;
+            const atlasMargin = marginOfSale(effective, cost);
             return (
               <div key={tier.id} className="grid gap-1 rounded-md bg-white p-2">
                 <span className="text-xs font-black uppercase tracking-wide text-atlas-blue">{tier.label}</span>
+                <span className="text-[11px] font-semibold text-slate-400">{tier.marginPct}% buyer margin off SRP</span>
                 <label className="grid gap-1">
                   <span className="text-[11px] font-semibold text-slate-500">Case price $</span>
                   <input
                     className="field h-9 min-h-9"
                     type="number"
                     step="0.01"
-                    placeholder={cost > 0 ? `${formatMoney(tierPriceFromCost(cost, tier.defaultMarkup))} (default)` : "0.00"}
+                    placeholder={suggested > 0 ? `${formatMoney(suggested)} (from SRP)` : "enter SRP or price"}
                     value={priceRaw}
                     onChange={updateField(tier.priceField)}
                   />
@@ -1066,7 +1085,7 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
                   />
                 </label>
                 <span className="text-[11px] font-semibold text-emerald-700">
-                  {cost > 0 ? `${marginPct}% margin · ${formatMoney(effective - cost)}/case` : "Enter cost for margin"}
+                  {effective > 0 && cost > 0 ? `Atlas margin ${atlasMargin}% · ${formatMoney(effective - cost)}/case` : "Cost shows Atlas margin"}
                 </span>
               </div>
             );
@@ -2015,13 +2034,12 @@ function PricingSettingsPanel({
         </div>
       </div>
 
-      <PricingGroup
-        title="Order minimum"
-        body="A buyer must reach at least one of these before they can submit an order. Individual products can also require their own minimum (set on the product)."
-      >
-        <NumberField label="Minimum cases per order" value={settings.minimumMixedOrderCases} onChange={updateNumber("minimumMixedOrderCases")} hint="Smallest total case count Atlas will quote." suffix="cases" />
-        <NumberField label="Minimum order value" value={settings.minimumOrderValue} onChange={updateNumber("minimumOrderValue")} hint="Or the order can qualify by dollar value instead." prefix="$" />
-      </PricingGroup>
+      <div className="panel border border-sky-200 bg-sky-50 p-4">
+        <p className="text-sm font-bold text-atlas-navy">Order minimums are set per product</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Each product carries its own minimum (cases and/or value) in the Products tab — there&apos;s no separate order-wide minimum.
+        </p>
+      </div>
 
       <PricingGroup
         title="Hub handling &amp; pickup"
@@ -2452,13 +2470,15 @@ function CustomerPricingPanel({
   updatePricingSettings,
   applications,
   products,
-  updateProductTierPricing
+  updateProductTierPricing,
+  updateProduct
 }: {
   settings: PricingSettings;
   updatePricingSettings: (settings: PricingSettings) => void;
   applications: Application[];
   products: Product[];
   updateProductTierPricing: (id: string, tierPricing: TierPricing) => void;
+  updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
 }) {
   const [tierDraft, setTierDraft] = useState<CustomerTier[]>(settings.customerTiers ?? []);
   const [accountDraft, setAccountDraft] = useState<AccountPricing[]>(settings.accountPricing ?? []);
@@ -2486,7 +2506,7 @@ function CustomerPricingPanel({
     setTierDraft((current) => current.map((tier) => (tier.id === id ? { ...tier, ...patch } : tier)));
   }
   function addTier() {
-    setTierDraft((current) => [...current, { id: `tier_${Date.now().toString(36)}`, label: "New level", defaultMarkupPct: 25 }]);
+    setTierDraft((current) => [...current, { id: `tier_${Date.now().toString(36)}`, label: "New level", marginPct: 35 }]);
   }
   function removeTier(id: string) {
     setTierDraft((current) => current.filter((tier) => tier.id !== id));
@@ -2510,11 +2530,12 @@ function CustomerPricingPanel({
   return (
     <div className="grid gap-6">
       <section className="panel p-5">
-        <h2 className="text-xl font-black text-atlas-navy">Customer pricing</h2>
+        <h2 className="text-xl font-black text-atlas-navy">Product prices</h2>
         <p className="mt-2 max-w-3xl text-sm text-slate-600">
-          Atlas sells by the <span className="font-bold">master case</span>. For each product you enter the price each
-          customer type pays (you see your case cost and the margin). New products pre-fill from the default markups below,
-          and you can change any price. Buyers only see their own tier&apos;s price after sign-in — cost and margin are never shown to them.
+          Atlas sells by the <span className="font-bold">master case</span>. On each product you set the
+          <span className="font-bold"> retail price per unit (SRP)</span>; each level&apos;s case price is then calculated as
+          SRP × units-per-case × (1 − that level&apos;s margin). You can type an exact price to override. Buyers see only their own level&apos;s
+          price after sign-in — cost and margin are never shown to them.
         </p>
       </section>
 
@@ -2522,7 +2543,7 @@ function CustomerPricingPanel({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-lg font-black text-atlas-navy">Price levels</h3>
-            <p className="mt-1 text-sm text-slate-600">Customer types and the default markup over cost used to pre-fill new products.</p>
+            <p className="mt-1 text-sm text-slate-600">Each customer type and the buyer margin off retail used to calculate their price.</p>
           </div>
           <button className="btn-secondary" type="button" onClick={addTier}>
             Add level
@@ -2536,13 +2557,13 @@ function CustomerPricingPanel({
                 <input className="field" value={tier.label} onChange={(event) => updateTier(tier.id, { label: event.target.value })} />
               </label>
               <label className="grid gap-1">
-                <span className="label">Default markup over cost (%)</span>
+                <span className="label">Buyer margin off SRP (%)</span>
                 <input
                   className="field"
                   type="number"
                   step="0.5"
-                  value={tier.defaultMarkupPct}
-                  onChange={(event) => updateTier(tier.id, { defaultMarkupPct: Number(event.target.value) })}
+                  value={tier.marginPct}
+                  onChange={(event) => updateTier(tier.id, { marginPct: Number(event.target.value) })}
                 />
               </label>
               <div className="flex items-center gap-2 pb-2">
@@ -2640,11 +2661,10 @@ function CustomerPricingPanel({
       <section className="panel p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-black text-atlas-navy">Product prices</h3>
+            <h3 className="text-lg font-black text-atlas-navy">Prices by product</h3>
             <p className="mt-1 max-w-3xl text-sm text-slate-600">
-              Set the case price each level pays. The <span className="font-bold">suggested</span> price and margin (from each level&apos;s
-              default markup) show beside every field — keep them or type your own. Cases-per-pallet and the order minimum come from each
-              product&apos;s setup.
+              Set the <span className="font-bold">retail price per unit</span> and each level&apos;s case price is calculated for you (SRP ×
+              units-per-case × (1 − margin)). Type a price to override. Cost is optional and only shows Atlas&apos;s margin.
             </p>
           </div>
           {missingPriceCount > 0 && (
@@ -2668,6 +2688,7 @@ function CustomerPricingPanel({
                       product={product}
                       tiers={tierDraft}
                       onSave={updateProductTierPricing}
+                      updateProduct={updateProduct}
                     />
                   ))}
                 </div>
@@ -2683,20 +2704,26 @@ function CustomerPricingPanel({
 function ProductTierPriceRow({
   product,
   tiers,
-  onSave
+  onSave,
+  updateProduct
 }: {
   product: Product;
   tiers: CustomerTier[];
   onSave: (id: string, tierPricing: TierPricing) => void;
+  updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
 }) {
   const cost = product.supplierCost;
+  const pack = product.casePack || 1;
   const seed: Record<string, string> = {};
   for (const tier of tiers) {
     const value = product.tierPricing?.case?.[tier.id];
     seed[tier.id] = typeof value === "number" ? String(value) : "";
   }
   const [draft, setDraft] = useState<Record<string, string>>(seed);
+  const [srp, setSrp] = useState(product.suggestedRetail ? String(product.suggestedRetail) : "");
   const [saved, setSaved] = useState(false);
+
+  const srpNum = Number(srp) || 0;
 
   function save() {
     const casePrices: Record<string, number> = {};
@@ -2704,6 +2731,7 @@ function ProductTierPriceRow({
       const numeric = Number(value);
       if (value.trim() !== "" && !Number.isNaN(numeric) && numeric > 0) casePrices[tierId] = numeric;
     }
+    if (srpNum !== (product.suggestedRetail || 0)) updateProduct(product.id, { suggestedRetail: srpNum });
     onSave(product.id, { case: casePrices, pallet: product.tierPricing?.pallet });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -2720,21 +2748,31 @@ function ProductTierPriceRow({
             {product.status === "pending" && <span className="badge bg-amber-50 text-amber-800">Pending</span>}
           </p>
           <p className="truncate text-xs text-slate-500">
-            {product.sku} · {palletCases > 0 ? `${palletCases} cases/pallet` : "pallet not set"} · min {product.moq || 1} {(product.moq || 1) === 1 ? "case" : "cases"}
+            {product.sku} · {pack} units/case · {palletCases > 0 ? `${palletCases} cases/pallet` : "pallet not set"} · min {product.moq || 1} {(product.moq || 1) === 1 ? "case" : "cases"}
           </p>
         </div>
-        <p className="text-sm font-black text-atlas-navy">
-          Case cost <span className="text-atlas-red">{cost > 0 ? formatMoney(cost) : "— set on product"}</span>
-        </p>
+        <label className="flex items-center gap-2 text-sm font-black text-atlas-navy">
+          SRP / unit
+          <span className="flex items-center rounded-md border border-slate-300 bg-white">
+            <span className="pl-2 text-xs text-slate-400">$</span>
+            <input
+              className="w-20 border-0 bg-transparent px-1 py-1 text-sm focus:outline-none"
+              type="number"
+              step="0.01"
+              placeholder="4.99"
+              value={srp}
+              onChange={(event) => setSrp(event.target.value)}
+            />
+          </span>
+        </label>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {tiers.map((tier) => {
           const raw = draft[tier.id] ?? "";
-          const suggested = tierPriceFromCost(cost, tier.defaultMarkupPct);
-          const suggestedMargin = suggested > 0 && cost > 0 ? Math.round(((suggested - cost) / suggested) * 100) : 0;
+          const suggested = suggestedFromSrp(srpNum, pack, tier.marginPct);
           const effective = raw.trim() === "" ? suggested : Number(raw) || 0;
-          const marginPct = effective > 0 && cost > 0 ? Math.round(((effective - cost) / effective) * 100) : 0;
           const usingSuggested = raw.trim() === "";
+          const atlasMargin = marginOfSale(effective, cost);
           return (
             <label key={tier.id} className="grid gap-1 rounded-md bg-atlas-light p-2">
               <span className="text-xs font-bold text-slate-600">{tier.label} · $ / case</span>
@@ -2742,19 +2780,15 @@ function ProductTierPriceRow({
                 className="field h-9 min-h-9"
                 type="number"
                 step="0.01"
-                placeholder={cost > 0 ? `${formatMoney(suggested)}` : "set cost first"}
+                placeholder={suggested > 0 ? `${formatMoney(suggested)}` : "enter SRP or price"}
                 value={raw}
                 onChange={(event) => setDraft((current) => ({ ...current, [tier.id]: event.target.value }))}
               />
-              {cost > 0 ? (
-                <span className="text-xs font-semibold text-emerald-700">
-                  {usingSuggested
-                    ? `Suggested ${formatMoney(suggested)} · ${suggestedMargin}% margin`
-                    : `${marginPct}% margin · ${formatMoney(effective - cost)}/case`}
-                </span>
-              ) : (
-                <span className="text-xs font-semibold text-slate-400">Enter cost on the product</span>
-              )}
+              <span className="text-xs font-semibold text-emerald-700">
+                {effective > 0
+                  ? `${usingSuggested ? `From SRP ${formatMoney(suggested)} · ` : ""}${tier.marginPct}% buyer margin${cost > 0 ? ` · Atlas ${atlasMargin}%` : ""}`
+                  : "Set SRP or type a price"}
+              </span>
             </label>
           );
         })}

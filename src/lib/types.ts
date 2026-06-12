@@ -30,7 +30,7 @@ export type Product = {
   supplierCost: number;
   /** Explicit per-tier sell prices the admin enters per master case (and optional full-pallet price). */
   tierPricing?: TierPricing;
-  /** Suggested retail (MSRP) per master case — optional reference for buyer margin. */
+  /** Suggested retail (SRP) per UNIT — when set, it calculates each level's case price. */
   suggestedRetail: number;
   /** Minimum order quantity for this product, in master cases. */
   moq: number;
@@ -102,8 +102,11 @@ export type TierPricing = {
 export type CustomerTier = {
   id: string;
   label: string;
-  /** Default markup % over case cost used to pre-fill this tier's price on new products. */
-  defaultMarkupPct: number;
+  /**
+   * The buyer's margin off retail for this level (a % of the sale price/SRP).
+   * Suggested case price = SRP/unit × units-per-case × (1 − marginPct/100).
+   */
+  marginPct: number;
   /** Marks the reference/standard price level. */
   isReference?: boolean;
 };

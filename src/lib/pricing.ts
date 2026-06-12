@@ -14,13 +14,26 @@ export function tierLabel(settings: PricingSettings, tierId: string): string {
   return findTier(settings, tierId)?.label ?? "Retailer";
 }
 
-export function tierDefaultMarkupPct(settings: PricingSettings, tierId: string): number {
-  return findTier(settings, tierId)?.defaultMarkupPct ?? 0;
+/** The buyer's margin off retail (% of sale price) for a price level. */
+export function tierMarginPct(settings: PricingSettings, tierId: string): number {
+  return findTier(settings, tierId)?.marginPct ?? 0;
 }
 
-/** Auto-fill helper: master-case price at a markup over cost (admin can override). */
-export function tierPriceFromCost(cost: number, markupPct: number) {
-  return Math.round(cost * (1 + markupPct / 100) * 100) / 100;
+/** Margin as a % of the sale price: (price − cost) / price. */
+export function marginOfSale(price: number, cost: number): number {
+  return price > 0 && cost > 0 ? Math.round(((price - cost) / price) * 100) : 0;
+}
+
+/**
+ * Suggested case price from the retail price: SRP/unit × units-per-case × (1 − level margin).
+ * Returns undefined when no SRP is set on the product.
+ */
+export function suggestedCasePrice(product: Product, settings: PricingSettings, tierId: string): number | undefined {
+  const srpPerUnit = product.suggestedRetail;
+  const pack = product.casePack || 1;
+  if (!srpPerUnit || srpPerUnit <= 0) return undefined;
+  const margin = tierMarginPct(settings, tierId);
+  return Math.round(srpPerUnit * pack * (1 - margin / 100) * 100) / 100;
 }
 
 /** Per-account % off the tier price (special deals). 0 when none. */
@@ -31,14 +44,13 @@ function accountAdjustmentPct(settings: PricingSettings, accountId?: string): nu
 }
 
 /**
- * Master-case price a tier pays: the admin's explicit price first; if none is set
- * yet, fall back to cost × the tier's default markup (admin rows only).
+ * Master-case price a tier pays: the admin's explicit price first; otherwise the
+ * price calculated from the product's SRP. Undefined when neither is set.
  */
 export function tierCasePrice(product: Product, settings: PricingSettings, tierId: string): number | undefined {
   const explicit = product.tierPricing?.case?.[tierId];
   if (typeof explicit === "number" && explicit > 0) return explicit;
-  if (product.supplierCost > 0) return tierPriceFromCost(product.supplierCost, tierDefaultMarkupPct(settings, tierId));
-  return undefined;
+  return suggestedCasePrice(product, settings, tierId);
 }
 
 /** Full-pallet per-case price: explicit pallet price first, else the case price. */

@@ -76,9 +76,9 @@ export const defaultPricingSettings: PricingSettings = {
   closeoutListingRate: 75,
   supplierMembershipRate: 99,
   customerTiers: [
-    { id: "retailer", label: "Retailer", defaultMarkupPct: 30, isReference: true },
-    { id: "distributor", label: "Distributor", defaultMarkupPct: 22 },
-    { id: "atlas_rep", label: "Sales Rep", defaultMarkupPct: 15 }
+    { id: "retailer", label: "Retailer", marginPct: 33, isReference: true },
+    { id: "distributor", label: "Distributor", marginPct: 40 },
+    { id: "atlas_rep", label: "Sales Rep", marginPct: 45 }
   ],
   accountPricing: []
 };

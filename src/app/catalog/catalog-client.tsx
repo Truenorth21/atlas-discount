@@ -109,17 +109,24 @@ export default function CatalogClient({
     "Freight quote needed": t("fulfillmentFreightGuide"),
     "Supplier direct": t("fulfillmentSupplierDirectGuide")
   } satisfies Record<FulfillmentType, string>;
-  const meetsCaseMinimum = totalCases >= store.pricingSettings.minimumMixedOrderCases;
-  const meetsValueMinimum = estimatedQuoteTotal >= store.pricingSettings.minimumOrderValue;
-  const canRequestQuote = store.cart.length > 0 && (meetsCaseMinimum || meetsValueMinimum);
-  const minimumCaseProgress = Math.min(100, (totalCases / store.pricingSettings.minimumMixedOrderCases) * 100);
-  const minimumValueProgress = Math.min(100, (estimatedQuoteTotal / store.pricingSettings.minimumOrderValue) * 100);
+  // Each product carries its own minimum (cases and/or value). A line passes if it
+  // meets the case minimum OR the dollar-value minimum.
+  function lineMeetsMinimum(line: { product: Product; quantity: number }) {
+    const minCases = line.product.moq || 1;
+    const minValue = line.product.minOrderValue || 0;
+    if (line.quantity >= minCases) return true;
+    if (minValue > 0) {
+      const price = buyerCasePrice({ settings: store.pricingSettings, product: line.product, tierId: buyerTierId, accountId: userId });
+      return price > 0 && line.quantity * price >= minValue;
+    }
+    return false;
+  }
+  const linesBelowMin = store.cart.filter((line) => !lineMeetsMinimum(line));
+  const canRequestQuote = store.cart.length > 0 && linesBelowMin.length === 0;
   const promotedProducts = approved
     .filter((product) => product.placements?.weeklyDeal || product.promotion)
     .slice(0, 4);
   const weeklyDeals = promotedProducts.length > 0 ? promotedProducts : approved.slice(0, 4);
-  const remainingCases = Math.max(0, store.pricingSettings.minimumMixedOrderCases - totalCases);
-  const remainingValue = Math.max(0, store.pricingSettings.minimumOrderValue - estimatedQuoteTotal);
   const nextActionTitle =
     store.cart.length === 0
       ? t("startWithProducts")
@@ -135,7 +142,7 @@ export default function CatalogClient({
         ? hubPickupAutoPriced
           ? t("pickupAutomatic")
           : t("atlasReviewsFinal")
-        : `${t("addMoreMinimumPrefix")} ${remainingCases} ${t("addMoreMinimumMiddle")} ${formatMoney(remainingValue)} ${t("addMoreMinimumSuffix")}`;
+        : `${linesBelowMin.length} ${linesBelowMin.length === 1 ? t("itemBelowMin") : t("itemsBelowMin")}`;
 
   function requestQuote() {
     if (!isAuthenticated) {
@@ -304,8 +311,9 @@ export default function CatalogClient({
                       const standard = standardCasePrice(product, store.pricingSettings);
                       const yourPrice = buyerCasePrice({ settings: store.pricingSettings, product, tierId: buyerTierId, accountId: userId });
                       const discounted = yourPrice < standard - 0.001;
-                      const msrp = product.suggestedRetail || 0;
-                      const marginPct = msrp > 0 && yourPrice > 0 ? Math.round(((msrp - yourPrice) / msrp) * 100) : 0;
+                      const srpPerUnit = product.suggestedRetail || 0;
+                      const caseSrp = srpPerUnit * (product.casePack || 1);
+                      const marginPct = caseSrp > 0 && yourPrice > 0 ? Math.round(((caseSrp - yourPrice) / caseSrp) * 100) : 0;
                       return (
                         <>
                           <p className="text-xs font-bold uppercase text-slate-500">
@@ -317,9 +325,9 @@ export default function CatalogClient({
                               <span className="text-sm font-semibold text-slate-400 line-through">{formatMoney(standard)}</span>
                             )}
                           </p>
-                          {canSeePricing && msrp > 0 && (
+                          {canSeePricing && srpPerUnit > 0 && (
                             <p className="mt-1 text-xs font-semibold text-emerald-700">
-                              {t("msrpLabel")} {formatMoney(msrp)}{marginPct > 0 ? ` · ${marginPct}% ${t("marginLabel")}` : ""}
+                              {t("msrpLabel")} {formatMoney(srpPerUnit)}/{t("unitLabel")}{marginPct > 0 ? ` · ${marginPct}% ${t("marginLabel")}` : ""}
                             </p>
                           )}
                         </>
@@ -547,21 +555,28 @@ export default function CatalogClient({
             <span>{hubPickupAutoPriced ? t("pickupTotal") : t("estimatedQuoteTotal")}</span>
             <span>{formatMoney(estimatedQuoteTotal)}</span>
           </div>
-          <div className="mt-4 rounded-md border border-slate-200 p-3 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <span className="font-bold text-atlas-navy">{t("mixedOrderMinimum")}</span>
-              <span className={canRequestQuote ? "font-bold text-emerald-700" : "font-bold text-amber-700"}>
-                {canRequestQuote ? t("ready") : t("keepAdding")}
-              </span>
+          {store.cart.length > 0 && (
+            <div className="mt-4 rounded-md border border-slate-200 p-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-bold text-atlas-navy">{t("perProductMinimums")}</span>
+                <span className={canRequestQuote ? "font-bold text-emerald-700" : "font-bold text-amber-700"}>
+                  {canRequestQuote ? t("ready") : t("keepAdding")}
+                </span>
+              </div>
+              <div className="mt-2 grid gap-1 text-xs">
+                {linesBelowMin.length === 0 ? (
+                  <p className="text-slate-600">{t("allItemsMeetMin")}</p>
+                ) : (
+                  linesBelowMin.map((line) => (
+                    <p key={line.product.id} className="text-amber-700">
+                      <span className="font-bold">{line.product.brand}:</span> {t("needsMin")} {line.product.moq || 1} {t("cases")}
+                      {line.product.minOrderValue ? ` ${t("orLabel")} ${formatMoney(line.product.minOrderValue)}` : ""}
+                    </p>
+                  ))
+                )}
+              </div>
             </div>
-            <div className="mt-3 grid gap-2">
-              <MinimumMeter label={`${totalCases}/${store.pricingSettings.minimumMixedOrderCases} cases`} percent={minimumCaseProgress} />
-              <MinimumMeter label={`${formatMoney(estimatedQuoteTotal)}/${formatMoney(store.pricingSettings.minimumOrderValue)}`} percent={minimumValueProgress} />
-            </div>
-            <p className="mt-2 text-xs text-slate-600">
-              {t("minimumHelp")}
-            </p>
-          </div>
+          )}
           <button className="btn-danger mt-4 w-full" type="button" disabled={!canRequestQuote} onClick={requestQuote}>
             {orderActionLabel}
           </button>
@@ -584,19 +599,6 @@ export default function CatalogClient({
   );
 }
 
-function MinimumMeter({ label, percent }: { label: string; percent: number }) {
-  return (
-    <div>
-      <div className="flex justify-between text-xs font-semibold text-slate-600">
-        <span>{label}</span>
-        <span>{Math.round(percent)}%</span>
-      </div>
-      <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-200">
-        <div className="h-full rounded-full bg-atlas-blue" style={{ width: `${percent}%` }} />
-      </div>
-    </div>
-  );
-}
 
 function BuyerStep({ title, body, active = false }: { title: string; body: string; active?: boolean }) {
   return (
