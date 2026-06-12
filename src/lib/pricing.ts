@@ -49,6 +49,11 @@ export function applyTierDiscount(standardPrice: number, pct: number) {
 
 /** Standard (reference) loose-case sell price for a product, before any tier discount. */
 export function standardCasePrice(product: Product, settings: PricingSettings) {
+  if (hasViewPricing(product)) {
+    return product.preferredHub === "Supplier direct" && product.supplierDirectPrice
+      ? product.supplierDirectPrice
+      : (product.casePrice as number);
+  }
   return calculateLinePricing({ product, quantity: 1 }, settings).casePrice;
 }
 
@@ -67,6 +72,25 @@ export function buyerCasePrice(args: {
 export function casesPerPallet(palletConfiguration: string) {
   const match = palletConfiguration.match(/(\d+)\s*cases?/i);
   return match ? Number(match[1]) : 0;
+}
+
+/** Pallet size for a product: structured Ti×Hi spec wins over the legacy free-text field. */
+export function productPalletSize(product: Product) {
+  const fromSpec = (product.spec?.palletCasesPerFloor ?? 0) * (product.spec?.palletLayers ?? 0);
+  return fromSpec > 0 ? fromSpec : casesPerPallet(product.palletConfiguration);
+}
+
+/** Human-readable pallet configuration ("16/floor × 10 high = 160 cases") from spec, else the raw field. */
+export function palletConfigLabel(product: Product) {
+  const floor = product.spec?.palletCasesPerFloor;
+  const layers = product.spec?.palletLayers;
+  if (floor && layers) return `${floor}/floor × ${layers} high = ${floor * layers} cases`;
+  return product.palletConfiguration;
+}
+
+/** True when the row came from the public catalog view (cost hidden, sell prices precomputed). */
+function hasViewPricing(product: Product) {
+  return (!product.supplierCost || product.supplierCost <= 0) && typeof product.casePrice === "number" && product.casePrice > 0;
 }
 
 export function atlasCaseSellPrice(supplierCost: number, settings: PricingSettings) {
@@ -102,12 +126,29 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
   }
 
   if (line.product.preferredHub === "Supplier direct") {
+    // Buyer-side rows from the catalog view carry a precomputed per-case price; cost stays hidden.
+    if (hasViewPricing(line.product)) {
+      const price = line.product.supplierDirectPrice ?? (line.product.casePrice as number);
+      return {
+        palletSize: productPalletSize(line.product),
+        palletCases: 0,
+        looseCases: 0,
+        supplierDirectCases: line.quantity,
+        casePrice: price,
+        palletPrice: price,
+        supplierCost: 0,
+        revenue: price * line.quantity,
+        margin: 0,
+        pricingModel: "Supplier direct fulfillment fee" as const
+      };
+    }
+
     const supplierCost = line.product.supplierCost * line.quantity;
     const fee = Math.max(supplierCost * (settings.supplierDirectFeePercent / 100), settings.supplierDirectMinimumFee);
     const price = (supplierCost + fee) / line.quantity;
 
     return {
-      palletSize: casesPerPallet(line.product.palletConfiguration),
+      palletSize: productPalletSize(line.product),
       palletCases: 0,
       looseCases: 0,
       supplierDirectCases: line.quantity,
@@ -120,11 +161,14 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
     };
   }
 
-  const palletSize = casesPerPallet(line.product.palletConfiguration);
+  const palletSize = productPalletSize(line.product);
   const palletCases = palletSize > 0 ? Math.floor(line.quantity / palletSize) * palletSize : 0;
   const looseCases = line.quantity - palletCases;
-  const casePrice = atlasCaseSellPrice(line.product.supplierCost, settings);
-  const palletPrice = atlasPalletSellPrice(line.product.supplierCost, settings);
+  const viewPriced = hasViewPricing(line.product);
+  const casePrice = viewPriced ? (line.product.casePrice as number) : atlasCaseSellPrice(line.product.supplierCost, settings);
+  const palletPrice = viewPriced
+    ? (line.product.palletPrice ?? (line.product.casePrice as number))
+    : atlasPalletSellPrice(line.product.supplierCost, settings);
   const supplierCost = line.product.supplierCost * line.quantity;
   const revenue = palletCases * palletPrice + looseCases * casePrice;
 
@@ -140,6 +184,31 @@ export function calculateLinePricing(line: CartLine, settings: PricingSettings, 
     margin: revenue - supplierCost,
     pricingModel: "Atlas hub product margin" as const
   };
+}
+
+/**
+ * Destination hub for an order: the explicit field, or parsed from the hubRouting
+ * text (orders reloaded from the database carry it only in that string).
+ */
+export function resolveDestinationHub(order: OrderRequest): "Miami hub" | "Orlando hub" | undefined {
+  if (order.destinationHub) return order.destinationHub;
+  const match = order.hubRouting?.match(/Receive at:\s*(Miami hub|Orlando hub)/i);
+  return match ? (match[1] as "Miami hub" | "Orlando hub") : undefined;
+}
+
+/**
+ * Cases that must cross-dock between Miami and Orlando: hub-stocked lines whose
+ * home hub differs from where the buyer receives the order. Supplier-direct
+ * lines never transfer.
+ */
+export function crossDockCases(order: OrderRequest) {
+  const destination = resolveDestinationHub(order);
+  if (!destination) return 0;
+  return (order.lineItems ?? []).reduce((sum, line) => {
+    const hub = line.product.preferredHub;
+    if ((hub === "Miami hub" || hub === "Orlando hub") && hub !== destination) return sum + line.quantity;
+    return sum;
+  }, 0);
 }
 
 function hubCounts(order: OrderRequest) {
@@ -234,6 +303,14 @@ export function calculateQuoteFinancials(order: OrderRequest, settings: PricingS
     fulfillmentCost += effectiveSettings.freightCostEstimate;
   }
 
+  // Miami ↔ Orlando cross-dock: lines stored at the other hub move to the buyer's
+  // receiving hub before pickup/delivery.
+  const transferCases =
+    effectiveOrder.fulfillmentType === "Supplier direct" ? 0 : crossDockCases(effectiveOrder);
+  const transferFee = transferCases * (effectiveSettings.hubTransferPerCase ?? 0);
+  fulfillmentFee += transferFee;
+  fulfillmentCost += transferCases * (effectiveSettings.hubTransferCostPerCase ?? 0);
+
   const additionalFee = adjustment?.additionalFee ?? 0;
   const orderDiscount = adjustment?.orderDiscount ?? 0;
   fulfillmentFee += additionalFee;
@@ -252,6 +329,8 @@ export function calculateQuoteFinancials(order: OrderRequest, settings: PricingS
     looseCases,
     fulfillmentFee,
     fulfillmentCost,
+    transferCases,
+    transferFee,
     additionalFee,
     orderDiscount,
     buyerTotal,

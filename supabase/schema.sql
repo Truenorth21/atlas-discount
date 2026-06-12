@@ -199,6 +199,7 @@ create table public.pricing_settings (
   new_product_launch_rate numeric(12, 2) not null default 225,
   closeout_listing_rate numeric(12, 2) not null default 150,
   supplier_membership_rate numeric(12, 2) not null default 99,
+  customer_pricing jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now(),
   constraint one_pricing_settings_row check (id = true)
 );
@@ -314,9 +315,9 @@ create policy "product uploads supplier select" on public.product_uploads
 create policy "product uploads admin update" on public.product_uploads
   for update using (public.is_admin()) with check (public.is_admin());
 
-create policy "approved products visible" on public.products
-  for select using (status = 'approved');
-
+-- NOTE: buyers and anonymous visitors read products through the catalog_products
+-- view below (sell prices computed in the database, supplier_cost never exposed).
+-- Raw table reads stay limited to the owning supplier and admins.
 create policy "supplier products visible to owner" on public.products
   for select using (public.owns_supplier_profile(supplier_profile_id));
 
@@ -328,6 +329,29 @@ create policy "supplier updates inventory only gate" on public.products
 
 create policy "admin manages products" on public.products
   for all using (public.is_admin()) with check (public.is_admin());
+
+-- Public catalog: approved products with sell prices computed from pricing_settings.
+-- supplier_cost is intentionally excluded — buyers never see cost or margin.
+-- Security-definer view (default): reads products/pricing_settings as owner, so the
+-- restrictive table policies above stay intact.
+create or replace view public.catalog_products as
+select
+  p.id, p.sku, p.brand, p.upc, p.product_name, p.description, p.category, p.subcategory,
+  p.unit_size, p.image_url, p.product_dimensions, p.unit_weight, p.spec,
+  p.case_pack, p.case_dimensions, p.case_weight, p.pallet_configuration,
+  p.suggested_retail, p.moq, p.lead_time, p.inventory_available,
+  p.pickup_shipping_location, p.pickup_location, p.shipping_location, p.delivery_radius,
+  p.preferred_hub, p.route_recommendation, p.supplier_name, p.promotion, p.status, p.created_at,
+  round(greatest(p.supplier_cost * (1 + coalesce(ps.case_markup_percent, 24) / 100),
+                 p.supplier_cost + coalesce(ps.minimum_case_margin_per_case, 3)), 2) as case_price,
+  round(greatest(p.supplier_cost * (1 + coalesce(ps.pallet_markup_percent, 12) / 100),
+                 p.supplier_cost + coalesce(ps.minimum_pallet_margin_per_case, 1.5)), 2) as pallet_price,
+  round(p.supplier_cost * (1 + coalesce(ps.supplier_direct_fee_percent, 10) / 100), 2) as supplier_direct_price
+from public.products p
+left join public.pricing_settings ps on ps.id = true
+where p.status = 'approved';
+
+grant select on public.catalog_products to anon, authenticated;
 
 create policy "buyers manage own saved lists" on public.saved_lists
   for all using (auth.uid() = buyer_profile_id);

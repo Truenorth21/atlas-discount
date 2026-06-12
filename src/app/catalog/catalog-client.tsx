@@ -2,22 +2,27 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, MapPin, Minus, Plus, Search, ShoppingCart, Sparkles, Tag, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeftRight, CheckCircle2, MapPin, Minus, Plus, Search, ShoppingCart, Sparkles, Tag, Trash2, Warehouse } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
-import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, standardCasePrice, tierLabel } from "@/lib/pricing";
+import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel } from "@/lib/pricing";
 import type { FulfillmentType, OrderRequest, Product } from "@/lib/types";
+
+type ReceivingHub = "Miami hub" | "Orlando hub";
 
 export default function CatalogClient({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { t } = useI18n();
   const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, verifyDocuments } = useAtlasStore();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] = useState(searchParams.get("category") || "All");
   const [hub, setHub] = useState("All hubs");
   const [buyerRegion, setBuyerRegion] = useState("South Florida");
+  const [receivingHub, setReceivingHub] = useState<ReceivingHub>("Miami hub");
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>("Pickup");
   const [submittedQuoteId, setSubmittedQuoteId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; label: string } | null>(null);
@@ -54,10 +59,11 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
       return summary;
     }, new Map<string, number>())
   );
+  const receiveAtNote = fulfillmentType === "Supplier direct" ? "" : ` • Receive at: ${receivingHub}`;
   const hubRouting =
     hubSummary.length === 0
       ? t("noHubRoute")
-      : hubSummary.map(([hubName, cases]) => `${hubName}: ${cases} ${t("cases")}`).join(" + ");
+      : hubSummary.map(([hubName, cases]) => `${hubName}: ${cases} ${t("cases")}`).join(" + ") + receiveAtNote;
   const draftOrder: OrderRequest = {
     id: "DRAFT",
     buyer: "Current Retailer",
@@ -65,6 +71,7 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
     totalCases,
     estimatedValue: 0,
     fulfillmentType,
+    destinationHub: receivingHub,
     hubRouting,
     lineItems: store.cart,
     status: "Quote requested",
@@ -125,6 +132,7 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
       totalCases: store.cart.reduce((sum, line) => sum + line.quantity, 0),
       estimatedValue: estimatedQuoteTotal,
       fulfillmentType,
+      destinationHub: receivingHub,
       hubRouting,
       lineItems: store.cart,
       status: hubPickupAutoPriced ? "Ready to confirm" : "Quote requested",
@@ -261,7 +269,7 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
                     <div><dt className="font-bold">{t("directMoq")}</dt><dd>{product.moq} {t("cases")}</dd></div>
                       <div><dt className="font-bold">{t("productDimensions")}</dt><dd>{product.productDimensions || t("notProvided")}</dd></div>
                       <div><dt className="font-bold">{t("caseDimensions")}</dt><dd>{product.caseDimensions || t("notProvided")}</dd></div>
-                      <div><dt className="font-bold">{t("palletConfiguration")}</dt><dd>{product.palletConfiguration || t("notProvided")}</dd></div>
+                      <div><dt className="font-bold">{t("palletConfiguration")}</dt><dd>{palletConfigLabel(product) || t("notProvided")}</dd></div>
                       <div><dt className="font-bold">{t("casePack")}</dt><dd>{product.casePack}</dd></div>
                       <div><dt className="font-bold">{t("inventory")}</dt><dd>{product.inventoryAvailable}</dd></div>
                       <div><dt className="font-bold">{t("location")}</dt><dd>{product.location}</dd></div>
@@ -342,10 +350,24 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
                     </button>
                   </div>
                   <p className="text-slate-600">{line.quantity} {t("cases")} • {line.product.sku}</p>
-                  <p className="mt-1 text-xs font-semibold text-atlas-blue">{line.product.preferredHub ?? "Orlando hub"}</p>
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-atlas-blue">
+                    {line.product.preferredHub ?? "Orlando hub"}
+                    {fulfillmentType !== "Supplier direct" &&
+                      (line.product.preferredHub === "Miami hub" || line.product.preferredHub === "Orlando hub") &&
+                      line.product.preferredHub !== receivingHub && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                          <ArrowLeftRight size={11} />
+                          {t("transfersFrom")} {line.product.preferredHub}
+                        </span>
+                      )}
+                  </p>
                   {(() => {
                     const linePricing = calculateLinePricing(line, store.pricingSettings);
                     const allocation = fulfillmentAllocations.find((item) => item.productId === line.product.id)?.allocation ?? 0;
+                    const casesToPallet =
+                      linePricing.palletSize > 0 && linePricing.looseCases > 0
+                        ? linePricing.palletSize - (line.quantity % linePricing.palletSize)
+                        : 0;
                     return (
                       <div className="mt-2 rounded-md bg-atlas-light p-2 text-xs text-slate-700">
                         {linePricing.pricingModel === "Supplier direct fulfillment fee" ? (
@@ -354,6 +376,11 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
                           <>
                             <p>{linePricing.palletCases} {t("palletPricedCases")} at {formatMoney(linePricing.palletPrice)}</p>
                             <p>{linePricing.looseCases} {t("looseCases")} at {formatMoney(linePricing.casePrice)}</p>
+                            {casesToPallet > 0 && (
+                              <p className="mt-1 font-semibold text-emerald-700">
+                                +{casesToPallet} {t("toPalletRate")} ({linePricing.palletSize} {t("perPallet")})
+                              </p>
+                            )}
                           </>
                         )}
                         {quoteFinancials.fulfillmentFee > 0 && (
@@ -430,6 +457,33 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
             </div>
           </div>
           <div className="mt-4 grid gap-2">
+            <span className="label">{t("receiveOrderAt")}</span>
+            <div className="grid grid-cols-2 gap-2">
+              {(["Miami hub", "Orlando hub"] as ReceivingHub[]).map((hubOption) => (
+                <button
+                  key={hubOption}
+                  className={`flex items-center justify-center gap-2 rounded-md border p-3 text-sm font-black transition ${
+                    receivingHub === hubOption
+                      ? "border-atlas-blue bg-sky-50 text-atlas-navy"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-atlas-blue"
+                  }`}
+                  type="button"
+                  onClick={() => setReceivingHub(hubOption)}
+                >
+                  <Warehouse size={16} className={receivingHub === hubOption ? "text-atlas-blue" : "text-slate-400"} />
+                  {hubOption}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">{t("receiveHubHelp")}</p>
+            {quoteFinancials.transferCases > 0 && (
+              <p className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs font-semibold text-amber-900">
+                <ArrowLeftRight size={14} className="mt-0.5 shrink-0" />
+                {t("crossDockTransfer")}: {quoteFinancials.transferCases} {t("cases")} → {receivingHub} ({formatMoney(quoteFinancials.transferFee)})
+              </p>
+            )}
+          </div>
+          <div className="mt-4 grid gap-2">
             <span className="label">{t("chooseFulfillment")}</span>
             <div className="grid gap-2">
               {fulfillmentTypes.map((item) => (
@@ -457,6 +511,12 @@ export default function CatalogClient({ isAuthenticated }: { isAuthenticated: bo
             <span>{fulfillmentType === "Local delivery" ? t("estimatedDeliveryFulfillment") : t("estimatedFulfillment")}</span>
             <span>{formatMoney(quoteFinancials.fulfillmentFee)}</span>
           </div>
+          {quoteFinancials.transferFee > 0 && (
+            <div className="mt-1 flex items-center justify-between text-xs font-semibold text-slate-500">
+              <span>↳ {t("crossDockTransfer")} ({quoteFinancials.transferCases} {t("cases")}, {t("includedInFulfillment")})</span>
+              <span>{formatMoney(quoteFinancials.transferFee)}</span>
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-between text-lg font-black text-atlas-navy">
             <span>{hubPickupAutoPriced ? t("pickupTotal") : t("estimatedQuoteTotal")}</span>
             <span>{formatMoney(estimatedQuoteTotal)}</span>

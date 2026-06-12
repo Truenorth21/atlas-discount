@@ -27,6 +27,10 @@ export type Product = {
   caseWeight: string;
   palletConfiguration: string;
   supplierCost: number;
+  /** Computed sell prices from the public catalog view (cost stays hidden from buyers). */
+  casePrice?: number;
+  palletPrice?: number;
+  supplierDirectPrice?: number;
   suggestedRetail: number;
   moq: number;
   leadTime: string;
@@ -155,6 +159,8 @@ export type OrderRequest = {
   totalCases: number;
   estimatedValue: number;
   fulfillmentType: FulfillmentType;
+  /** Hub where the buyer receives the order (pickup/delivery). Lines stored at the other hub cross-dock here. */
+  destinationHub?: "Miami hub" | "Orlando hub";
   hubRouting: string;
   lineItems?: CartLine[];
   status: "Quote requested" | "Admin review" | "Sent to supplier" | "Ready to confirm";
@@ -198,6 +204,10 @@ export type PricingSettings = {
   orlandoHubHandlingPerCase: number;
   orlandoHubCostPerCase: number;
   pickupFee: number;
+  /** Cross-dock transfer between Miami and Orlando hubs, charged per transferred case. */
+  hubTransferPerCase: number;
+  /** Atlas internal cost per transferred case (admin-only economics). */
+  hubTransferCostPerCase: number;
   localDeliveryFee: number;
   localDeliveryCost: number;
   freightCoordinationFee: number;
@@ -228,6 +238,9 @@ export type QuoteFinancials = {
   looseCases: number;
   fulfillmentFee: number;
   fulfillmentCost: number;
+  /** Cases moving between hubs (Miami ↔ Orlando) before pickup/delivery, and the fee charged for it. */
+  transferCases: number;
+  transferFee: number;
   additionalFee: number;
   orderDiscount: number;
   buyerTotal: number;

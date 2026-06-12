@@ -1820,6 +1820,8 @@ function PricingSettingsPanel({
         <NumberField label="Orlando hub charge / case" value={settings.orlandoHubHandlingPerCase} onChange={updateNumber("orlandoHubHandlingPerCase")} />
         <NumberField label="Orlando hub cost / case" value={settings.orlandoHubCostPerCase} onChange={updateNumber("orlandoHubCostPerCase")} />
         <NumberField label="Pickup fee" value={settings.pickupFee} onChange={updateNumber("pickupFee")} />
+        <NumberField label="Cross-dock transfer charge / case (Miami ↔ Orlando)" value={settings.hubTransferPerCase} onChange={updateNumber("hubTransferPerCase")} />
+        <NumberField label="Cross-dock transfer cost / case" value={settings.hubTransferCostPerCase} onChange={updateNumber("hubTransferCostPerCase")} />
       </PricingGroup>
 
       <PricingGroup

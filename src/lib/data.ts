@@ -58,6 +58,8 @@ export const defaultPricingSettings: PricingSettings = {
   orlandoHubHandlingPerCase: 1.35,
   orlandoHubCostPerCase: 0.7,
   pickupFee: 0,
+  hubTransferPerCase: 0.75,
+  hubTransferCostPerCase: 0.4,
   localDeliveryFee: 75,
   localDeliveryCost: 48,
   freightCoordinationFee: 125,

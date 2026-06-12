@@ -23,7 +23,10 @@ type ProductRow = {
   case_dimensions?: string | null;
   case_weight?: string | null;
   pallet_configuration?: string | null;
-  supplier_cost: number;
+  supplier_cost?: number | null;
+  case_price?: number | null;
+  pallet_price?: number | null;
+  supplier_direct_price?: number | null;
   suggested_retail: number;
   moq: number;
   lead_time: string;
@@ -68,7 +71,12 @@ type PricingRow = {
   new_product_launch_rate: number;
   closeout_listing_rate: number;
   supplier_membership_rate: number;
-  customer_pricing?: { customerTiers?: CustomerTier[]; accountPricing?: AccountPricing[] } | null;
+  customer_pricing?: {
+    customerTiers?: CustomerTier[];
+    accountPricing?: AccountPricing[];
+    hubTransferPerCase?: number;
+    hubTransferCostPerCase?: number;
+  } | null;
 };
 
 function productFromRow(row: ProductRow): Product {
@@ -93,6 +101,9 @@ function productFromRow(row: ProductRow): Product {
     caseWeight: row.case_weight ?? "",
     palletConfiguration: row.pallet_configuration ?? "",
     supplierCost: Number(row.supplier_cost) || 0,
+    casePrice: row.case_price != null ? Number(row.case_price) : undefined,
+    palletPrice: row.pallet_price != null ? Number(row.pallet_price) : undefined,
+    supplierDirectPrice: row.supplier_direct_price != null ? Number(row.supplier_direct_price) : undefined,
     suggestedRetail: Number(row.suggested_retail) || 0,
     moq: Number(row.moq) || 1,
     leadTime: row.lead_time,
@@ -184,7 +195,9 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     closeoutListingRate: Number(row.closeout_listing_rate),
     supplierMembershipRate: Number(row.supplier_membership_rate),
     customerTiers: row.customer_pricing?.customerTiers ?? defaultPricingSettings.customerTiers,
-    accountPricing: row.customer_pricing?.accountPricing ?? defaultPricingSettings.accountPricing
+    accountPricing: row.customer_pricing?.accountPricing ?? defaultPricingSettings.accountPricing,
+    hubTransferPerCase: row.customer_pricing?.hubTransferPerCase ?? defaultPricingSettings.hubTransferPerCase,
+    hubTransferCostPerCase: row.customer_pricing?.hubTransferCostPerCase ?? defaultPricingSettings.hubTransferCostPerCase
   };
 }
 
@@ -221,7 +234,9 @@ function pricingToRow(settings: PricingSettings) {
     supplier_membership_rate: settings.supplierMembershipRate,
     customer_pricing: {
       customerTiers: settings.customerTiers ?? [],
-      accountPricing: settings.accountPricing ?? []
+      accountPricing: settings.accountPricing ?? [],
+      hubTransferPerCase: settings.hubTransferPerCase,
+      hubTransferCostPerCase: settings.hubTransferCostPerCase
     },
     updated_at: new Date().toISOString()
   };
@@ -231,13 +246,22 @@ export async function loadSharedAtlasData() {
   const supabase = createClient();
   if (!supabase) return {};
 
-  const [{ data: products }, { data: pricing }] = await Promise.all([
+  // Buyers and visitors read the catalog view (sell prices computed in the database,
+  // supplier cost never leaves the server). Admin/supplier sessions also get raw
+  // table rows via RLS; those override the view rows so internal tools keep cost data.
+  const [{ data: tableRows }, { data: viewRows }, { data: pricing }] = await Promise.all([
     supabase.from("products").select("*").order("created_at", { ascending: false }),
+    supabase.from("catalog_products").select("*").order("created_at", { ascending: false }),
     supabase.from("pricing_settings").select("*").eq("id", true).maybeSingle()
   ]);
 
+  const merged = new Map<string, ProductRow>();
+  for (const row of (viewRows as ProductRow[] | null) ?? []) merged.set(row.id, row);
+  for (const row of (tableRows as ProductRow[] | null) ?? []) merged.set(row.id, row);
+  const products = merged.size > 0 ? Array.from(merged.values()).map(productFromRow) : undefined;
+
   return {
-    products: products?.map((row) => productFromRow(row as ProductRow)),
+    products,
     pricingSettings: pricing ? { ...defaultPricingSettings, ...pricingFromRow(pricing as PricingRow) } : undefined
   };
 }

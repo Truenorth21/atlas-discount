@@ -6,10 +6,8 @@ import type { Route as NextRoute } from "next";
 import {
   Apple,
   ArrowRight,
-  Baby,
   BadgePercent,
   Boxes,
-  Car,
   CheckCircle2,
   Clock,
   Droplets,
@@ -22,7 +20,6 @@ import {
   Minus,
   PackageSearch,
   Plus,
-  PawPrint,
   Repeat2,
   Search,
   ShieldCheck,
@@ -31,14 +28,13 @@ import {
   Tag,
   Truck,
   UtensilsCrossed,
-  Wine,
-  Wrench,
   Zap,
 } from "lucide-react";
 
 import { AtlasMark } from "@/components/atlas-logo";
 import { useAtlasStore } from "@/components/local-store";
 import { Nav } from "@/components/nav";
+import { productCategories } from "@/lib/data";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 
 type PortalDeal = { name: string; pack: string; meta: string; tag: string };
@@ -78,18 +74,20 @@ const portalDeals = [
   },
 ];
 
-const homeCategories = [
-  { name: "House & Cleaning", count: "26", icon: SprayCan, tint: "bg-sky-50 text-atlas-blue" },
-  { name: "Groceries", count: "33", icon: Apple, tint: "bg-amber-50 text-amber-600" },
-  { name: "Health & Beauty", count: "24", icon: HeartPulse, tint: "bg-rose-50 text-rose-500" },
-  { name: "Babies & Children", count: "8", icon: Baby, tint: "bg-violet-50 text-violet-500" },
-  { name: "Auto Products", count: "4", icon: Car, tint: "bg-slate-100 text-slate-600" },
-  { name: "Pet Supplies", count: "6", icon: PawPrint, tint: "bg-emerald-50 text-emerald-600" },
-  { name: "Electric & Tools", count: "11", icon: Wrench, tint: "bg-orange-50 text-orange-500" },
-  { name: "Office Supply", count: "4", icon: FileText, tint: "bg-sky-50 text-atlas-blue" },
-  { name: "Tobacco, Beer & Wine", count: "9", icon: Wine, tint: "bg-rose-50 text-rose-500" },
-  { name: "Closeouts", count: "", icon: BadgePercent, tint: "bg-red-50 text-atlas-red" },
-];
+// Real catalog categories (kept in sync with productCategories in lib/data.ts) so
+// every tile deep-links into a filtered catalog.
+const homeCategories = Object.entries(productCategories).map(([name, subcategories]) => {
+  const icons: Record<string, { icon: typeof SprayCan; tint: string }> = {
+    "Janitorial / Cleaning Supplies": { icon: SprayCan, tint: "bg-sky-50 text-atlas-blue" },
+    "Grocery / Pantry": { icon: Apple, tint: "bg-amber-50 text-amber-600" },
+    "Health & Beauty (HBA)": { icon: HeartPulse, tint: "bg-rose-50 text-rose-500" },
+    "Office / Paper": { icon: FileText, tint: "bg-violet-50 text-violet-500" },
+    "Foodservice / Disposables": { icon: UtensilsCrossed, tint: "bg-emerald-50 text-emerald-600" },
+    "Closeout / Special buys": { icon: BadgePercent, tint: "bg-red-50 text-atlas-red" }
+  };
+  const style = icons[name] ?? { icon: Boxes, tint: "bg-slate-100 text-slate-600" };
+  return { name, count: String(subcategories.length), icon: style.icon, tint: style.tint };
+});
 
 const featureCards: { icon: typeof ShieldCheck; titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
   { icon: ShieldCheck, titleKey: "featVerifiedTitle", bodyKey: "featVerifiedBody" },
@@ -302,11 +300,11 @@ export default function HomePage() {
               <ArrowRight size={15} />
             </Link>
           </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             {homeCategories.map(({ name, count, icon: Icon, tint }) => (
               <Link
                 key={name}
-                href="/catalog"
+                href={`/catalog?category=${encodeURIComponent(name)}`}
                 className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-atlas-blue hover:shadow-panel"
               >
                 <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${tint}`}>
