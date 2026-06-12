@@ -8,7 +8,9 @@ alter table public.products
   add column if not exists tier_pricing jsonb not null default '{"case":{}}'::jsonb;
 
 -- 2. Rebuild the public catalog view: expose tier prices, drop the old cost-derived columns.
-create or replace view public.catalog_products as
+--    (Dropped first because CREATE OR REPLACE VIEW cannot remove existing columns.)
+drop view if exists public.catalog_products;
+create view public.catalog_products as
 select
   p.id, p.sku, p.brand, p.upc, p.product_name, p.description, p.category, p.subcategory,
   p.unit_size, p.image_url, p.product_dimensions, p.unit_weight, p.spec,
