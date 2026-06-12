@@ -114,7 +114,9 @@ export default function CatalogClient({
   const canRequestQuote = store.cart.length > 0 && (meetsCaseMinimum || meetsValueMinimum);
   const minimumCaseProgress = Math.min(100, (totalCases / store.pricingSettings.minimumMixedOrderCases) * 100);
   const minimumValueProgress = Math.min(100, (estimatedQuoteTotal / store.pricingSettings.minimumOrderValue) * 100);
-  const promotedProducts = approved.filter((product) => product.promotion).slice(0, 4);
+  const promotedProducts = approved
+    .filter((product) => product.placements?.weeklyDeal || product.promotion)
+    .slice(0, 4);
   const weeklyDeals = promotedProducts.length > 0 ? promotedProducts : approved.slice(0, 4);
   const remainingCases = Math.max(0, store.pricingSettings.minimumMixedOrderCases - totalCases);
   const remainingValue = Math.max(0, store.pricingSettings.minimumOrderValue - estimatedQuoteTotal);

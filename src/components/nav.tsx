@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, LogIn, MapPin, ShieldCheck, ShoppingCart, UserRound, X } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LifeBuoy, LogIn, MapPin, ShieldCheck, ShoppingCart, UserRound, X } from "lucide-react";
 import { AtlasMark } from "./atlas-logo";
 import { useEffect, useState } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/browser";
@@ -144,7 +144,7 @@ export function Nav() {
           </div>
         </div>
       </div>
-      <div className="atlas-container flex min-h-20 flex-wrap items-center justify-between gap-3 py-4">
+      <div className="atlas-container flex min-h-20 flex-wrap items-center gap-x-6 gap-y-3 py-4">
         <Link href="/" className="flex items-center gap-3">
           <AtlasMark size={48} />
           <span>
@@ -156,17 +156,27 @@ export function Nav() {
             </span>
           </span>
         </Link>
-        <nav className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+
+        {/* Primary shopping menu */}
+        <nav className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-atlas-navy">
+          <Link className="hover:text-atlas-blue" href="/catalog">{t("navDeals")}</Link>
+          <Link className="hover:text-atlas-blue" href="/catalog">{t("navCategories")}</Link>
+          <Link className="hover:text-atlas-blue" href={signedIn ? dashboardHref : "/login?next=/catalog"}>{t("navReorder")}</Link>
+          <Link className="hover:text-atlas-blue" href="/sell">{t("navSuppliers")}</Link>
+          <a className="inline-flex items-center gap-1.5 text-atlas-blue hover:text-atlas-navy" href="https://wa.me/">
+            <LifeBuoy size={15} />
+            {t("navSupport")}
+          </a>
+        </nav>
+
+        {/* Right-side actions */}
+        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
           {signedIn ? (
             <>
-              <Link className="btn-secondary rounded-full" href="/catalog">
-                <ShoppingCart size={16} />
-                {t("catalog")}
-              </Link>
               <div className="relative">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full bg-atlas-navy px-5 py-2.5 text-base font-semibold text-white transition hover:bg-atlas-blue"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2.5 font-bold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue"
                   onClick={() => setMenuOpen((open) => !open)}
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
@@ -206,26 +216,24 @@ export function Nav() {
                   </>
                 )}
               </div>
+              <Link className="inline-flex items-center gap-2 rounded-full bg-atlas-blue px-6 py-2.5 font-bold text-white transition hover:bg-atlas-navy" href="/catalog">
+                <ShoppingCart size={16} />
+                {t("shopWholesale")}
+              </Link>
             </>
           ) : (
             <>
-              <span className="hidden text-base font-semibold text-slate-700 md:inline">{t("becomeA")}</span>
-              <Link className="rounded-full bg-atlas-blue px-6 py-2.5 text-base font-semibold text-white transition hover:bg-atlas-navy" href="/sell">
-                {t("supplierPathTitle")}
-              </Link>
-              <Link className="rounded-full bg-atlas-navy px-6 py-2.5 text-base font-semibold text-white transition hover:bg-atlas-blue" href="/register/buyer">
-                {t("member")}
-              </Link>
-              <Link className="rounded-full bg-atlas-red px-6 py-2.5 text-base font-semibold text-white transition hover:bg-red-700" href="/register/route-seller">
-                {t("selr")}
-              </Link>
-              <Link className="rounded-full bg-atlas-navy px-6 py-2.5 text-base font-semibold text-white transition hover:bg-atlas-blue" href="/login">
+              <Link className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-2.5 font-bold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue" href="/login">
                 <LogIn size={16} />
-                {t("signIn")}
+                {t("businessLogin")}
+              </Link>
+              <Link className="inline-flex items-center gap-2 rounded-full bg-atlas-blue px-6 py-2.5 font-bold text-white transition hover:bg-atlas-navy" href="/catalog">
+                <ShoppingCart size={16} />
+                {t("shopWholesale")}
               </Link>
             </>
           )}
-        </nav>
+        </div>
       </div>
       {locationOpen && (
         <div className="fixed inset-0 z-50 bg-atlas-navy/45" role="dialog" aria-modal="true">

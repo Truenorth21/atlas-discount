@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { defaultPricingSettings, documentRequirements, sampleApplications, sampleOrders, sampleProducts, sampleRouteSellers } from "@/lib/data";
-import { loadAdminApplications, loadAdminOrders, loadPromotionSubmissions, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, savePromotionSubmission, savePromotionSubmissionStatus, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPromotion, saveSharedProductTierPricing, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
-import type { Application, CartLine, OrderRequest, PricingSettings, Product, PromotionSubmission, QuoteAdjustment, RouteSeller, TierPricing } from "@/lib/types";
+import { loadAdminApplications, loadAdminOrders, loadPromotionSubmissions, loadSharedAtlasData, saveApplicationStatus, saveDocumentReview, saveOrderRequest, savePromotionSubmission, savePromotionSubmissionStatus, saveSharedPricingSettings, saveSharedProducts, saveSharedProductPlacements, saveSharedProductPromotion, saveSharedProductTierPricing, saveSharedProductStatus } from "@/lib/supabase/atlas-data";
+import type { Application, CartLine, OrderRequest, PricingSettings, Product, ProductPlacements, PromotionSubmission, QuoteAdjustment, RouteSeller, TierPricing } from "@/lib/types";
 
 type Store = {
   applications: Application[];
@@ -251,6 +251,13 @@ export function useAtlasStore() {
       commit((current) => ({
         ...current,
         products: current.products.map((product) => (product.id === id ? { ...product, tierPricing } : product))
+      }));
+    },
+    updateProductPlacements: (id: string, placements: ProductPlacements) => {
+      void saveSharedProductPlacements(id, placements);
+      commit((current) => ({
+        ...current,
+        products: current.products.map((product) => (product.id === id ? { ...product, placements } : product))
       }));
     },
     setCurrentTier: (tierId: string) => commit((current) => ({ ...current, currentTierId: tierId })),

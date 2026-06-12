@@ -43,8 +43,19 @@ export type Product = {
   routeRecommendation: string;
   status: ApprovalStatus;
   supplierName: string;
+  /** Display label/tag for a promoted product (e.g. "Weekly deal", "New arrival"). */
   promotion?: string;
+  /** Which paid placements this product appears in. Sold/controlled per placement. */
+  placements?: ProductPlacements;
   spec?: ProductSpec;
+};
+
+/** Paid promotion placements a product can appear in (each a separate ad product). */
+export type ProductPlacements = {
+  /** Premium homepage ordering-portal slot (scarce). */
+  homepageFeatured?: boolean;
+  /** Weekly Deals row inside the catalog (broader, cheaper). */
+  weeklyDeal?: boolean;
 };
 
 /** Dimensions (inches) + weight (with unit) for a single packaging level. */

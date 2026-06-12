@@ -35,7 +35,7 @@ const documentRejectionReasons = [
 ];
 
 export function AdminClient() {
-  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updateProductPromotion, updateProductTierPricing, updatePricingSettings, updateQuoteAdjustment, updatePromotionSubmissionStatus } = useAtlasStore();
+  const { store, addProducts, updateApplicationStatus, updateApplicationDocumentStatus, updateProductStatus, updateProductPromotion, updateProductPlacements, updateProductTierPricing, updatePricingSettings, updateQuoteAdjustment, updatePromotionSubmissionStatus } = useAtlasStore();
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("overview");
@@ -314,6 +314,7 @@ export function AdminClient() {
             updatePricingSettings={updatePricingSettings}
             products={store.products}
             updateProductPromotion={updateProductPromotion}
+            updateProductPlacements={updateProductPlacements}
             promotionSubmissions={store.promotionSubmissions}
             updatePromotionSubmissionStatus={updatePromotionSubmissionStatus}
           />
@@ -1522,6 +1523,7 @@ function MarketingPanel({
   updatePricingSettings,
   products,
   updateProductPromotion,
+  updateProductPlacements,
   promotionSubmissions,
   updatePromotionSubmissionStatus
 }: {
@@ -1529,6 +1531,7 @@ function MarketingPanel({
   updatePricingSettings: ReturnType<typeof useAtlasStore>["updatePricingSettings"];
   products: Product[];
   updateProductPromotion: ReturnType<typeof useAtlasStore>["updateProductPromotion"];
+  updateProductPlacements: ReturnType<typeof useAtlasStore>["updateProductPlacements"];
   promotionSubmissions: PromotionSubmission[];
   updatePromotionSubmissionStatus: ReturnType<typeof useAtlasStore>["updatePromotionSubmissionStatus"];
 }) {
@@ -1591,7 +1594,7 @@ function MarketingPanel({
         </p>
       </div>
       <SupplierAdRequests submissions={promotionSubmissions} updateStatus={updatePromotionSubmissionStatus} />
-      <PromoteProductsPanel products={products} updateProductPromotion={updateProductPromotion} />
+      <PromoteProductsPanel products={products} updateProductPromotion={updateProductPromotion} updateProductPlacements={updateProductPlacements} />
       <div className="panel p-5">
         <h3 className="text-lg font-black text-atlas-navy">Where promotions show up</h3>
         <p className="mt-1 text-sm text-slate-600">
@@ -1692,28 +1695,42 @@ function SupplierAdRequests({
 
 function PromoteProductsPanel({
   products,
-  updateProductPromotion
+  updateProductPromotion,
+  updateProductPlacements
 }: {
   products: Product[];
   updateProductPromotion: ReturnType<typeof useAtlasStore>["updateProductPromotion"];
+  updateProductPlacements: ReturnType<typeof useAtlasStore>["updateProductPlacements"];
 }) {
   const approved = products.filter((product) => product.status === "approved");
-  const promotedCount = approved.filter((product) => product.promotion).length;
+  const featuredCount = approved.filter((product) => product.placements?.homepageFeatured).length;
+  const weeklyCount = approved.filter((product) => product.placements?.weeklyDeal).length;
   return (
     <div className="panel p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-black text-atlas-navy">Promote products</h3>
-          <p className="mt-1 text-sm text-slate-600">Add a promo label to feature a product in Weekly Deals and show a badge in the catalog.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Two separate paid placements. <span className="font-bold">Homepage featured</span> = the premium slot on the homepage ordering
+            portal. <span className="font-bold">Weekly Deals</span> = the deals row inside the catalog. The label is the badge buyers see.
+          </p>
         </div>
-        <span className="badge bg-red-50 text-atlas-red">{promotedCount} promoted</span>
+        <div className="flex gap-2">
+          <span className="badge bg-sky-50 text-atlas-blue">{featuredCount} featured</span>
+          <span className="badge bg-red-50 text-atlas-red">{weeklyCount} weekly</span>
+        </div>
       </div>
       {approved.length === 0 ? (
         <p className="mt-4 rounded-md bg-atlas-light p-4 text-sm text-slate-600">Approve products first — then you can promote them here.</p>
       ) : (
         <div className="mt-4 grid gap-3">
           {approved.map((product) => (
-            <PromoteRow key={product.id} product={product} onSave={updateProductPromotion} />
+            <PromoteRow
+              key={product.id}
+              product={product}
+              onSaveLabel={updateProductPromotion}
+              onSavePlacements={updateProductPlacements}
+            />
           ))}
         </div>
       )}
@@ -1721,36 +1738,52 @@ function PromoteProductsPanel({
   );
 }
 
-function PromoteRow({ product, onSave }: { product: Product; onSave: ReturnType<typeof useAtlasStore>["updateProductPromotion"] }) {
+function PromoteRow({
+  product,
+  onSaveLabel,
+  onSavePlacements
+}: {
+  product: Product;
+  onSaveLabel: ReturnType<typeof useAtlasStore>["updateProductPromotion"];
+  onSavePlacements: ReturnType<typeof useAtlasStore>["updateProductPlacements"];
+}) {
   const [value, setValue] = useState(product.promotion ?? "");
+  const [saved, setSaved] = useState(false);
+  const featured = product.placements?.homepageFeatured ?? false;
+  const weekly = product.placements?.weeklyDeal ?? false;
+
+  function toggle(key: "homepageFeatured" | "weeklyDeal") {
+    onSavePlacements(product.id, { ...product.placements, [key]: !(product.placements?.[key] ?? false) });
+  }
+  function saveLabel() {
+    onSaveLabel(product.id, value);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 p-3">
       <div className="min-w-0 flex-1">
         <p className="font-black text-atlas-navy">{product.brand}</p>
         <p className="truncate text-xs text-slate-600">{product.description}</p>
       </div>
-      {product.promotion && <span className="badge bg-red-50 text-atlas-red">Promoted</span>}
+      <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${featured ? "border-atlas-blue bg-sky-50 text-atlas-blue" : "border-slate-200 text-slate-500 hover:border-atlas-blue"}`}>
+        <input type="checkbox" className="h-3.5 w-3.5" checked={featured} onChange={() => toggle("homepageFeatured")} />
+        Homepage featured
+      </label>
+      <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition ${weekly ? "border-atlas-red bg-red-50 text-atlas-red" : "border-slate-200 text-slate-500 hover:border-atlas-red"}`}>
+        <input type="checkbox" className="h-3.5 w-3.5" checked={weekly} onChange={() => toggle("weeklyDeal")} />
+        Weekly Deals
+      </label>
       <input
-        className="field w-60"
-        placeholder="e.g. 10% off 50+ cases"
+        className="field w-44"
+        placeholder="Badge label (e.g. New arrival)"
         value={value}
         onChange={(event) => setValue(event.target.value)}
       />
-      <button className="btn-primary px-4" type="button" onClick={() => onSave(product.id, value)}>
-        Save
+      <button className="btn-secondary px-4" type="button" onClick={saveLabel}>
+        {saved ? "Saved" : "Save label"}
       </button>
-      {product.promotion && (
-        <button
-          className="btn-secondary px-3"
-          type="button"
-          onClick={() => {
-            setValue("");
-            onSave(product.id, "");
-          }}
-        >
-          Clear
-        </button>
-      )}
     </div>
   );
 }

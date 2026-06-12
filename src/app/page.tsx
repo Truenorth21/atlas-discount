@@ -160,7 +160,7 @@ export default function HomePage() {
   // Admin-controlled deals: promoted, approved products replace the mockup rows.
   // Admin edits/removes these from Marketing → Promote products (the promotion flag).
   const livePortalDeals: PortalDeal[] = store.products
-    .filter((product) => product.status === "approved" && product.promotion)
+    .filter((product) => product.status === "approved" && product.placements?.homepageFeatured)
     .slice(0, 4)
     .map((product) => ({
       name: product.brand || product.productName,
@@ -176,7 +176,7 @@ export default function HomePage() {
       <main className="bg-atlas-light">
         {/* Hero + live ordering portal */}
         <section className="bg-white">
-          <div className="atlas-container grid gap-10 py-12 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:py-16">
+          <div className="atlas-container grid grid-cols-1 gap-10 py-12 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:py-16">
             <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-atlas-blue">
                 <Tag size={13} />

@@ -105,6 +105,7 @@ create table public.products (
   route_recommendation text not null default 'Atlas will route this item through the nearest available hub or supplier-direct lane.',
   supplier_name text not null default 'Atlas Supplier',
   promotion text,
+  placements jsonb not null default '{}'::jsonb,
   status public.approval_status not null default 'pending',
   published_at timestamptz,
   created_at timestamptz not null default now(),
@@ -342,7 +343,7 @@ select
   p.case_pack, p.case_dimensions, p.case_weight, p.pallet_configuration,
   p.suggested_retail, p.moq, p.lead_time, p.inventory_available,
   p.pickup_shipping_location, p.pickup_location, p.shipping_location, p.delivery_radius,
-  p.preferred_hub, p.route_recommendation, p.supplier_name, p.promotion, p.status, p.created_at,
+  p.preferred_hub, p.route_recommendation, p.supplier_name, p.promotion, p.placements, p.status, p.created_at,
   -- Admin-entered per-tier sell prices (master case + optional full-pallet). No cost/margin.
   p.tier_pricing
 from public.products p

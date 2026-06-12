@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, RouteSellerPreference, TierPricing } from "@/lib/types";
+import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductPlacements, ProductSpec, PromotionSubmission, RouteSellerPreference, TierPricing } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -38,6 +38,7 @@ type ProductRow = {
   status: Product["status"];
   supplier_name?: string | null;
   promotion?: string | null;
+  placements?: ProductPlacements | null;
 };
 
 type PricingRow = {
@@ -114,7 +115,8 @@ function productFromRow(row: ProductRow): Product {
       "Atlas will route this item through the nearest available hub or supplier-direct lane.",
     status: row.status,
     supplierName: row.supplier_name || "Atlas Supplier",
-    promotion: row.promotion ?? undefined
+    promotion: row.promotion ?? undefined,
+    placements: row.placements ?? undefined
   };
 }
 
@@ -155,7 +157,8 @@ function productToRow(product: Product, supplierProfileId?: string | null) {
     route_recommendation: product.routeRecommendation,
     status: product.status,
     supplier_name: product.supplierName,
-    promotion: product.promotion ?? null
+    promotion: product.promotion ?? null,
+    placements: product.placements ?? {}
   };
 
   return isUuid(product.id) ? { ...row, id: product.id } : row;
@@ -575,6 +578,16 @@ export async function saveSharedProductSpec(id: string, spec: ProductSpec) {
   await supabase
     .from("products")
     .update({ spec: spec ?? {}, updated_at: new Date().toISOString() })
+    .eq("id", id);
+}
+
+export async function saveSharedProductPlacements(id: string, placements: ProductPlacements) {
+  const supabase = createClient();
+  if (!supabase || !isUuid(id)) return;
+
+  await supabase
+    .from("products")
+    .update({ placements: placements ?? {}, updated_at: new Date().toISOString() })
     .eq("id", id);
 }
 
