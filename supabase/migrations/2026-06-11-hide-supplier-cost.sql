@@ -1,4 +1,18 @@
 -- Run this in the Supabase SQL editor (project lhfgupxhxzcgvfxcwfte).
+-- Self-contained: adds any columns the deployed DB is missing, then builds the view.
+
+-- 0. Catch up product columns added in later schema versions (no-ops if present).
+alter table public.products add column if not exists product_name text not null default '';
+alter table public.products add column if not exists unit_size text not null default '';
+alter table public.products add column if not exists unit_weight text default '';
+alter table public.products add column if not exists spec jsonb not null default '{}'::jsonb;
+alter table public.products add column if not exists pickup_location text not null default '';
+alter table public.products add column if not exists shipping_location text not null default '';
+alter table public.products add column if not exists delivery_radius text not null default '';
+alter table public.products add column if not exists promotion text;
+alter table public.products add column if not exists route_recommendation text not null default 'Atlas will route this item through the nearest available hub or supplier-direct lane.';
+alter table public.products add column if not exists supplier_name text not null default 'Atlas Supplier';
+
 -- 1. Persist tier/account pricing config (safe if already run).
 alter table public.pricing_settings
   add column if not exists customer_pricing jsonb not null default '{}'::jsonb;
