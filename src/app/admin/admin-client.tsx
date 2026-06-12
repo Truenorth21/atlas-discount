@@ -16,6 +16,7 @@ import {
   calculateQuoteFinancials,
   casesPerPallet,
   formatMoney,
+  productPalletSize,
   tierPriceFromCost
 } from "@/lib/pricing";
 import { atlasHubs, fulfillmentTypes, productCategories } from "@/lib/data";
@@ -61,8 +62,8 @@ export function AdminClient() {
     { id: "products", label: "Products", count: pendingProducts.length },
     { id: "quotes", label: "Quotes", count: store.orders.length },
     { id: "fulfillment", label: "Fulfillment", count: quoteReviewOrders.length },
-    { id: "pricing", label: "Pricing", count: 1 },
-    { id: "customerPricing", label: "Customer pricing", count: store.pricingSettings.customerTiers?.length ?? 0 },
+    { id: "pricing", label: "Fees & rules", count: 1 },
+    { id: "customerPricing", label: "Product prices", count: store.products.filter((product) => product.status !== "rejected").length },
     { id: "marketing", label: "Marketing", count: 8 }
   ];
 
@@ -1830,147 +1831,72 @@ function PricingSettingsPanel({
       <div className="panel p-5">
         <div className="flex items-center gap-2">
           <Settings className="text-atlas-blue" />
-          <h2 className="text-xl font-black text-atlas-navy">Pricing playbook</h2>
+          <h2 className="text-xl font-black text-atlas-navy">Fees &amp; rules</h2>
         </div>
-        <p className="mt-2 text-sm text-slate-600">
-          Set the normal rules once. When a customer needs a special deal, change it on the quote instead of changing these defaults.
+        <p className="mt-2 max-w-3xl text-sm text-slate-600">
+          Product prices are set per item in the <span className="font-bold">Product prices</span> tab. This page sets the
+          <span className="font-bold"> fees and rules</span> added on top — hub handling, pickup, cross-dock, delivery, and freight —
+          plus the order minimum.
         </p>
-        <div className="mt-5 grid gap-4 xl:grid-cols-4">
-          <PricingPathCard
-            title="1. Buyer adds products"
-            body={`Order must reach ${settings.minimumMixedOrderCases} cases or ${formatMoney(settings.minimumOrderValue)}.`}
-            note="This is the simple minimum before Atlas spends time quoting."
-          />
-          <PricingPathCard
-            title="2. Product price is chosen"
-            body={`${settings.caseMarkupPercent}% for loose cases. ${settings.palletMarkupPercent}% for full pallet lines.`}
-            note="One product can be pallet-priced while the rest of the cart is loose-case priced."
-          />
-          <PricingPathCard
-            title="3. Fulfillment is added"
-            body="Pickup, hub handling, delivery, or freight gets added after product pricing."
-            note="This keeps product margin separate from logistics cost."
-          />
-          <PricingPathCard
-            title="4. Quote can be adjusted"
-            body="Discounts, free delivery, and bonus product are handled per quote."
-            note="Use this when you want to be generous on one large order."
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="panel p-5">
-          <h3 className="text-lg font-black text-atlas-navy">How Atlas prices a mixed supermarket order</h3>
-          <div className="mt-4 grid gap-3">
-            <PlainEnglishFormula
-              title="Mixed cases"
-              body="Each item is priced by its own quantity. Small quantities use loose-case pricing."
-              example="Example: 1 case of paper, 3 cases of sauce, 5 cases of soap all use loose-case pricing."
-            />
-            <PlainEnglishFormula
-              title="Full pallet item"
-              body="If one SKU reaches its pallet count, only that SKU gets pallet pricing."
-              example="Example: 84 cases of one drink item can get pallet pricing, while the rest stays loose-case."
-            />
-            <PlainEnglishFormula
-              title="Delivery"
-              body="Delivery can be charged as one order fee, waived, or spread across items by case count."
-              example={`Default local delivery charge is ${formatMoney(settings.localDeliveryFee)}. Estimated Atlas cost is ${formatMoney(settings.localDeliveryCost)}.`}
-            />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-md border border-sky-200 bg-sky-50 p-3">
+            <p className="text-sm font-black text-atlas-navy">&ldquo;Charge&rdquo; = what the buyer pays</p>
+            <p className="mt-1 text-xs text-slate-600">Added to the buyer&apos;s order total. This is Atlas revenue.</p>
           </div>
-        </div>
-
-        <div className="panel p-5">
-          <h3 className="text-lg font-black text-atlas-navy">What changes per quote</h3>
-          <div className="mt-4 grid gap-3 text-sm">
-            <div className="rounded-md border border-slate-200 bg-atlas-light p-3">
-              <p className="font-black text-atlas-navy">Discount</p>
-              <p className="mt-1 text-slate-600">Use this for a large customer or one-time negotiation.</p>
-            </div>
-            <div className="rounded-md border border-slate-200 bg-atlas-light p-3">
-              <p className="font-black text-atlas-navy">Free delivery</p>
-              <p className="mt-1 text-slate-600">Use this when order size protects enough profit.</p>
-            </div>
-            <div className="rounded-md border border-slate-200 bg-atlas-light p-3">
-              <p className="font-black text-atlas-navy">Free product</p>
-              <p className="mt-1 text-slate-600">Use this as a note on the quote so it does not change catalog pricing.</p>
-            </div>
+          <div className="rounded-md border border-slate-200 bg-atlas-light p-3">
+            <p className="text-sm font-black text-atlas-navy">&ldquo;Cost&rdquo; = what Atlas pays</p>
+            <p className="mt-1 text-xs text-slate-600">Atlas&apos;s own expense, for profit tracking. Buyers never see it.</p>
           </div>
         </div>
       </div>
 
       <PricingGroup
-        title="Buyer order minimum"
-        body="The cart should meet at least one of these before the buyer can submit a normal order request."
+        title="Order minimum"
+        body="A buyer must reach at least one of these before they can submit an order. Individual products can also require their own minimum (set on the product)."
       >
-        <NumberField label="Minimum mixed cases" value={settings.minimumMixedOrderCases} onChange={updateNumber("minimumMixedOrderCases")} />
-        <NumberField label="Minimum order value" value={settings.minimumOrderValue} onChange={updateNumber("minimumOrderValue")} />
+        <NumberField label="Minimum cases per order" value={settings.minimumMixedOrderCases} onChange={updateNumber("minimumMixedOrderCases")} hint="Smallest total case count Atlas will quote." suffix="cases" />
+        <NumberField label="Minimum order value" value={settings.minimumOrderValue} onChange={updateNumber("minimumOrderValue")} hint="Or the order can qualify by dollar value instead." prefix="$" />
       </PricingGroup>
 
       <PricingGroup
-        title="Product pricing"
-        body="This controls the sell price per case before delivery or freight is added."
+        title="Hub handling &amp; pickup"
+        body="When an order moves through an Atlas hub (Miami or Orlando), these per-case fees are added. Charge is added to the buyer; cost is Atlas's internal expense."
       >
-        <NumberField label="Loose case markup %" value={settings.caseMarkupPercent} onChange={updateNumber("caseMarkupPercent")} />
-        <NumberField label="Minimum loose case margin" value={settings.minimumCaseMarginPerCase} onChange={updateNumber("minimumCaseMarginPerCase")} />
-        <NumberField label="Full pallet markup %" value={settings.palletMarkupPercent} onChange={updateNumber("palletMarkupPercent")} />
-        <NumberField label="Minimum pallet case margin" value={settings.minimumPalletMarginPerCase} onChange={updateNumber("minimumPalletMarginPerCase")} />
+        <NumberField label="Miami hub — charge per case" value={settings.miamiHubHandlingPerCase} onChange={updateNumber("miamiHubHandlingPerCase")} hint="What the buyer pays to handle each case through Miami." prefix="$" />
+        <NumberField label="Miami hub — Atlas cost per case" value={settings.miamiHubCostPerCase} onChange={updateNumber("miamiHubCostPerCase")} hint="Atlas's own cost to handle a case at Miami." prefix="$" />
+        <NumberField label="Orlando hub — charge per case" value={settings.orlandoHubHandlingPerCase} onChange={updateNumber("orlandoHubHandlingPerCase")} hint="What the buyer pays to handle each case through Orlando." prefix="$" />
+        <NumberField label="Orlando hub — Atlas cost per case" value={settings.orlandoHubCostPerCase} onChange={updateNumber("orlandoHubCostPerCase")} hint="Atlas's own cost to handle a case at Orlando." prefix="$" />
+        <NumberField label="Hub pickup fee" value={settings.pickupFee} onChange={updateNumber("pickupFee")} hint="Flat fee when the buyer picks up at a hub. 0 = free pickup." prefix="$" />
       </PricingGroup>
 
       <PricingGroup
-        title="Hub and pickup"
-        body="Use these when Atlas handles product through Miami, Orlando, or hub pickup."
+        title="Cross-dock between hubs (Miami ↔ Orlando)"
+        body="When a buyer receives at one hub but an item is stored at the other, that item is trucked over first. These are per transferred case."
       >
-        <NumberField label="Miami hub charge / case" value={settings.miamiHubHandlingPerCase} onChange={updateNumber("miamiHubHandlingPerCase")} />
-        <NumberField label="Miami hub cost / case" value={settings.miamiHubCostPerCase} onChange={updateNumber("miamiHubCostPerCase")} />
-        <NumberField label="Orlando hub charge / case" value={settings.orlandoHubHandlingPerCase} onChange={updateNumber("orlandoHubHandlingPerCase")} />
-        <NumberField label="Orlando hub cost / case" value={settings.orlandoHubCostPerCase} onChange={updateNumber("orlandoHubCostPerCase")} />
-        <NumberField label="Pickup fee" value={settings.pickupFee} onChange={updateNumber("pickupFee")} />
-        <NumberField label="Cross-dock transfer charge / case (Miami ↔ Orlando)" value={settings.hubTransferPerCase} onChange={updateNumber("hubTransferPerCase")} />
-        <NumberField label="Cross-dock transfer cost / case" value={settings.hubTransferCostPerCase} onChange={updateNumber("hubTransferCostPerCase")} />
+        <NumberField label="Transfer charge per case" value={settings.hubTransferPerCase} onChange={updateNumber("hubTransferPerCase")} hint="What the buyer pays to move one case to their hub." prefix="$" />
+        <NumberField label="Transfer — Atlas cost per case" value={settings.hubTransferCostPerCase} onChange={updateNumber("hubTransferCostPerCase")} hint="Atlas's own cost to truck a case between hubs." prefix="$" />
       </PricingGroup>
 
       <PricingGroup
-        title="Delivery, freight, and sales commission"
-        body="These are added after product pricing when Atlas delivers, arranges freight, or pays a route seller."
+        title="Delivery &amp; freight"
+        body="Added when Atlas delivers locally or arranges freight for large orders."
       >
-        <NumberField label="Local delivery charge" value={settings.localDeliveryFee} onChange={updateNumber("localDeliveryFee")} />
-        <NumberField label="Local delivery cost" value={settings.localDeliveryCost} onChange={updateNumber("localDeliveryCost")} />
-        <NumberField label="Freight coordination charge" value={settings.freightCoordinationFee} onChange={updateNumber("freightCoordinationFee")} />
-        <NumberField label="Freight cost estimate" value={settings.freightCostEstimate} onChange={updateNumber("freightCostEstimate")} />
-        <NumberField label="Freight case threshold" value={settings.freightCaseThreshold} onChange={updateNumber("freightCaseThreshold")} />
-        <NumberField label="Route seller commission %" value={settings.routeSellerCommissionPercent} onChange={updateNumber("routeSellerCommissionPercent")} />
+        <NumberField label="Local delivery — charge" value={settings.localDeliveryFee} onChange={updateNumber("localDeliveryFee")} hint="What the buyer pays for local delivery (per order)." prefix="$" />
+        <NumberField label="Local delivery — Atlas cost" value={settings.localDeliveryCost} onChange={updateNumber("localDeliveryCost")} hint="Atlas's own cost to deliver locally." prefix="$" />
+        <NumberField label="Freight coordination — charge" value={settings.freightCoordinationFee} onChange={updateNumber("freightCoordinationFee")} hint="What the buyer pays when Atlas arranges freight." prefix="$" />
+        <NumberField label="Freight — Atlas cost estimate" value={settings.freightCostEstimate} onChange={updateNumber("freightCostEstimate")} hint="Estimated freight cost to Atlas." prefix="$" />
+        <NumberField label="Freight kicks in above" value={settings.freightCaseThreshold} onChange={updateNumber("freightCaseThreshold")} hint="Orders larger than this many cases go to freight review." suffix="cases" />
+        <NumberField label="Sales Rep commission" value={settings.routeSellerCommissionPercent} onChange={updateNumber("routeSellerCommissionPercent")} hint="Commission paid to a Sales Rep on their orders." suffix="%" />
       </PricingGroup>
 
       <PricingGroup
-        title="Supplier direct"
-        body="Atlas owns the buyer and quote. Supplier direct only means the approved supplier ships after Atlas confirms pricing."
+        title="Supplier-direct shipping"
+        body="Atlas still owns the buyer and the price — supplier-direct only means an approved supplier ships the item after Atlas confirms the order."
       >
-        <NumberField label="Supplier direct fee %" value={settings.supplierDirectFeePercent} onChange={updateNumber("supplierDirectFeePercent")} />
-        <NumberField label="Supplier direct minimum fee" value={settings.supplierDirectMinimumFee} onChange={updateNumber("supplierDirectMinimumFee")} />
+        <NumberField label="Supplier-direct fee" value={settings.supplierDirectFeePercent} onChange={updateNumber("supplierDirectFeePercent")} hint="Atlas's fee on a supplier-direct line, as a % of the item." suffix="%" />
+        <NumberField label="Supplier-direct minimum fee" value={settings.supplierDirectMinimumFee} onChange={updateNumber("supplierDirectMinimumFee")} hint="The smallest fee charged on a supplier-direct line." prefix="$" />
       </PricingGroup>
     </section>
-  );
-}
-
-function PricingPathCard({ title, body, note }: { title: string; body: string; note: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-atlas-light p-4">
-      <h3 className="font-black text-atlas-navy">{title}</h3>
-      <p className="mt-2 text-sm font-semibold text-slate-700">{body}</p>
-      <p className="mt-2 text-xs text-slate-500">{note}</p>
-    </div>
-  );
-}
-
-function PlainEnglishFormula({ title, body, example }: { title: string; body: string; example: string }) {
-  return (
-    <div className="rounded-md border border-slate-200 bg-white p-3">
-      <p className="font-black text-atlas-navy">{title}</p>
-      <p className="mt-1 text-sm text-slate-600">{body}</p>
-      <p className="mt-2 rounded-md bg-atlas-light p-2 text-xs font-semibold text-slate-600">{example}</p>
-    </div>
   );
 }
 
@@ -2007,16 +1933,27 @@ function RuleStep({ number, title, body }: { number: string; title: string; body
 function NumberField({
   label,
   value,
-  onChange
+  onChange,
+  hint,
+  prefix,
+  suffix
 }: {
   label: string;
   value: number;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  hint?: string;
+  prefix?: string;
+  suffix?: string;
 }) {
   return (
-    <label className="grid gap-2">
+    <label className="grid gap-1.5">
       <span className="label">{label}</span>
-      <input className="field" min="0" step="0.01" type="number" value={value} onChange={onChange} />
+      <span className="flex items-center rounded-md border border-slate-300 bg-white focus-within:border-atlas-blue">
+        {prefix && <span className="pl-3 text-sm font-semibold text-slate-400">{prefix}</span>}
+        <input className="w-full border-0 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-0" min="0" step="0.01" type="number" value={value} onChange={onChange} />
+        {suffix && <span className="pr-3 text-sm font-semibold text-slate-400">{suffix}</span>}
+      </span>
+      {hint && <span className="text-xs leading-snug text-slate-500">{hint}</span>}
     </label>
   );
 }
@@ -2365,7 +2302,20 @@ function CustomerPricingPanel({
   const approvedAccounts = applications.filter(
     (application) => application.status === "approved" && (application.type === "buyer" || application.type === "route_seller")
   );
-  const approvedProducts = products.filter((product) => product.status === "approved");
+  // All products that can be priced (everything except rejected), grouped by category.
+  const pricingProducts = products.filter((product) => product.status !== "rejected");
+  const productsByCategory = Array.from(
+    pricingProducts.reduce((map, product) => {
+      const key = product.category || "Uncategorized";
+      const list = map.get(key) ?? [];
+      list.push(product);
+      map.set(key, list);
+      return map;
+    }, new Map<string, Product[]>())
+  ).sort((a, b) => a[0].localeCompare(b[0]));
+  const missingPriceCount = pricingProducts.filter(
+    (product) => !product.tierPricing?.case || Object.keys(product.tierPricing.case).length === 0
+  ).length;
 
   function updateTier(id: string, patch: Partial<CustomerTier>) {
     setTierDraft((current) => current.map((tier) => (tier.id === id ? { ...tier, ...patch } : tier)));
@@ -2523,24 +2473,43 @@ function CustomerPricingPanel({
       </div>
 
       <section className="panel p-5">
-        <h3 className="text-lg font-black text-atlas-navy">Product prices</h3>
-        <p className="mt-1 text-sm text-slate-600">
-          Set the case price each level pays. Your cost and margin show beside each price. Blank fields use the default markup over cost.
-        </p>
-        <div className="mt-4 grid max-h-[34rem] gap-3 overflow-y-auto pr-1">
-          {approvedProducts.length === 0 ? (
-            <p className="text-sm text-slate-500">No approved products yet.</p>
-          ) : (
-            approvedProducts.map((product) => (
-              <ProductTierPriceRow
-                key={product.id}
-                product={product}
-                tiers={tierDraft}
-                onSave={updateProductTierPricing}
-              />
-            ))
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-black text-atlas-navy">Product prices</h3>
+            <p className="mt-1 max-w-3xl text-sm text-slate-600">
+              Set the case price each level pays. The <span className="font-bold">suggested</span> price and margin (from each level&apos;s
+              default markup) show beside every field — keep them or type your own. Cases-per-pallet and the order minimum come from each
+              product&apos;s setup.
+            </p>
+          </div>
+          {missingPriceCount > 0 && (
+            <span className="badge bg-amber-50 text-amber-800">{missingPriceCount} need prices</span>
           )}
         </div>
+        {pricingProducts.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">No products yet. Add one in the Products tab.</p>
+        ) : (
+          <div className="mt-4 grid gap-6">
+            {productsByCategory.map(([category, items]) => (
+              <div key={category}>
+                <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                  <h4 className="text-sm font-black uppercase tracking-wide text-atlas-blue">{category}</h4>
+                  <span className="text-xs font-semibold text-slate-400">{items.length}</span>
+                </div>
+                <div className="mt-3 grid gap-3">
+                  {items.map((product) => (
+                    <ProductTierPriceRow
+                      key={product.id}
+                      product={product}
+                      tiers={tierDraft}
+                      onSave={updateProductTierPricing}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
@@ -2575,22 +2544,32 @@ function ProductTierPriceRow({
     setTimeout(() => setSaved(false), 2000);
   }
 
+  const palletCases = productPalletSize(product);
+
   return (
     <div className="rounded-md border border-slate-200 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-bold text-atlas-navy">{product.brand}</p>
-          <p className="truncate text-xs text-slate-500">{product.sku} · {product.category}</p>
+          <p className="flex items-center gap-2 font-bold text-atlas-navy">
+            <span className="truncate">{product.brand}</span>
+            {product.status === "pending" && <span className="badge bg-amber-50 text-amber-800">Pending</span>}
+          </p>
+          <p className="truncate text-xs text-slate-500">
+            {product.sku} · {palletCases > 0 ? `${palletCases} cases/pallet` : "pallet not set"} · min {product.moq || 1} {(product.moq || 1) === 1 ? "case" : "cases"}
+          </p>
         </div>
         <p className="text-sm font-black text-atlas-navy">
-          Case cost <span className="text-atlas-red">{formatMoney(cost)}</span>
+          Case cost <span className="text-atlas-red">{cost > 0 ? formatMoney(cost) : "— set on product"}</span>
         </p>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {tiers.map((tier) => {
           const raw = draft[tier.id] ?? "";
-          const effective = raw.trim() === "" ? tierPriceFromCost(cost, tier.defaultMarkupPct) : Number(raw) || 0;
+          const suggested = tierPriceFromCost(cost, tier.defaultMarkupPct);
+          const suggestedMargin = suggested > 0 && cost > 0 ? Math.round(((suggested - cost) / suggested) * 100) : 0;
+          const effective = raw.trim() === "" ? suggested : Number(raw) || 0;
           const marginPct = effective > 0 && cost > 0 ? Math.round(((effective - cost) / effective) * 100) : 0;
+          const usingSuggested = raw.trim() === "";
           return (
             <label key={tier.id} className="grid gap-1 rounded-md bg-atlas-light p-2">
               <span className="text-xs font-bold text-slate-600">{tier.label} · $ / case</span>
@@ -2598,13 +2577,19 @@ function ProductTierPriceRow({
                 className="field h-9 min-h-9"
                 type="number"
                 step="0.01"
-                placeholder={`${formatMoney(tierPriceFromCost(cost, tier.defaultMarkupPct))} (default)`}
+                placeholder={cost > 0 ? `${formatMoney(suggested)}` : "set cost first"}
                 value={raw}
                 onChange={(event) => setDraft((current) => ({ ...current, [tier.id]: event.target.value }))}
               />
-              <span className="text-xs font-semibold text-emerald-700">
-                {cost > 0 ? `${marginPct}% margin · ${formatMoney(effective - cost)}/case` : "Enter cost to see margin"}
-              </span>
+              {cost > 0 ? (
+                <span className="text-xs font-semibold text-emerald-700">
+                  {usingSuggested
+                    ? `Suggested ${formatMoney(suggested)} · ${suggestedMargin}% margin`
+                    : `${marginPct}% margin · ${formatMoney(effective - cost)}/case`}
+                </span>
+              ) : (
+                <span className="text-xs font-semibold text-slate-400">Enter cost on the product</span>
+              )}
             </label>
           );
         })}
