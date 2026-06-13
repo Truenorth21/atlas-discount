@@ -31,6 +31,9 @@ export default function CatalogClient({
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState(searchParams.get("category") || "All");
+  const [subcategory, setSubcategory] = useState("All");
+  const [brand, setBrand] = useState("All");
+  const [sortBy, setSortBy] = useState("featured");
   const [hub, setHub] = useState("All hubs");
   const [buyerRegion, setBuyerRegion] = useState("South Florida");
   const [receivingHub, setReceivingHub] = useState<ReceivingHub>("Miami hub");
@@ -57,18 +60,32 @@ export default function CatalogClient({
 
   const approved = store.products.filter((product) => product.status === "approved");
   const categories = ["All", ...Array.from(new Set(approved.map((product) => product.category)))];
+  // Subcategories for the selected category; brands present in the current category.
+  const subcategories = ["All", ...Array.from(new Set(approved.filter((p) => category === "All" || p.category === category).map((p) => p.subcategory).filter(Boolean)))];
+  const brands = ["All", ...Array.from(new Set(approved.map((p) => p.brand).filter(Boolean))).sort((a, b) => a.localeCompare(b))];
+
   const filtered = useMemo(() => {
     const term = query.toLowerCase();
-    return approved.filter((product) => {
+    const list = approved.filter((product) => {
       const matchesCategory = category === "All" || product.category === category;
+      const matchesSub = subcategory === "All" || product.subcategory === subcategory;
+      const matchesBrand = brand === "All" || product.brand === brand;
       const matchesHub = hub === "All hubs" || product.preferredHub === hub;
       const matchesTerm = [product.brand, product.upc, product.description, product.sku, product.category, product.subcategory]
         .join(" ")
         .toLowerCase()
         .includes(term);
-      return matchesCategory && matchesHub && matchesTerm;
+      return matchesCategory && matchesSub && matchesBrand && matchesHub && matchesTerm;
     });
-  }, [approved, category, hub, query]);
+    const price = (p: Product) => buyerCasePrice({ settings: store.pricingSettings, product: p, tierId: buyerTierId, accountId: userId });
+    const sorted = [...list];
+    if (sortBy === "priceAsc") sorted.sort((a, b) => price(a) - price(b));
+    else if (sortBy === "priceDesc") sorted.sort((a, b) => price(b) - price(a));
+    else if (sortBy === "name") sorted.sort((a, b) => a.brand.localeCompare(b.brand));
+    else if (sortBy === "newest") sorted.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
+    else sorted.sort((a, b) => Number(Boolean(b.placements?.homepageFeatured)) - Number(Boolean(a.placements?.homepageFeatured)));
+    return sorted;
+  }, [approved, category, subcategory, brand, hub, query, sortBy, store.pricingSettings, buyerTierId, userId]);
 
   const totalCases = store.cart.reduce((sum, line) => sum + line.quantity, 0);
   const hubSummary = Array.from(
@@ -198,43 +215,12 @@ export default function CatalogClient({
             </div>
           </section>
         )}
-        <section className="grid gap-5">
-          <div className="panel grid gap-4 p-5">
-            <label className="grid gap-2">
-              <span className="label">{t("searchProducts")}</span>
-              <span className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input className="field pl-10" value={query} onChange={(event) => setQuery(event.target.value)} />
-              </span>
-            </label>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="grid gap-2">
-                <span className="label">{t("category")}</span>
-                <select className="field" value={category} onChange={(event) => setCategory(event.target.value)}>
-                  {categories.map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-2">
-                <span className="label">{t("atlasHub")}</span>
-                <select className="field" value={hub} onChange={(event) => setHub(event.target.value)}>
-                  <option>All hubs</option>
-                  {atlasHubs.map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-2">
-                <span className="label">{t("buyerRegion")}</span>
-                <select className="field" value={buyerRegion} onChange={(event) => setBuyerRegion(event.target.value)}>
-                  <option>South Florida</option>
-                  <option>Central Florida</option>
-                  <option>North Florida</option>
-                  <option>Out of state</option>
-                </select>
-              </label>
-            </div>
+        <section className="grid gap-4">
+          <div className="panel p-3">
+            <span className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input className="field pl-10" placeholder={t("searchProducts")} value={query} onChange={(event) => setQuery(event.target.value)} />
+            </span>
           </div>
           {!isAuthenticated ? (
             <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-atlas-navy">
@@ -251,21 +237,102 @@ export default function CatalogClient({
               </button>
             </div>
           ) : null}
-          <p className="text-sm font-semibold text-slate-500">{filtered.length} {filtered.length === 1 ? t("productLabel") : t("productsLabel")}</p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((product) => (
-              <StoreProductCard
-                key={product.id}
-                product={product}
-                canSeePricing={canSeePricing}
-                settings={store.pricingSettings}
-                buyerTierId={buyerTierId}
-                userId={userId}
-                onExpand={() => setExpandedImage({ src: product.imageUrl, label: `${product.brand} ${product.description}` })}
-                onAdd={(qty) => guardAdd(product, qty)}
-              />
-            ))}
-            {filtered.length === 0 && <p className="text-sm text-slate-600">{t("emptyCart")}</p>}
+
+          <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+            {/* Browse sidebar */}
+            <aside className="grid h-fit gap-4">
+              <div className="panel p-4">
+                <h3 className="text-xs font-black uppercase tracking-wide text-slate-500">{t("departments")}</h3>
+                <div className="mt-2 grid gap-0.5">
+                  {categories.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => { setCategory(item); setSubcategory("All"); }}
+                      className={`rounded px-2 py-1.5 text-left text-sm transition ${category === item ? "bg-atlas-blue font-bold text-white" : "text-atlas-navy hover:bg-atlas-light"}`}
+                    >
+                      {item === "All" ? t("allDepartments") : item}
+                    </button>
+                  ))}
+                </div>
+                {category !== "All" && subcategories.length > 1 && (
+                  <div className="mt-3 border-t border-slate-200 pt-2">
+                    {subcategories.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setSubcategory(item)}
+                        className={`block w-full rounded px-2 py-1 text-left text-xs transition ${subcategory === item ? "font-bold text-atlas-blue" : "text-slate-600 hover:text-atlas-blue"}`}
+                      >
+                        {item === "All" ? t("allOf") + " " + category : item}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="panel grid gap-3 p-4">
+                <label className="grid gap-1">
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-500">{t("brandLabel")}</span>
+                  <select className="field h-9 min-h-9" value={brand} onChange={(event) => setBrand(event.target.value)}>
+                    {brands.map((item) => (
+                      <option key={item} value={item}>{item === "All" ? t("allBrands") : item}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-500">{t("atlasHub")}</span>
+                  <select className="field h-9 min-h-9" value={hub} onChange={(event) => setHub(event.target.value)}>
+                    <option>All hubs</option>
+                    {atlasHubs.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs font-black uppercase tracking-wide text-slate-500">{t("buyerRegion")}</span>
+                  <select className="field h-9 min-h-9" value={buyerRegion} onChange={(event) => setBuyerRegion(event.target.value)}>
+                    <option>South Florida</option>
+                    <option>Central Florida</option>
+                    <option>North Florida</option>
+                    <option>Out of state</option>
+                  </select>
+                </label>
+              </div>
+            </aside>
+
+            {/* Product grid + sort toolbar */}
+            <div className="grid content-start gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-500">
+                  {filtered.length} {filtered.length === 1 ? t("productLabel") : t("productsLabel")}
+                </p>
+                <label className="flex items-center gap-2 text-sm">
+                  <span className="font-semibold text-slate-500">{t("sortLabel")}</span>
+                  <select className="field h-9 min-h-9 w-44" value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                    <option value="featured">{t("sortFeatured")}</option>
+                    <option value="priceAsc">{t("sortPriceLow")}</option>
+                    <option value="priceDesc">{t("sortPriceHigh")}</option>
+                    <option value="name">{t("sortNameAZ")}</option>
+                    <option value="newest">{t("sortNewest")}</option>
+                  </select>
+                </label>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {filtered.map((product) => (
+                  <StoreProductCard
+                    key={product.id}
+                    product={product}
+                    canSeePricing={canSeePricing}
+                    settings={store.pricingSettings}
+                    buyerTierId={buyerTierId}
+                    userId={userId}
+                    onExpand={() => setExpandedImage({ src: product.imageUrl, label: `${product.brand} ${product.description}` })}
+                    onAdd={(qty) => guardAdd(product, qty)}
+                  />
+                ))}
+                {filtered.length === 0 && <p className="text-sm text-slate-600">{t("noProductsMatch")}</p>}
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -583,6 +650,8 @@ function StoreProductCard({
   const standard = standardCasePrice(product, settings);
   const discounted = yourPrice < standard - 0.001;
   const srpPerUnit = product.suggestedRetail || 0;
+  const unitPrice = yourPrice > 0 && product.casePack > 0 ? yourPrice / product.casePack : 0;
+  const isNew = product.createdAt ? Date.now() - new Date(product.createdAt).getTime() < 30 * 24 * 60 * 60 * 1000 : false;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:shadow-panel">
@@ -603,6 +672,8 @@ function StoreProductCard({
       <div className="flex flex-1 flex-col p-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="badge bg-slate-100 text-[10px] text-slate-600">{product.subcategory || product.category}</span>
+          {isNew && <span className="badge bg-emerald-50 text-[10px] text-emerald-700">{t("newBadge")}</span>}
+          {product.placements?.homepageFeatured && <span className="badge bg-sky-50 text-[10px] text-atlas-blue">{t("featured")}</span>}
           {product.promotion && (
             <span className="badge bg-red-50 text-[10px] text-atlas-red">
               <Tag size={11} />
@@ -627,6 +698,9 @@ function StoreProductCard({
               <span className="text-xs font-semibold text-slate-400 line-through">{formatMoney(standard)}</span>
             )}
           </p>
+          {canSeePricing && unitPrice > 0 && (
+            <p className="text-[11px] font-semibold text-slate-500">{formatMoney(unitPrice)}/{t("unitLabel")}</p>
+          )}
           {canSeePricing && srpPerUnit > 0 && (
             <p className="text-[11px] font-semibold text-emerald-700">{t("msrpLabel")} {formatMoney(srpPerUnit)}/{t("unitLabel")}</p>
           )}

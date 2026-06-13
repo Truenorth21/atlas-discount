@@ -50,6 +50,8 @@ export type Product = {
   promotion?: string;
   /** Which paid placements this product appears in. Sold/controlled per placement. */
   placements?: ProductPlacements;
+  /** When the product was created (ISO) — drives "New" badge + newest sort. */
+  createdAt?: string;
   spec?: ProductSpec;
 };
 

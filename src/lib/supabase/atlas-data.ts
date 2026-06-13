@@ -40,6 +40,7 @@ type ProductRow = {
   supplier_name?: string | null;
   promotion?: string | null;
   placements?: ProductPlacements | null;
+  created_at?: string | null;
 };
 
 type PricingRow = {
@@ -123,7 +124,8 @@ function productFromRow(row: ProductRow): Product {
     status: row.status,
     supplierName: row.supplier_name || "Atlas Supplier",
     promotion: row.promotion ?? undefined,
-    placements: row.placements ?? undefined
+    placements: row.placements ?? undefined,
+    createdAt: row.created_at ?? undefined
   };
 }
 
