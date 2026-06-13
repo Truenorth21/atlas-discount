@@ -336,11 +336,15 @@ export function useAtlasStore() {
     updateCartQuantity: (productId: string, quantity: number) =>
       commit((current) => ({
         ...current,
-        cart: current.cart.map((line) =>
-          line.product.id === productId
-            ? { ...line, quantity: Math.max(1, Math.min(quantity, line.product.inventoryAvailable)) }
-            : line
-        )
+        cart: current.cart.map((line) => {
+          if (line.product.id !== productId) return line;
+          // Never below 1. Only cap at inventory when inventory is actually tracked (> 0);
+          // 0 means "not tracked", so the buyer can still order any quantity.
+          const safe = Number.isFinite(quantity) ? Math.floor(quantity) : 1;
+          const inv = line.product.inventoryAvailable;
+          const capped = inv > 0 ? Math.min(safe, inv) : safe;
+          return { ...line, quantity: Math.max(1, capped) };
+        })
       })),
     removeFromCart: (productId: string) =>
       commit((current) => ({

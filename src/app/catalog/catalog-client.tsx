@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeftRight, CheckCircle2, MapPin, Minus, Plus, Search, ShoppingCart, Sparkles, Tag, Trash2, Warehouse } from "lucide-react";
+import { ArrowLeftRight, CheckCircle2, Minus, Plus, Search, ShoppingCart, Sparkles, Tag, Trash2, Warehouse } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
@@ -45,12 +45,12 @@ export default function CatalogClient({
   // Buyer context drives explicit per-tier pricing; only applied once the buyer can see pricing.
   const pricingCtx: PricingContext | undefined = canSeePricing ? { tierId: buyerTierId, accountId: userId } : undefined;
 
-  function guardAdd(product: Product) {
+  function guardAdd(product: Product, quantity = 1) {
     if (!isAuthenticated) {
       window.location.href = "/login?next=/catalog";
       return;
     }
-    addToCart(product);
+    addToCart(product, Math.max(1, Math.floor(quantity) || 1));
   }
 
   const approved = store.products.filter((product) => product.status === "approved");
@@ -171,21 +171,11 @@ export default function CatalogClient({
     <>
       <Nav />
       <main className="atlas-container grid gap-6 py-8 lg:grid-cols-[1fr_360px]">
-        <section className="panel p-5 lg:col-span-2">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-bold uppercase text-atlas-blue">{t("buyingProcess")}</p>
-              <h1 className="mt-1 text-2xl font-black text-atlas-navy">{t("catalogHeadline")}</h1>
-            </div>
-            <Link className="btn-secondary w-fit" href="/dashboard/retailer">
-              {t("viewDashboard")}
-            </Link>
-          </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <BuyerFlowStep number="1" title={t("chooseProducts")} body={t("chooseProductsBody")} active />
-            <BuyerFlowStep number="2" title={t("pickOrderType")} body={t("pickOrderTypeBody")} active={store.cart.length > 0} />
-            <BuyerFlowStep number="3" title={t("atlasConfirms")} body={t("atlasConfirmsBody")} active={canRequestQuote} />
-          </div>
+        <section className="flex flex-wrap items-center justify-between gap-3 lg:col-span-2">
+          <h1 className="text-2xl font-black text-atlas-navy">{t("shopWholesale")}</h1>
+          <Link className="btn-secondary w-fit" href="/dashboard/retailer">
+            {t("viewDashboard")}
+          </Link>
         </section>
         {weeklyDeals.length > 0 && (
           <section className="panel p-5 lg:col-span-2">
@@ -259,88 +249,21 @@ export default function CatalogClient({
               </button>
             </div>
           ) : null}
-          <div className="grid gap-4">
+          <p className="text-sm font-semibold text-slate-500">{filtered.length} {filtered.length === 1 ? t("productLabel") : t("productsLabel")}</p>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filtered.map((product) => (
-              <article key={product.id} className="panel p-5">
-                <div className="grid gap-4 lg:grid-cols-[128px_1fr_180px] lg:items-start">
-                  {isPlaceholderImage(product) ? (
-                    <div className="h-32 w-32 overflow-hidden rounded-md border border-slate-200">
-                      <ProductImage product={product} className="h-full w-full" iconSize={42} />
-                    </div>
-                  ) : (
-                    <button
-                      className="h-32 w-32 overflow-hidden rounded-md border border-slate-200 bg-white transition hover:border-atlas-blue focus:outline-none focus:ring-2 focus:ring-atlas-blue"
-                      type="button"
-                      onClick={() => setExpandedImage({ src: product.imageUrl, label: `${product.brand} ${product.description}` })}
-                      aria-label={`Expand ${product.brand} product image`}
-                    >
-                      <ProductImage product={product} className="h-full w-full" />
-                    </button>
-                  )}
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="badge bg-slate-100 text-slate-600">{product.category} / {product.subcategory}</span>
-                      {product.promotion && (
-                        <span className="badge bg-red-50 text-atlas-red">
-                          <Tag size={13} />
-                          {product.promotion}
-                        </span>
-                      )}
-                    </div>
-                    <h2 className="mt-3 text-xl font-black text-atlas-navy">{product.brand}</h2>
-                    <p className="mt-1 text-slate-700">{product.description}</p>
-                    <dl className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
-                      <div><dt className="font-bold">SKU</dt><dd>{product.sku}</dd></div>
-                      <div><dt className="font-bold">UPC</dt><dd>{product.upc}</dd></div>
-                    <div><dt className="font-bold">{t("directMoq")}</dt><dd>{product.moq} {t("cases")}{product.minOrderValue ? ` / ${formatMoney(product.minOrderValue)}` : ""}</dd></div>
-                      <div><dt className="font-bold">{t("productDimensions")}</dt><dd>{product.productDimensions || t("notProvided")}</dd></div>
-                      <div><dt className="font-bold">{t("caseDimensions")}</dt><dd>{product.caseDimensions || t("notProvided")}</dd></div>
-                      <div><dt className="font-bold">{t("palletConfiguration")}</dt><dd>{palletConfigLabel(product) || t("notProvided")}</dd></div>
-                      <div><dt className="font-bold">{t("casePack")}</dt><dd>{product.casePack}</dd></div>
-                      <div><dt className="font-bold">{t("inventory")}</dt><dd>{product.inventoryAvailable}</dd></div>
-                      <div><dt className="font-bold">{t("location")}</dt><dd>{product.location}</dd></div>
-                      <div><dt className="font-bold">{t("atlasHub")}</dt><dd>{product.preferredHub ?? "Orlando hub"}</dd></div>
-                    </dl>
-                    <p className="mt-3 flex max-w-2xl gap-2 rounded-md bg-atlas-light p-3 text-sm text-slate-700">
-                      <MapPin className="mt-0.5 shrink-0 text-atlas-blue" size={17} />
-                      {product.routeRecommendation ?? t("defaultRouteRecommendation")}
-                    </p>
-                  </div>
-                  <div className="rounded-lg bg-atlas-light p-4">
-                    {(() => {
-                      const standard = standardCasePrice(product, store.pricingSettings);
-                      const yourPrice = buyerCasePrice({ settings: store.pricingSettings, product, tierId: buyerTierId, accountId: userId });
-                      const discounted = yourPrice < standard - 0.001;
-                      const srpPerUnit = product.suggestedRetail || 0;
-                      const marginPct = tierMarginPct(store.pricingSettings, buyerTierId);
-                      return (
-                        <>
-                          <p className="text-xs font-bold uppercase text-slate-500">
-                            {canSeePricing ? `${t("yourPrice")} · ${tierLabel(store.pricingSettings, buyerTierId)}` : t("estimatedQuotePrice")}
-                          </p>
-                          <p className="mt-1 flex items-baseline gap-2 text-2xl font-black text-atlas-navy">
-                            {!canSeePricing ? t("locked") : yourPrice > 0 ? `${formatMoney(yourPrice)} / ${t("caseLabel")}` : t("pricePending")}
-                            {canSeePricing && discounted && yourPrice > 0 && (
-                              <span className="text-sm font-semibold text-slate-400 line-through">{formatMoney(standard)}</span>
-                            )}
-                          </p>
-                          {canSeePricing && srpPerUnit > 0 && (
-                            <p className="mt-1 text-xs font-semibold text-emerald-700">
-                              {t("msrpLabel")} {formatMoney(srpPerUnit)}/{t("unitLabel")}{marginPct > 0 ? ` · ${marginPct}% ${t("marginLabel")}` : ""}
-                            </p>
-                          )}
-                        </>
-                      );
-                    })()}
-                    <p className="mt-1 text-sm text-slate-600">{t("looseEstimate")}</p>
-                    <button className="btn-primary mt-4 w-full" type="button" onClick={() => guardAdd(product)}>
-                      <ShoppingCart size={16} />
-                      {t("quickAdd")}
-                    </button>
-                  </div>
-                </div>
-              </article>
+              <StoreProductCard
+                key={product.id}
+                product={product}
+                canSeePricing={canSeePricing}
+                settings={store.pricingSettings}
+                buyerTierId={buyerTierId}
+                userId={userId}
+                onExpand={() => setExpandedImage({ src: product.imageUrl, label: `${product.brand} ${product.description}` })}
+                onAdd={(qty) => guardAdd(product, qty)}
+              />
             ))}
+            {filtered.length === 0 && <p className="text-sm text-slate-600">{t("emptyCart")}</p>}
           </div>
         </section>
         <aside className="panel h-fit p-5">
@@ -435,7 +358,7 @@ export default function CatalogClient({
                       <input
                         className="field h-9 min-h-9 w-20 text-center"
                         min={1}
-                        max={line.product.inventoryAvailable}
+                        max={line.product.inventoryAvailable > 0 ? line.product.inventoryAvailable : undefined}
                         step={1}
                         type="number"
                         value={line.quantity}
@@ -452,7 +375,8 @@ export default function CatalogClient({
                       </button>
                     </div>
                     <p className="text-xs text-slate-500">
-                      {t("mixedCaseHelp")} {t("directMoq")} {line.product.moq} • {t("available")} {line.product.inventoryAvailable}
+                      {t("directMoq")} {line.product.moq} {t("cases")}
+                      {line.product.inventoryAvailable > 0 ? ` • ${t("available")} ${line.product.inventoryAvailable}` : ""}
                     </p>
                   </div>
                 </div>
@@ -608,15 +532,121 @@ function BuyerStep({ title, body, active = false }: { title: string; body: strin
   );
 }
 
-function BuyerFlowStep({ number, title, body, active = false }: { number: string; title: string; body: string; active?: boolean }) {
+function StoreProductCard({
+  product,
+  canSeePricing,
+  settings,
+  buyerTierId,
+  userId,
+  onExpand,
+  onAdd
+}: {
+  product: Product;
+  canSeePricing: boolean;
+  settings: ReturnType<typeof useAtlasStore>["store"]["pricingSettings"];
+  buyerTierId: string;
+  userId?: string;
+  onExpand: () => void;
+  onAdd: (qty: number) => void;
+}) {
+  const { t } = useI18n();
+  const [qty, setQty] = useState(1);
+  const placeholder = isPlaceholderImage(product);
+  const yourPrice = buyerCasePrice({ settings, product, tierId: buyerTierId, accountId: userId });
+  const standard = standardCasePrice(product, settings);
+  const discounted = yourPrice < standard - 0.001;
+  const srpPerUnit = product.suggestedRetail || 0;
+
   return (
-    <div className={`rounded-md border p-4 ${active ? "border-atlas-blue bg-sky-50" : "border-slate-200 bg-white"}`}>
-      <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-black ${active ? "bg-atlas-blue text-white" : "bg-slate-100 text-slate-500"}`}>
-        {number}
-      </span>
-      <h2 className="mt-3 text-lg font-black text-atlas-navy">{title}</h2>
-      <p className="mt-1 text-sm text-slate-600">{body}</p>
-    </div>
+    <article className="flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:shadow-panel">
+      {placeholder ? (
+        <div className="aspect-square w-full overflow-hidden border-b border-slate-100">
+          <ProductImage product={product} className="h-full w-full" iconSize={48} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="aspect-square w-full overflow-hidden border-b border-slate-100 bg-white transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-atlas-blue"
+          onClick={onExpand}
+          aria-label={`Expand ${product.brand} image`}
+        >
+          <ProductImage product={product} className="h-full w-full" />
+        </button>
+      )}
+      <div className="flex flex-1 flex-col p-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="badge bg-slate-100 text-[10px] text-slate-600">{product.subcategory || product.category}</span>
+          {product.promotion && (
+            <span className="badge bg-red-50 text-[10px] text-atlas-red">
+              <Tag size={11} />
+              {product.promotion}
+            </span>
+          )}
+        </div>
+        <h3 className="mt-2 font-black leading-snug text-atlas-navy">{product.brand}</h3>
+        <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{product.description}</p>
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          {product.casePack} {t("perCaseUnits")}
+          {product.unitSize ? ` · ${product.unitSize}` : ""} · {product.preferredHub ?? "Orlando hub"}
+        </p>
+
+        <div className="mt-2">
+          <p className="flex items-baseline gap-2">
+            <span className="text-lg font-black text-atlas-navy">
+              {!canSeePricing ? t("locked") : yourPrice > 0 ? `${formatMoney(yourPrice)}` : t("pricePending")}
+            </span>
+            {canSeePricing && yourPrice > 0 && <span className="text-xs font-semibold text-slate-500">/ {t("caseLabel")}</span>}
+            {canSeePricing && discounted && yourPrice > 0 && (
+              <span className="text-xs font-semibold text-slate-400 line-through">{formatMoney(standard)}</span>
+            )}
+          </p>
+          {canSeePricing && srpPerUnit > 0 && (
+            <p className="text-[11px] font-semibold text-emerald-700">{t("msrpLabel")} {formatMoney(srpPerUnit)}/{t("unitLabel")}</p>
+          )}
+          <p className="text-[11px] text-slate-400">
+            {t("directMoq")} {product.moq} {t("cases")}
+            {product.minOrderValue ? ` / ${formatMoney(product.minOrderValue)}` : ""}
+          </p>
+        </div>
+
+        <div className="mt-auto flex items-center gap-2 pt-3">
+          <div className="flex items-center">
+            <button
+              type="button"
+              className="flex h-9 w-8 items-center justify-center rounded-l-md border border-slate-300 text-slate-600 transition hover:border-atlas-blue hover:text-atlas-blue"
+              onClick={() => setQty((q) => Math.max(1, q - 1))}
+              aria-label={`Decrease ${product.brand} quantity`}
+            >
+              <Minus size={14} />
+            </button>
+            <input
+              className="h-9 w-12 border-y border-slate-300 text-center text-sm focus:outline-none"
+              type="number"
+              min={1}
+              step={1}
+              value={qty}
+              onChange={(event) => {
+                const n = Math.floor(Number(event.target.value));
+                setQty(Number.isFinite(n) && n > 0 ? n : 1);
+              }}
+              aria-label={`${product.brand} cases`}
+            />
+            <button
+              type="button"
+              className="flex h-9 w-8 items-center justify-center rounded-r-md border border-slate-300 text-slate-600 transition hover:border-atlas-blue hover:text-atlas-blue"
+              onClick={() => setQty((q) => q + 1)}
+              aria-label={`Increase ${product.brand} quantity`}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+          <button className="btn-primary h-9 min-h-9 flex-1 px-3 text-sm" type="button" onClick={() => onAdd(qty)}>
+            <ShoppingCart size={15} />
+            {t("add")}
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 
