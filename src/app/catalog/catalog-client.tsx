@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeftRight, CheckCircle2, Minus, Plus, Search, ShoppingCart, Sparkles, Tag, Trash2, Warehouse } from "lucide-react";
+import { ArrowLeftRight, CheckCircle2, Minus, Plus, Search, ShoppingCart, Sparkles, Tag, Trash2, Warehouse, X } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
@@ -37,6 +37,7 @@ export default function CatalogClient({
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>("Pickup");
   const [submittedQuoteId, setSubmittedQuoteId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; label: string } | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const canSeePricing = isAuthenticated && (isApproved || store.documentsVerified);
   // Buy tier: the admin's per-account assignment wins; otherwise the role default.
   // Sales reps don't buy at a rep price — if they shop, they use retailer pricing.
@@ -51,6 +52,7 @@ export default function CatalogClient({
       return;
     }
     addToCart(product, Math.max(1, Math.floor(quantity) || 1));
+    setCartOpen(true);
   }
 
   const approved = store.products.filter((product) => product.status === "approved");
@@ -170,15 +172,15 @@ export default function CatalogClient({
   return (
     <>
       <Nav />
-      <main className="atlas-container grid gap-6 py-8 lg:grid-cols-[1fr_360px]">
-        <section className="flex flex-wrap items-center justify-between gap-3 lg:col-span-2">
+      <main className="atlas-container grid gap-6 py-8">
+        <section className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-black text-atlas-navy">{t("shopWholesale")}</h1>
           <Link className="btn-secondary w-fit" href="/dashboard/retailer">
             {t("viewDashboard")}
           </Link>
         </section>
         {weeklyDeals.length > 0 && (
-          <section className="panel p-5 lg:col-span-2">
+          <section className="panel p-5">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="flex items-center gap-2 text-sm font-bold uppercase text-atlas-blue">
@@ -250,7 +252,7 @@ export default function CatalogClient({
             </div>
           ) : null}
           <p className="text-sm font-semibold text-slate-500">{filtered.length} {filtered.length === 1 ? t("productLabel") : t("productsLabel")}</p>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((product) => (
               <StoreProductCard
                 key={product.id}
@@ -266,8 +268,32 @@ export default function CatalogClient({
             {filtered.length === 0 && <p className="text-sm text-slate-600">{t("emptyCart")}</p>}
           </div>
         </section>
-        <aside className="panel h-fit p-5">
-          <h2 className="text-xl font-black text-atlas-navy">{t("quoteCart")}</h2>
+      </main>
+
+      {/* Floating cart button (always-visible running total) */}
+      <button
+        type="button"
+        onClick={() => setCartOpen(true)}
+        className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-atlas-blue px-5 py-3 font-bold text-white shadow-panel transition hover:bg-atlas-navy"
+      >
+        <ShoppingCart size={18} />
+        {totalCases > 0 ? `${totalCases} ${t("cases")} · ${formatMoney(estimatedQuoteTotal)}` : t("quoteCart")}
+        {totalCases > 0 && (
+          <span className="ml-1 rounded-full bg-white px-2 py-0.5 text-xs font-black text-atlas-blue">{store.cart.length}</span>
+        )}
+      </button>
+
+      {/* Cart drawer */}
+      {cartOpen && (
+        <div className="fixed inset-0 z-50 bg-atlas-navy/45" role="dialog" aria-modal="true">
+          <button className="absolute inset-0 cursor-default" type="button" aria-label={t("close")} onClick={() => setCartOpen(false)} />
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col overflow-y-auto bg-white p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-black text-atlas-navy">{t("quoteCart")}</h2>
+              <button className="rounded-md p-2 text-slate-500 hover:bg-atlas-light hover:text-atlas-navy" type="button" onClick={() => setCartOpen(false)} aria-label={t("close")}>
+                <X size={22} />
+              </button>
+            </div>
           <div className="mt-4 rounded-md border border-slate-200 bg-atlas-light p-3 text-sm">
             <p className="flex items-center gap-2 font-black text-atlas-navy">
               <CheckCircle2 size={17} className={canRequestQuote ? "text-emerald-600" : "text-atlas-blue"} />
@@ -503,8 +529,9 @@ export default function CatalogClient({
           <button className="btn-danger mt-4 w-full" type="button" disabled={!canRequestQuote} onClick={requestQuote}>
             {orderActionLabel}
           </button>
-        </aside>
-      </main>
+          </aside>
+        </div>
+      )}
       {expandedImage && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-atlas-navy/70 p-4" role="dialog" aria-modal="true">
           <div className="w-full max-w-2xl rounded-lg bg-white p-4 shadow-panel">
