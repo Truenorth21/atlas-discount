@@ -84,8 +84,76 @@ export const defaultPricingSettings: PricingSettings = {
   distributorMarginOnResalePct: 25,
   atlasMarginRetailerSalePct: 35,
   atlasMarginDistributorSalePct: 25,
-  minimumAtlasMarginPct: 15
+  minimumAtlasMarginPct: 15,
+  freeDeliveryThreshold: 750
 };
+
+/** Buyer-facing curated collections (keyword match over brand/category/subcategory/description). */
+export const productCollections: Array<{ id: string; label: string; keywords: string[] }> = [
+  { id: "hispanic", label: "Hispanic favorites", keywords: ["hispanic", "latin", "mexican", "goya", "maseca", "jarritos", "salsa", "masa", "adobo"] },
+  { id: "caribbean", label: "Caribbean", keywords: ["caribbean", "jamaican", "grace", "plantain", "patty", "coconut", "callaloo", "ackee"] },
+  { id: "beverages", label: "Beverages", keywords: ["drink", "soda", "juice", "water", "coffee", "tea", "beverage", "energy"] },
+  { id: "cleaning", label: "Cleaning & household", keywords: ["clean", "wipe", "disinfect", "soap", "detergent", "paper", "trash", "sponge"] },
+  { id: "closeouts", label: "Closeouts", keywords: ["closeout", "overstock", "clearance", "liquidation"] }
+];
+
+/** Supplier subscription plans (annual). Higher plan = lower commission + more visibility. */
+export const supplierPlans: Array<{
+  id: string;
+  name: string;
+  priceYear: number;
+  commission: string;
+  highlight?: boolean;
+  features: string[];
+}> = [
+  {
+    id: "roots",
+    name: "Roots",
+    priceYear: 450,
+    commission: "0% commission",
+    features: ["Up to 5 SKUs", "Listed to verified Atlas buyers", "Monthly sell-through report", "Compliance & GTIN setup"]
+  },
+  {
+    id: "rise",
+    name: "Rise",
+    priceYear: 1500,
+    commission: "5–7% commission",
+    highlight: true,
+    features: ["Unlimited SKUs", "Store-level analytics dashboard", "2 featured placements / year", "Seasonal campaign inclusion"]
+  },
+  {
+    id: "reach",
+    name: "Reach",
+    priceYear: 3000,
+    commission: "3–5% commission",
+    features: ["Everything in Rise", "Dedicated category manager", "4 placements + 1 brand spotlight", "Quarterly competitive intelligence"]
+  }
+];
+
+/** Named fulfillment service tiers a supplier can choose. */
+export const fulfillmentTiers: Array<{ id: string; name: string; fee: string; blurb: string; points: string[] }> = [
+  {
+    id: "direct",
+    name: "Supplier-Direct",
+    fee: "Lowest fee",
+    blurb: "You ship after Atlas confirms the order. Atlas owns the buyer, pricing, and invoice.",
+    points: ["Supplier ships from its own warehouse", "Lowest Atlas fee", "Best for large, palletized orders"]
+  },
+  {
+    id: "fulfilled",
+    name: "Atlas-Fulfilled",
+    fee: "Service fee",
+    blurb: "Atlas warehouses your product at Miami/Orlando hubs, cross-docks, and delivers.",
+    points: ["Stored at Atlas hubs", "Miami ↔ Orlando cross-dock", "Mixed pallets + local delivery"]
+  },
+  {
+    id: "import",
+    name: "Atlas Import & Landing",
+    fee: "Premium",
+    blurb: "For international suppliers: Atlas clears customs, handles FDA, freight-forwards, and consolidates in Miami.",
+    points: ["Customs clearance + FDA compliance", "Freight forwarding & consolidation", "Miami gateway for LatAm / Caribbean"]
+  }
+];
 
 export const productCategories: Record<string, string[]> = {
   "Janitorial / Cleaning Supplies": ["Disinfecting wipes", "Cleaners & sprays", "Paper towels & tissue", "Trash bags", "Gloves & PPE"],

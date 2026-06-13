@@ -17,6 +17,8 @@ type Store = {
   documentsVerified: boolean;
   /** The signed-in buyer's pricing tier (drives catalog prices). Defaults to the reference tier. */
   currentTierId: string;
+  /** Product ids the buyer saved (wishlist). */
+  favorites: string[];
 };
 
 const initialStore: Store = {
@@ -29,7 +31,8 @@ const initialStore: Store = {
   promotionSubmissions: [],
   cart: [],
   documentsVerified: false,
-  currentTierId: "retailer"
+  currentTierId: "retailer",
+  favorites: []
 };
 
 const key = "atlas-discount-store";
@@ -99,6 +102,7 @@ function normalizeStore(store: Store): Store {
     quoteAdjustments: store.quoteAdjustments ?? [],
     promotionSubmissions: store.promotionSubmissions ?? [],
     currentTierId: store.currentTierId ?? "retailer",
+    favorites: store.favorites ?? [],
     pricingSettings: {
       ...defaultPricingSettings,
       ...(store.pricingSettings ?? {}),
@@ -352,6 +356,24 @@ export function useAtlasStore() {
         cart: current.cart.filter((line) => line.product.id !== productId)
       })),
     setCart: (cart: CartLine[]) => commit((current) => ({ ...current, cart })),
+    toggleFavorite: (productId: string) =>
+      commit((current) => ({
+        ...current,
+        favorites: current.favorites.includes(productId)
+          ? current.favorites.filter((id) => id !== productId)
+          : [...current.favorites, productId]
+      })),
+    reorder: (order: OrderRequest) =>
+      commit((current) => {
+        const lines = order.lineItems ?? [];
+        const cart = [...current.cart];
+        for (const line of lines) {
+          const existing = cart.find((item) => item.product.id === line.product.id);
+          if (existing) existing.quantity += line.quantity;
+          else cart.push({ product: line.product, quantity: line.quantity });
+        }
+        return { ...current, cart };
+      }),
     addOrder: (order: OrderRequest) => {
       void saveOrderRequest(order);
       commit((current) => ({ ...current, orders: [order, ...current.orders], cart: [] }));

@@ -82,6 +82,7 @@ type PricingRow = {
     atlasMarginRetailerSalePct?: number;
     atlasMarginDistributorSalePct?: number;
     minimumAtlasMarginPct?: number;
+    freeDeliveryThreshold?: number;
   } | null;
 };
 
@@ -212,7 +213,8 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     distributorMarginOnResalePct: row.customer_pricing?.distributorMarginOnResalePct ?? defaultPricingSettings.distributorMarginOnResalePct,
     atlasMarginRetailerSalePct: row.customer_pricing?.atlasMarginRetailerSalePct ?? defaultPricingSettings.atlasMarginRetailerSalePct,
     atlasMarginDistributorSalePct: row.customer_pricing?.atlasMarginDistributorSalePct ?? defaultPricingSettings.atlasMarginDistributorSalePct,
-    minimumAtlasMarginPct: row.customer_pricing?.minimumAtlasMarginPct ?? defaultPricingSettings.minimumAtlasMarginPct
+    minimumAtlasMarginPct: row.customer_pricing?.minimumAtlasMarginPct ?? defaultPricingSettings.minimumAtlasMarginPct,
+    freeDeliveryThreshold: row.customer_pricing?.freeDeliveryThreshold ?? defaultPricingSettings.freeDeliveryThreshold
   };
 }
 
@@ -256,7 +258,8 @@ function pricingToRow(settings: PricingSettings) {
       distributorMarginOnResalePct: settings.distributorMarginOnResalePct,
       atlasMarginRetailerSalePct: settings.atlasMarginRetailerSalePct,
       atlasMarginDistributorSalePct: settings.atlasMarginDistributorSalePct,
-      minimumAtlasMarginPct: settings.minimumAtlasMarginPct
+      minimumAtlasMarginPct: settings.minimumAtlasMarginPct,
+      freeDeliveryThreshold: settings.freeDeliveryThreshold
     },
     updated_at: new Date().toISOString()
   };

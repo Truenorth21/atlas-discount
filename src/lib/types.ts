@@ -85,6 +85,8 @@ export type ProductSpec = {
   palletLayers?: number;
   /** Direct cases-per-pallet override (wins over Ti×Hi when set). */
   casesPerPallet?: number;
+  /** Needs refrigerated / cold-pack handling. Shows a "Cold pack" badge to buyers. */
+  refrigerated?: boolean;
   palletStandardWeight?: number;
   fulfillmentMode?: "pickup" | "delivered";
   shippingWarehouse?: "Miami hub" | "Orlando hub";
@@ -260,6 +262,8 @@ export type PricingSettings = {
   atlasMarginRetailerSalePct?: number;
   atlasMarginDistributorSalePct?: number;
   minimumAtlasMarginPct?: number;
+  /** Product subtotal at/above which local delivery is free. 0 = no free-delivery offer. */
+  freeDeliveryThreshold?: number;
 };
 
 export type QuoteFinancials = {

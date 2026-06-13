@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeftRight, CheckCircle2, Minus, Plus, Search, ShoppingCart, Sparkles, Tag, Trash2, Warehouse, X } from "lucide-react";
+import { ArrowLeftRight, CheckCircle2, Heart, MessageCircle, Minus, Plus, Search, ShoppingCart, Snowflake, Sparkles, Tag, Trash2, Warehouse, X } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
-import { atlasHubs, fulfillmentTypes } from "@/lib/data";
+import { atlasHubs, fulfillmentTypes, productCollections } from "@/lib/data";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
 import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel, tierMarginPct } from "@/lib/pricing";
@@ -27,12 +27,13 @@ export default function CatalogClient({
   isApproved?: boolean;
 }) {
   const { t } = useI18n();
-  const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, verifyDocuments } = useAtlasStore();
+  const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, verifyDocuments, toggleFavorite, reorder } = useAtlasStore();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState(searchParams.get("category") || "All");
   const [subcategory, setSubcategory] = useState("All");
   const [brand, setBrand] = useState("All");
+  const [collection, setCollection] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
   const [hub, setHub] = useState("All hubs");
   const [buyerRegion, setBuyerRegion] = useState("South Florida");
@@ -66,16 +67,20 @@ export default function CatalogClient({
 
   const filtered = useMemo(() => {
     const term = query.toLowerCase();
+    const activeCollection = productCollections.find((c) => c.id === collection);
     const list = approved.filter((product) => {
       const matchesCategory = category === "All" || product.category === category;
       const matchesSub = subcategory === "All" || product.subcategory === subcategory;
       const matchesBrand = brand === "All" || product.brand === brand;
       const matchesHub = hub === "All hubs" || product.preferredHub === hub;
-      const matchesTerm = [product.brand, product.upc, product.description, product.sku, product.category, product.subcategory]
+      const haystack = [product.brand, product.upc, product.description, product.sku, product.category, product.subcategory, product.productName]
         .join(" ")
-        .toLowerCase()
-        .includes(term);
-      return matchesCategory && matchesSub && matchesBrand && matchesHub && matchesTerm;
+        .toLowerCase();
+      const matchesTerm = haystack.includes(term);
+      const matchesCollection =
+        collection === "all" ||
+        (collection === "favorites" ? store.favorites.includes(product.id) : !!activeCollection?.keywords.some((k) => haystack.includes(k)));
+      return matchesCategory && matchesSub && matchesBrand && matchesHub && matchesTerm && matchesCollection;
     });
     const price = (p: Product) => buyerCasePrice({ settings: store.pricingSettings, product: p, tierId: buyerTierId, accountId: userId });
     const sorted = [...list];
@@ -85,8 +90,9 @@ export default function CatalogClient({
     else if (sortBy === "newest") sorted.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
     else sorted.sort((a, b) => Number(Boolean(b.placements?.homepageFeatured)) - Number(Boolean(a.placements?.homepageFeatured)));
     return sorted;
-  }, [approved, category, subcategory, brand, hub, query, sortBy, store.pricingSettings, buyerTierId, userId]);
+  }, [approved, category, subcategory, brand, hub, query, sortBy, collection, store.favorites, store.pricingSettings, buyerTierId, userId]);
 
+  const lastOrder = store.orders.find((order) => (order.lineItems?.length ?? 0) > 0);
   const totalCases = store.cart.reduce((sum, line) => sum + line.quantity, 0);
   const hubSummary = Array.from(
     store.cart.reduce((summary, line) => {
@@ -113,7 +119,14 @@ export default function CatalogClient({
     status: "Quote requested",
     createdAt: new Date().toISOString().slice(0, 10)
   };
-  const quoteFinancials = calculateQuoteFinancials(draftOrder, store.pricingSettings, undefined, pricingCtx);
+  const baseFinancials = calculateQuoteFinancials(draftOrder, store.pricingSettings, undefined, pricingCtx);
+  const freeDeliveryThreshold = store.pricingSettings.freeDeliveryThreshold ?? 0;
+  const qualifiesFreeDelivery = freeDeliveryThreshold > 0 && baseFinancials.productRevenue >= freeDeliveryThreshold;
+  const freeDeliveryRemaining = Math.max(0, freeDeliveryThreshold - baseFinancials.productRevenue);
+  const quoteFinancials =
+    qualifiesFreeDelivery && fulfillmentType === "Local delivery"
+      ? calculateQuoteFinancials(draftOrder, store.pricingSettings, { orderId: "DRAFT", freeDelivery: true }, pricingCtx)
+      : baseFinancials;
   const fulfillmentAllocations = allocateFulfillmentByCases(draftOrder, quoteFinancials.fulfillmentFee);
   const estimatedQuoteTotal = quoteFinancials.buyerTotal;
   const hasSupplierDirectItems = store.cart.some((line) => line.product.preferredHub === "Supplier direct");
@@ -238,6 +251,45 @@ export default function CatalogClient({
             </div>
           ) : null}
 
+          {/* Buy again — reorder the most recent order */}
+          {isAuthenticated && lastOrder && (
+            <div className="panel flex flex-wrap items-center justify-between gap-3 border-atlas-blue/30 bg-sky-50 p-4">
+              <div>
+                <p className="flex items-center gap-2 text-sm font-black text-atlas-navy">
+                  <ShoppingCart size={16} className="text-atlas-blue" />
+                  {t("buyAgain")}
+                </p>
+                <p className="text-xs text-slate-600">
+                  {(lastOrder.lineItems ?? []).slice(0, 3).map((l) => l.product.brand).join(", ")}
+                  {(lastOrder.lineItems?.length ?? 0) > 3 ? "…" : ""}
+                </p>
+              </div>
+              <button
+                className="btn-primary"
+                type="button"
+                onClick={() => { reorder(lastOrder); setCartOpen(true); }}
+              >
+                {t("addAllToCart")}
+              </button>
+            </div>
+          )}
+
+          {/* Collection chips */}
+          <div className="flex flex-wrap gap-2">
+            {[{ id: "all", label: t("allProducts") }, { id: "favorites", label: `★ ${t("favorites")}` }, ...productCollections].map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCollection(c.id)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-bold transition ${
+                  collection === c.id ? "border-atlas-blue bg-atlas-blue text-white" : "border-slate-200 bg-white text-atlas-navy hover:border-atlas-blue"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
           <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
             {/* Browse sidebar */}
             <aside className="grid h-fit gap-4">
@@ -326,6 +378,8 @@ export default function CatalogClient({
                     settings={store.pricingSettings}
                     buyerTierId={buyerTierId}
                     userId={userId}
+                    isFavorite={store.favorites.includes(product.id)}
+                    onToggleFav={() => toggleFavorite(product.id)}
                     onExpand={() => setExpandedImage({ src: product.imageUrl, label: `${product.brand} ${product.description}` })}
                     onAdd={(qty) => guardAdd(product, qty)}
                   />
@@ -336,6 +390,17 @@ export default function CatalogClient({
           </div>
         </section>
       </main>
+
+      {/* Floating support (WhatsApp) button */}
+      <a
+        href="https://wa.me/"
+        target="_blank"
+        rel="noreferrer"
+        className="fixed bottom-5 left-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-white shadow-panel transition hover:bg-emerald-600"
+        aria-label={t("navSupport")}
+      >
+        <MessageCircle size={22} />
+      </a>
 
       {/* Floating cart button (always-visible running total) */}
       <button
@@ -553,6 +618,25 @@ export default function CatalogClient({
               ))}
             </div>
           </div>
+          {store.cart.length > 0 && freeDeliveryThreshold > 0 && (
+            <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs">
+              {qualifiesFreeDelivery ? (
+                <p className="font-bold text-emerald-700">🚚 {t("freeDeliveryUnlocked")}</p>
+              ) : (
+                <>
+                  <p className="font-semibold text-emerald-800">
+                    {t("addMore")} {formatMoney(freeDeliveryRemaining)} {t("forFreeDelivery")}
+                  </p>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-emerald-100">
+                    <div
+                      className="h-full rounded-full bg-emerald-500"
+                      style={{ width: `${Math.min(100, (baseFinancials.productRevenue / freeDeliveryThreshold) * 100)}%` }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-4 font-bold">
             <span>{t("productSubtotal")}</span>
             <span>{formatMoney(quoteFinancials.productRevenue)}</span>
@@ -632,6 +716,8 @@ function StoreProductCard({
   settings,
   buyerTierId,
   userId,
+  isFavorite,
+  onToggleFav,
   onExpand,
   onAdd
 }: {
@@ -640,12 +726,15 @@ function StoreProductCard({
   settings: ReturnType<typeof useAtlasStore>["store"]["pricingSettings"];
   buyerTierId: string;
   userId?: string;
+  isFavorite: boolean;
+  onToggleFav: () => void;
   onExpand: () => void;
   onAdd: (qty: number) => void;
 }) {
   const { t } = useI18n();
   const [qty, setQty] = useState(1);
   const placeholder = isPlaceholderImage(product);
+  const refrigerated = !!product.spec?.refrigerated;
   const yourPrice = buyerCasePrice({ settings, product, tierId: buyerTierId, accountId: userId });
   const standard = standardCasePrice(product, settings);
   const discounted = yourPrice < standard - 0.001;
@@ -655,24 +744,36 @@ function StoreProductCard({
 
   return (
     <article className="flex flex-col overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:shadow-panel">
-      {placeholder ? (
-        <div className="aspect-square w-full overflow-hidden border-b border-slate-100">
-          <ProductImage product={product} className="h-full w-full" iconSize={48} />
-        </div>
-      ) : (
+      <div className="relative">
+        {placeholder ? (
+          <div className="aspect-square w-full overflow-hidden border-b border-slate-100">
+            <ProductImage product={product} className="h-full w-full" iconSize={48} />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="aspect-square w-full overflow-hidden border-b border-slate-100 bg-white transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-atlas-blue"
+            onClick={onExpand}
+            aria-label={`Expand ${product.brand} image`}
+          >
+            <ProductImage product={product} className="h-full w-full" />
+          </button>
+        )}
         <button
           type="button"
-          className="aspect-square w-full overflow-hidden border-b border-slate-100 bg-white transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-atlas-blue"
-          onClick={onExpand}
-          aria-label={`Expand ${product.brand} image`}
+          onClick={onToggleFav}
+          className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border bg-white/90 shadow-sm transition ${isFavorite ? "border-atlas-red text-atlas-red" : "border-slate-200 text-slate-400 hover:text-atlas-red"}`}
+          aria-label={isFavorite ? `Remove ${product.brand} from favorites` : `Save ${product.brand} to favorites`}
+          aria-pressed={isFavorite}
         >
-          <ProductImage product={product} className="h-full w-full" />
+          <Heart size={16} fill={isFavorite ? "currentColor" : "none"} />
         </button>
-      )}
+      </div>
       <div className="flex flex-1 flex-col p-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="badge bg-slate-100 text-[10px] text-slate-600">{product.subcategory || product.category}</span>
           {isNew && <span className="badge bg-emerald-50 text-[10px] text-emerald-700">{t("newBadge")}</span>}
+          {refrigerated && <span className="badge bg-sky-50 text-[10px] text-atlas-blue"><Snowflake size={10} />{t("coldPack")}</span>}
           {product.placements?.homepageFeatured && <span className="badge bg-sky-50 text-[10px] text-atlas-blue">{t("featured")}</span>}
           {product.promotion && (
             <span className="badge bg-red-50 text-[10px] text-atlas-red">

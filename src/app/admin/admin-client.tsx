@@ -480,6 +480,7 @@ function ManageProductRow({
   });
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [refrigerated, setRefrigerated] = useState(!!product.spec?.refrigerated);
 
   function set(field: keyof typeof form) {
     return (event: ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -494,7 +495,7 @@ function ManageProductRow({
       moq: toNum(form.moq) ?? 1,
       minOrderValue: toNum(form.minOrderValue) ?? 0,
       leadTime: form.leadTime || "Ready now",
-      spec: { casesPerPallet: cpp && cpp > 0 ? cpp : undefined }
+      spec: { casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated }
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -533,6 +534,10 @@ function ManageProductRow({
         <ManageField label="Cases per pallet" type="number" value={form.casesPerPallet} onChange={set("casesPerPallet")} placeholder="e.g. 40" />
         <ManageField label="Inventory (cases)" type="number" value={form.inventoryAvailable} onChange={set("inventoryAvailable")} />
         <ManageField label="Lead time" value={form.leadTime} onChange={set("leadTime")} placeholder="Ready now" />
+        <label className="flex items-center gap-2 self-end pb-2 text-sm font-bold text-atlas-navy">
+          <input type="checkbox" className="h-4 w-4" checked={refrigerated} onChange={(e) => setRefrigerated(e.target.checked)} />
+          Cold pack / refrigerated
+        </label>
       </div>
       <div className="mt-3 flex items-center gap-3">
         <button className="btn-secondary px-4 py-2 text-sm" type="button" onClick={save}>
@@ -2214,6 +2219,7 @@ function PricingSettingsPanel({
         body="Added when Atlas delivers locally or arranges freight for large orders."
       >
         <NumberField label="Local delivery — charge" value={settings.localDeliveryFee} onChange={updateNumber("localDeliveryFee")} hint="What the buyer pays for local delivery (per order)." prefix="$" />
+        <NumberField label="Free delivery over" value={settings.freeDeliveryThreshold ?? 0} onChange={updateNumber("freeDeliveryThreshold")} hint="Product subtotal at/above which local delivery is free. 0 = off." prefix="$" />
         <NumberField label="Local delivery — Atlas cost" value={settings.localDeliveryCost} onChange={updateNumber("localDeliveryCost")} hint="Atlas's own cost to deliver locally." prefix="$" />
         <NumberField label="Freight coordination — charge" value={settings.freightCoordinationFee} onChange={updateNumber("freightCoordinationFee")} hint="What the buyer pays when Atlas arranges freight." prefix="$" />
         <NumberField label="Freight — Atlas cost estimate" value={settings.freightCostEstimate} onChange={updateNumber("freightCostEstimate")} hint="Estimated freight cost to Atlas." prefix="$" />
