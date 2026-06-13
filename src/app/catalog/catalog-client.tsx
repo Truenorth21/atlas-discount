@@ -38,10 +38,10 @@ export default function CatalogClient({
   const [submittedQuoteId, setSubmittedQuoteId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; label: string } | null>(null);
   const canSeePricing = isAuthenticated && (isApproved || store.documentsVerified);
-  // Real tier: the admin's per-account assignment wins; otherwise the role default
-  // (Atlas Reps buy at the rep tier, everyone else at the retailer reference tier).
+  // Buy tier: the admin's per-account assignment wins; otherwise the role default.
+  // Sales reps don't buy at a rep price — if they shop, they use retailer pricing.
   const accountEntry = userId ? (store.pricingSettings.accountPricing ?? []).find((entry) => entry.accountId === userId) : undefined;
-  const buyerTierId = accountEntry?.tierId ?? (userRole === "route_seller" ? "atlas_rep" : store.currentTierId);
+  const buyerTierId = accountEntry?.tierId ?? (userRole === "route_seller" ? "retailer" : store.currentTierId);
   // Buyer context drives explicit per-tier pricing; only applied once the buyer can see pricing.
   const pricingCtx: PricingContext | undefined = canSeePricing ? { tierId: buyerTierId, accountId: userId } : undefined;
 

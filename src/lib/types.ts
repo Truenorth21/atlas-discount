@@ -252,6 +252,12 @@ export type PricingSettings = {
   customerTiers: CustomerTier[];
   /** Per-account tier assignments + optional account-wide overrides. */
   accountPricing: AccountPricing[];
+  /** Channel pricing defaults (percent values). SRP mode: buyer margins; cost mode: Atlas target margins. */
+  retailerMarginAtSrpPct?: number;
+  distributorMarginOnResalePct?: number;
+  atlasMarginRetailerSalePct?: number;
+  atlasMarginDistributorSalePct?: number;
+  minimumAtlasMarginPct?: number;
 };
 
 export type QuoteFinancials = {

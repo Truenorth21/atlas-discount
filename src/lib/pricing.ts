@@ -24,30 +24,208 @@ export function marginOfSale(price: number, cost: number): number {
   return price > 0 && cost > 0 ? Math.round(((price - cost) / price) * 100) : 0;
 }
 
-/**
- * Channel cascade: start from the shelf price (SRP/unit × units-per-case) and walk DOWN
- * the distribution chain, each level taking its margin off what it sells for. The price
- * levels are applied in their configured order (top of channel first), so each level pays
- * less than the one above it. Atlas keeps whatever is left above cost.
- *
- * Retailer = SRP/case × (1 − retailerMargin); Distributor = Retailer × (1 − distMargin); …
- */
-export function cascadeTierPrices(product: Product, settings: PricingSettings): Record<string, number> {
-  const out: Record<string, number> = {};
-  const shelfCase = (product.suggestedRetail || 0) * (product.casePack || 1);
-  if (shelfCase <= 0) return out;
-  let running = shelfCase;
-  for (const tier of settings.customerTiers ?? []) {
-    running = Math.round(running * (1 - (tier.marginPct || 0) / 100) * 100) / 100;
-    out[tier.id] = running;
-  }
-  return out;
+const round2 = (value: number) => Math.round(value * 100) / 100;
+
+export function formatPercent(fraction: number): string {
+  return `${(fraction * 100).toFixed(1)}%`;
+}
+export const formatCurrency = formatMoney;
+
+// ---------------------------------------------------------------------------
+// Channel pricing model
+//   Retailers + Distributors BUY from Atlas. Sales reps do NOT buy — they earn
+//   a commission on the sale. Two modes:
+//     SRP-based  (SRP entered): work back from shelf price, give retailer +
+//       distributor their standard margins, Atlas keeps the rest.
+//     Cost-based (no SRP): work forward from Atlas cost at target Atlas margins.
+// ---------------------------------------------------------------------------
+
+export type PricingMode = "srp" | "cost";
+
+export type ChannelDefaults = {
+  retailerMarginAtSRP: number; // fraction, e.g. 0.30
+  distributorMarginOnResale: number; // 0.25
+  atlasMarginRetailerSale: number; // 0.35
+  atlasMarginDistributorSale: number; // 0.25
+  salesRepCommission: number; // 0.10
+  minimumAtlasMargin: number; // 0.15
+};
+
+export const defaultChannelDefaults: ChannelDefaults = {
+  retailerMarginAtSRP: 0.3,
+  distributorMarginOnResale: 0.25,
+  atlasMarginRetailerSale: 0.35,
+  atlasMarginDistributorSale: 0.25,
+  salesRepCommission: 0.1,
+  minimumAtlasMargin: 0.15
+};
+
+/** Pull channel defaults from pricing settings, falling back to the standard values. */
+export function channelDefaults(settings?: PricingSettings): ChannelDefaults {
+  if (!settings) return defaultChannelDefaults;
+  const pct = (value: number | undefined, fallback: number) => (typeof value === "number" ? value / 100 : fallback);
+  return {
+    retailerMarginAtSRP: pct(settings.retailerMarginAtSrpPct, defaultChannelDefaults.retailerMarginAtSRP),
+    distributorMarginOnResale: pct(settings.distributorMarginOnResalePct, defaultChannelDefaults.distributorMarginOnResale),
+    atlasMarginRetailerSale: pct(settings.atlasMarginRetailerSalePct, defaultChannelDefaults.atlasMarginRetailerSale),
+    atlasMarginDistributorSale: pct(settings.atlasMarginDistributorSalePct, defaultChannelDefaults.atlasMarginDistributorSale),
+    salesRepCommission: pct(settings.routeSellerCommissionPercent, defaultChannelDefaults.salesRepCommission),
+    minimumAtlasMargin: pct(settings.minimumAtlasMarginPct, defaultChannelDefaults.minimumAtlasMargin)
+  };
 }
 
-/** A single level's calculated case price from the channel cascade (undefined when no SRP). */
+export type ChannelOverrides = {
+  retailerCasePrice?: number;
+  distributorCasePrice?: number;
+  distributorResalePrice?: number;
+  salesRepCommissionPct?: number; // fraction
+};
+
+export type ChannelResult = {
+  mode: PricingMode;
+  caseCost: number;
+  casePack: number;
+  srpPerUnit: number;
+  atlasUnitCost: number;
+  retailValuePerCase: number;
+  retailer: {
+    marginAtSRP: number;
+    atlasTargetMargin: number;
+    casePrice: number;
+    unitCost: number;
+    atlasProfit: number;
+    atlasMargin: number;
+  };
+  distributor: {
+    resaleToRetailer: number;
+    marginOnResale: number;
+    atlasTargetMargin: number;
+    casePrice: number;
+    unitCost: number;
+    atlasProfit: number;
+    atlasMargin: number;
+  };
+  rep: {
+    commissionPct: number;
+    commissionBase: number;
+    commissionPerCase: number;
+    atlasNetAfterCommission: number;
+    atlasProfitAfterCommission: number;
+    atlasMarginAfterCommission: number;
+  };
+  warnings: string[];
+};
+
+export function determinePricingMode(srpPerUnit: number | undefined | null): PricingMode {
+  return typeof srpPerUnit === "number" && srpPerUnit > 0 ? "srp" : "cost";
+}
+
+export function computeChannelPricing(input: {
+  caseCost: number;
+  casePack: number;
+  srpPerUnit?: number;
+  defaults?: ChannelDefaults;
+  overrides?: ChannelOverrides;
+}): ChannelResult {
+  const defaults = input.defaults ?? defaultChannelDefaults;
+  const ov = input.overrides ?? {};
+  const caseCost = input.caseCost > 0 ? input.caseCost : 0;
+  const pack = input.casePack > 0 ? input.casePack : 1;
+  const srpPerUnit = input.srpPerUnit && input.srpPerUnit > 0 ? input.srpPerUnit : 0;
+  const mode = determinePricingMode(srpPerUnit);
+  const atlasUnitCost = round2(caseCost / pack);
+  const retailValuePerCase = round2(srpPerUnit * pack);
+
+  let retailerCasePrice: number;
+  let distributorCasePrice: number;
+  let distributorResale = 0;
+  let retailerMarginAtSRP = 0;
+  let distributorMarginOnResale = 0;
+
+  if (mode === "srp") {
+    retailerMarginAtSRP = defaults.retailerMarginAtSRP;
+    retailerCasePrice = ov.retailerCasePrice ?? round2(retailValuePerCase * (1 - retailerMarginAtSRP));
+    distributorMarginOnResale = defaults.distributorMarginOnResale;
+    distributorResale = ov.distributorResalePrice ?? retailerCasePrice;
+    distributorCasePrice = ov.distributorCasePrice ?? round2(distributorResale * (1 - distributorMarginOnResale));
+  } else {
+    retailerCasePrice = ov.retailerCasePrice ?? round2(caseCost / (1 - defaults.atlasMarginRetailerSale));
+    distributorCasePrice = ov.distributorCasePrice ?? round2(caseCost / (1 - defaults.atlasMarginDistributorSale));
+    distributorResale = retailerCasePrice;
+  }
+
+  const commissionPct = ov.salesRepCommissionPct ?? defaults.salesRepCommission;
+  const commissionBase = retailerCasePrice;
+  const commissionPerCase = round2(commissionBase * commissionPct);
+  const atlasNetAfterCommission = round2(retailerCasePrice - commissionPerCase);
+  const atlasProfitAfterCommission = round2(atlasNetAfterCommission - caseCost);
+  const atlasMarginAfterCommission = atlasNetAfterCommission > 0 ? atlasProfitAfterCommission / atlasNetAfterCommission : 0;
+
+  const retailerAtlasProfit = round2(retailerCasePrice - caseCost);
+  const retailerAtlasMargin = retailerCasePrice > 0 ? retailerAtlasProfit / retailerCasePrice : 0;
+  const distAtlasProfit = round2(distributorCasePrice - caseCost);
+  const distAtlasMargin = distributorCasePrice > 0 ? distAtlasProfit / distributorCasePrice : 0;
+
+  const warnings: string[] = [];
+  if (caseCost > 0 && (retailerCasePrice < caseCost || distributorCasePrice < caseCost)) {
+    warnings.push("Warning: This price is below Atlas cost.");
+  }
+  if (mode === "srp" && caseCost > 0 && distributorCasePrice < caseCost) {
+    warnings.push("Warning: SRP is too low for the current product cost and target margins. Adjust SRP, retailer margin, distributor margin, or Atlas cost.");
+  }
+  if (caseCost > 0 && (retailerAtlasMargin < defaults.minimumAtlasMargin || distAtlasMargin < defaults.minimumAtlasMargin)) {
+    warnings.push("Warning: Atlas margin is below the minimum target.");
+  }
+  if (caseCost > 0 && atlasMarginAfterCommission < defaults.minimumAtlasMargin) {
+    warnings.push("Warning: Sales rep commission reduces Atlas margin below the minimum target.");
+  }
+
+  return {
+    mode,
+    caseCost,
+    casePack: pack,
+    srpPerUnit,
+    atlasUnitCost,
+    retailValuePerCase,
+    retailer: {
+      marginAtSRP: retailerMarginAtSRP,
+      atlasTargetMargin: defaults.atlasMarginRetailerSale,
+      casePrice: retailerCasePrice,
+      unitCost: round2(retailerCasePrice / pack),
+      atlasProfit: retailerAtlasProfit,
+      atlasMargin: retailerAtlasMargin
+    },
+    distributor: {
+      resaleToRetailer: distributorResale,
+      marginOnResale: distributorMarginOnResale,
+      atlasTargetMargin: defaults.atlasMarginDistributorSale,
+      casePrice: distributorCasePrice,
+      unitCost: round2(distributorCasePrice / pack),
+      atlasProfit: distAtlasProfit,
+      atlasMargin: distAtlasMargin
+    },
+    rep: {
+      commissionPct,
+      commissionBase,
+      commissionPerCase,
+      atlasNetAfterCommission,
+      atlasProfitAfterCommission,
+      atlasMarginAfterCommission
+    },
+    warnings
+  };
+}
+
+/** A buy tier's calculated case price (retailer/distributor) from the channel engine. */
 export function suggestedCasePrice(product: Product, settings: PricingSettings, tierId: string): number | undefined {
-  const prices = cascadeTierPrices(product, settings);
-  return tierId in prices ? prices[tierId] : undefined;
+  const pricing = computeChannelPricing({
+    caseCost: product.supplierCost,
+    casePack: product.casePack,
+    srpPerUnit: product.suggestedRetail,
+    defaults: channelDefaults(settings)
+  });
+  const price = tierId === "distributor" ? pricing.distributor.casePrice : pricing.retailer.casePrice;
+  return price > 0 ? price : undefined;
 }
 
 /** Per-account % off the tier price (special deals). 0 when none. */

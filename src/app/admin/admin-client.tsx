@@ -15,10 +15,12 @@ import {
   calculateLinePricing,
   calculateQuoteFinancials,
   casesPerPallet,
+  computeChannelPricing,
+  determinePricingMode,
   formatMoney,
+  formatPercent,
   marginOfSale,
-  productPalletSize,
-  suggestedCasePrice
+  productPalletSize
 } from "@/lib/pricing";
 import { atlasHubs, fulfillmentTypes, productCategories } from "@/lib/data";
 import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, TierPricing } from "@/lib/types";
@@ -784,8 +786,8 @@ const blankProductForm = {
   palletCasesPerFloor: "", palletLayers: "", palletStandardWeight: "40",
   shippingWarehouse: "Orlando hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
   supplierCost: "", suggestedRetail: "", moq: "1", minOrderValue: "", leadTime: "", inventoryAvailable: "0",
-  priceRetailer: "", priceDistributor: "", priceAtlasRep: "",
-  palletPriceRetailer: "", palletPriceDistributor: "", palletPriceAtlasRep: "",
+  priceRetailer: "", priceDistributor: "", repCommissionPct: "",
+  palletPriceRetailer: "", palletPriceDistributor: "",
   supplierName: "Atlas Admin", promotion: ""
 };
 
@@ -795,47 +797,27 @@ const toNum = (value: string) => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
-/** Build the explicit per-tier pricing (master case + optional full pallet) from the product form. */
+/** Resolve final Retailer + Distributor case prices from the channel engine (with any overrides). */
 function buildTierPricing(form: typeof blankProductForm): TierPricing {
-  const caseEntries: Array<[string, string]> = [
-    ["retailer", form.priceRetailer],
-    ["distributor", form.priceDistributor],
-    ["atlas_rep", form.priceAtlasRep]
-  ];
-  const palletEntries: Array<[string, string]> = [
-    ["retailer", form.palletPriceRetailer],
-    ["distributor", form.palletPriceDistributor],
-    ["atlas_rep", form.palletPriceAtlasRep]
-  ];
+  const pricing = computeChannelPricing({
+    caseCost: toNum(form.supplierCost) ?? 0,
+    casePack: toNum(form.casePack) ?? 1,
+    srpPerUnit: toNum(form.suggestedRetail) ?? 0,
+    overrides: {
+      retailerCasePrice: toNum(form.priceRetailer),
+      distributorCasePrice: toNum(form.priceDistributor),
+      salesRepCommissionPct: form.repCommissionPct.trim() !== "" ? (toNum(form.repCommissionPct) ?? 0) / 100 : undefined
+    }
+  });
   const casePrices: Record<string, number> = {};
-  for (const [id, value] of caseEntries) {
-    const n = toNum(value);
-    if (n !== undefined && n > 0) casePrices[id] = n;
-  }
+  if (pricing.retailer.casePrice > 0) casePrices.retailer = pricing.retailer.casePrice;
+  if (pricing.distributor.casePrice > 0) casePrices.distributor = pricing.distributor.casePrice;
   const palletPrices: Record<string, number> = {};
-  for (const [id, value] of palletEntries) {
-    const n = toNum(value);
-    if (n !== undefined && n > 0) palletPrices[id] = n;
-  }
+  const palletR = toNum(form.palletPriceRetailer);
+  const palletD = toNum(form.palletPriceDistributor);
+  if (palletR && palletR > 0) palletPrices.retailer = palletR;
+  if (palletD && palletD > 0) palletPrices.distributor = palletD;
   return Object.keys(palletPrices).length > 0 ? { case: casePrices, pallet: palletPrices } : { case: casePrices };
-}
-
-const PRODUCT_FORM_TIERS: Array<{ id: string; label: string; priceField: keyof typeof blankProductForm; palletField: keyof typeof blankProductForm; marginPct: number }> = [
-  { id: "retailer", label: "Retailer", priceField: "priceRetailer", palletField: "palletPriceRetailer", marginPct: 30 },
-  { id: "distributor", label: "Distributor", priceField: "priceDistributor", palletField: "palletPriceDistributor", marginPct: 30 },
-  { id: "atlas_rep", label: "Sales Rep", priceField: "priceAtlasRep", palletField: "palletPriceAtlasRep", marginPct: 30 }
-];
-
-/** Channel cascade for the add form: shelf price down each level by its margin. */
-function cascadeFormPrices(srpPerUnit: number, casePack: number): Record<string, number> {
-  const out: Record<string, number> = {};
-  let running = (srpPerUnit || 0) * (casePack || 1);
-  if (running <= 0) return out;
-  for (const tier of PRODUCT_FORM_TIERS) {
-    running = Math.round(running * (1 - tier.marginPct / 100) * 100) / 100;
-    out[tier.id] = running;
-  }
-  return out;
 }
 
 function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeof useAtlasStore>["addProducts"] }) {
@@ -1051,54 +1033,19 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
         <AdminProductInput label="Case cost to Atlas (for margin)" type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
         <AdminProductInput label="Suggested retail per UNIT ($)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
         <div className="hidden md:block" />
-        <p className="md:col-span-3 -mb-1 text-xs text-slate-500">
-          Enter the retail price per unit. Each level&apos;s case price is calculated down the channel from the shelf price (each level
-          takes its margin). Leave a price blank to use the calculation, or type an exact price to override.
-        </p>
-        <div className="md:col-span-3 grid gap-3 rounded-md border border-slate-200 bg-atlas-light p-3 sm:grid-cols-3">
-          {(() => {
-            const cost = toNum(form.supplierCost) ?? 0;
-            const srp = toNum(form.suggestedRetail) ?? 0;
-            const pack = toNum(form.casePack) ?? 1;
-            const calc = cascadeFormPrices(srp, pack);
-            return PRODUCT_FORM_TIERS.map((tier) => {
-            const calculated = calc[tier.id] ?? 0;
-            const priceRaw = form[tier.priceField];
-            const effective = priceRaw.trim() === "" ? calculated : toNum(priceRaw) ?? 0;
-            const atlasMargin = marginOfSale(effective, cost);
-            return (
-              <div key={tier.id} className="grid gap-1 rounded-md bg-white p-2">
-                <span className="text-xs font-black uppercase tracking-wide text-atlas-blue">{tier.label}</span>
-                <span className="text-[11px] font-semibold text-slate-400">earns {tier.marginPct}% margin on resale</span>
-                <label className="grid gap-1">
-                  <span className="text-[11px] font-semibold text-slate-500">Case price $</span>
-                  <input
-                    className="field h-9 min-h-9"
-                    type="number"
-                    step="0.01"
-                    placeholder={calculated > 0 ? `${formatMoney(calculated)} (calculated)` : "enter SRP or price"}
-                    value={priceRaw}
-                    onChange={updateField(tier.priceField)}
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-[11px] font-semibold text-slate-500">Full-pallet price $ (optional)</span>
-                  <input
-                    className="field h-9 min-h-9"
-                    type="number"
-                    step="0.01"
-                    placeholder="same as case"
-                    value={form[tier.palletField]}
-                    onChange={updateField(tier.palletField)}
-                  />
-                </label>
-                <span className="text-[11px] font-semibold text-emerald-700">
-                  {effective > 0 && cost > 0 ? `Atlas margin ${atlasMargin}% · ${formatMoney(effective - cost)}/case` : "Cost shows Atlas margin"}
-                </span>
-              </div>
-            );
-          });
-          })()}
+        <div className="md:col-span-3">
+          <ChannelPricingPanel
+            caseCost={toNum(form.supplierCost) ?? 0}
+            casePack={toNum(form.casePack) ?? 1}
+            srpPerUnit={toNum(form.suggestedRetail) ?? 0}
+            retailerOverride={form.priceRetailer}
+            distributorOverride={form.priceDistributor}
+            repCommissionOverride={form.repCommissionPct}
+            onRetailer={(v) => setForm((c) => ({ ...c, priceRetailer: v }))}
+            onDistributor={(v) => setForm((c) => ({ ...c, priceDistributor: v }))}
+            onRepCommission={(v) => setForm((c) => ({ ...c, repCommissionPct: v }))}
+            onReset={() => setForm((c) => ({ ...c, priceRetailer: "", priceDistributor: "", repCommissionPct: "" }))}
+          />
         </div>
 
         <ProductSectionHeading>Stock &amp; order minimum</ProductSectionHeading>
@@ -1110,6 +1057,199 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
       </div>
       {message && <p className="mt-4 rounded-md bg-sky-50 p-3 text-sm font-bold text-atlas-blue">{message}</p>}
     </section>
+  );
+}
+
+function PriceRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className={strong ? "font-black text-atlas-navy" : "font-semibold text-atlas-navy"}>{value}</span>
+    </div>
+  );
+}
+
+function ChannelPricingPanel({
+  caseCost,
+  casePack,
+  srpPerUnit,
+  retailerOverride,
+  distributorOverride,
+  repCommissionOverride,
+  onRetailer,
+  onDistributor,
+  onRepCommission,
+  onReset
+}: {
+  caseCost: number;
+  casePack: number;
+  srpPerUnit: number;
+  retailerOverride: string;
+  distributorOverride: string;
+  repCommissionOverride: string;
+  onRetailer: (v: string) => void;
+  onDistributor: (v: string) => void;
+  onRepCommission: (v: string) => void;
+  onReset: () => void;
+}) {
+  const mode = determinePricingMode(srpPerUnit);
+  const overrides = {
+    retailerCasePrice: retailerOverride.trim() !== "" ? Number(retailerOverride) || 0 : undefined,
+    distributorCasePrice: distributorOverride.trim() !== "" ? Number(distributorOverride) || 0 : undefined,
+    salesRepCommissionPct: repCommissionOverride.trim() !== "" ? (Number(repCommissionOverride) || 0) / 100 : undefined
+  };
+  const p = computeChannelPricing({ caseCost, casePack, srpPerUnit, overrides });
+  const hasOverride = [retailerOverride, distributorOverride, repCommissionOverride].some((v) => v.trim() !== "");
+  const cur = formatMoney;
+  const pct = formatPercent;
+
+  return (
+    <div className="grid gap-3">
+      {/* Card 1 — Pricing mode summary */}
+      <div className="rounded-md border border-slate-200 bg-white p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className={`badge ${mode === "srp" ? "bg-sky-50 text-atlas-blue" : "bg-amber-50 text-amber-800"}`}>
+            Pricing mode: {mode === "srp" ? "SRP-based" : "Cost-based"}
+          </span>
+          {hasOverride && (
+            <button type="button" className="text-xs font-bold text-atlas-blue hover:underline" onClick={onReset}>
+              Reset to suggested pricing
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          {mode === "srp"
+            ? "Using SRP to calculate channel prices and preserve standard buyer margins."
+            : "SRP not entered. Prices are calculated from Atlas cost using Atlas target margins."}
+        </p>
+        <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+          <PriceRow label="Case cost to Atlas" value={cur(p.caseCost)} />
+          <PriceRow label="Case pack units" value={`${p.casePack}`} />
+          <PriceRow label="Atlas unit cost" value={cur(p.atlasUnitCost)} />
+          <PriceRow label="Suggested retail per unit" value={p.srpPerUnit > 0 ? cur(p.srpPerUnit) : "—"} />
+          <PriceRow label="Retail value per case" value={p.retailValuePerCase > 0 ? cur(p.retailValuePerCase) : "—"} />
+        </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        {/* Card 2 — Retailer channel */}
+        <div className="rounded-md border border-slate-200 bg-white p-3">
+          <h4 className="text-sm font-black uppercase tracking-wide text-atlas-blue">Retailer channel</h4>
+          <p className="text-[11px] text-slate-400">Price retailers pay Atlas.</p>
+          <div className="mt-2 grid gap-1.5">
+            {mode === "srp" ? (
+              <PriceRow label="Retailer margin at SRP" value={pct(p.retailer.marginAtSRP)} />
+            ) : (
+              <PriceRow label="Atlas target margin on retailer sale" value={pct(p.retailer.atlasTargetMargin)} />
+            )}
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-slate-500">Retailer case price</span>
+              <span className="flex items-center rounded-md border border-slate-300 bg-white">
+                <span className="pl-2 text-xs text-slate-400">$</span>
+                <input className="w-24 border-0 bg-transparent px-1 py-1 text-right text-sm font-black text-atlas-navy focus:outline-none" type="number" step="0.01" placeholder={cur(p.retailer.casePrice).replace("$", "")} value={retailerOverride} onChange={(e) => onRetailer(e.target.value)} />
+              </span>
+            </label>
+            <PriceRow label="Retailer unit cost" value={cur(p.retailer.unitCost)} />
+            <PriceRow label="Atlas profit per case" value={cur(p.retailer.atlasProfit)} />
+            <PriceRow label="Atlas gross margin" value={pct(p.retailer.atlasMargin)} strong />
+          </div>
+        </div>
+
+        {/* Card 3 — Distributor channel */}
+        <div className="rounded-md border border-slate-200 bg-white p-3">
+          <h4 className="text-sm font-black uppercase tracking-wide text-atlas-blue">Distributor channel</h4>
+          <p className="text-[11px] text-slate-400">Price distributors pay Atlas. They resell to retailers.</p>
+          <div className="mt-2 grid gap-1.5">
+            {mode === "srp" ? (
+              <>
+                <PriceRow label="Suggested distributor resale to retailer" value={cur(p.distributor.resaleToRetailer)} />
+                <PriceRow label="Distributor margin on resale" value={pct(p.distributor.marginOnResale)} />
+              </>
+            ) : (
+              <PriceRow label="Atlas target margin on distributor sale" value={pct(p.distributor.atlasTargetMargin)} />
+            )}
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-slate-500">Distributor case price</span>
+              <span className="flex items-center rounded-md border border-slate-300 bg-white">
+                <span className="pl-2 text-xs text-slate-400">$</span>
+                <input className="w-24 border-0 bg-transparent px-1 py-1 text-right text-sm font-black text-atlas-navy focus:outline-none" type="number" step="0.01" placeholder={cur(p.distributor.casePrice).replace("$", "")} value={distributorOverride} onChange={(e) => onDistributor(e.target.value)} />
+              </span>
+            </label>
+            <PriceRow label="Distributor unit cost" value={cur(p.distributor.unitCost)} />
+            <PriceRow label="Atlas profit per case" value={cur(p.distributor.atlasProfit)} />
+            <PriceRow label="Atlas gross margin" value={pct(p.distributor.atlasMargin)} strong />
+          </div>
+        </div>
+      </div>
+
+      {/* Card 4 — Sales rep commission */}
+      <div className="rounded-md border border-slate-200 bg-white p-3">
+        <h4 className="text-sm font-black uppercase tracking-wide text-atlas-blue">Sales rep commission</h4>
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+          <label className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-slate-500">Sales rep commission %</span>
+            <span className="flex items-center rounded-md border border-slate-300 bg-white">
+              <input className="w-16 border-0 bg-transparent px-1 py-1 text-right text-sm font-black text-atlas-navy focus:outline-none" type="number" step="0.5" placeholder={`${(p.rep.commissionPct * 100).toFixed(1)}`} value={repCommissionOverride} onChange={(e) => onRepCommission(e.target.value)} />
+              <span className="pr-2 text-xs text-slate-400">%</span>
+            </span>
+          </label>
+          <PriceRow label="Commission base (retailer case price)" value={cur(p.rep.commissionBase)} />
+          <PriceRow label="Commission per case" value={cur(p.rep.commissionPerCase)} />
+          <PriceRow label="Atlas net after commission" value={cur(p.rep.atlasNetAfterCommission)} />
+          <PriceRow label="Atlas profit after commission" value={cur(p.rep.atlasProfitAfterCommission)} />
+          <PriceRow label="Atlas margin after commission" value={pct(p.rep.atlasMarginAfterCommission)} strong />
+        </div>
+        <p className="mt-2 rounded bg-atlas-light p-2 text-[11px] text-slate-600">
+          Sales reps do not buy inventory. They earn commission on collected sales.
+        </p>
+      </div>
+
+      {/* Card 5 — Atlas margin summary */}
+      <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-atlas-light text-[10px] uppercase text-slate-500">
+            <tr>
+              <th className="px-3 py-2">Channel</th>
+              <th className="px-3 py-2">Buyer / sale price</th>
+              <th className="px-3 py-2">Atlas profit / case</th>
+              <th className="px-3 py-2">Atlas margin</th>
+              <th className="px-3 py-2">Buyer margin / opportunity</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 font-semibold text-atlas-navy">
+            <tr>
+              <td className="px-3 py-2">Retailer sale</td>
+              <td className="px-3 py-2">{cur(p.retailer.casePrice)}</td>
+              <td className="px-3 py-2">{cur(p.retailer.atlasProfit)}</td>
+              <td className="px-3 py-2">{pct(p.retailer.atlasMargin)}</td>
+              <td className="px-3 py-2 text-slate-500">{mode === "srp" ? `${pct(p.retailer.marginAtSRP)} at SRP` : "—"}</td>
+            </tr>
+            <tr>
+              <td className="px-3 py-2">Distributor sale</td>
+              <td className="px-3 py-2">{cur(p.distributor.casePrice)}</td>
+              <td className="px-3 py-2">{cur(p.distributor.atlasProfit)}</td>
+              <td className="px-3 py-2">{pct(p.distributor.atlasMargin)}</td>
+              <td className="px-3 py-2 text-slate-500">{mode === "srp" ? `${pct(p.distributor.marginOnResale)} on resale` : "—"}</td>
+            </tr>
+            <tr>
+              <td className="px-3 py-2">Sales rep sale</td>
+              <td className="px-3 py-2">{cur(p.retailer.casePrice)}</td>
+              <td className="px-3 py-2">{cur(p.rep.atlasProfitAfterCommission)}</td>
+              <td className="px-3 py-2">{pct(p.rep.atlasMarginAfterCommission)}</td>
+              <td className="px-3 py-2 text-slate-500">{pct(p.rep.commissionPct)} commission</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {p.warnings.length > 0 && (
+        <div className="grid gap-1 rounded-md border border-amber-200 bg-amber-50 p-3">
+          {p.warnings.map((w) => (
+            <p key={w} className="text-xs font-semibold text-amber-900">{w}</p>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

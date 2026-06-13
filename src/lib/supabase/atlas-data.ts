@@ -76,6 +76,11 @@ type PricingRow = {
     accountPricing?: AccountPricing[];
     hubTransferPerCase?: number;
     hubTransferCostPerCase?: number;
+    retailerMarginAtSrpPct?: number;
+    distributorMarginOnResalePct?: number;
+    atlasMarginRetailerSalePct?: number;
+    atlasMarginDistributorSalePct?: number;
+    minimumAtlasMarginPct?: number;
   } | null;
 };
 
@@ -200,7 +205,12 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     customerTiers: row.customer_pricing?.customerTiers ?? defaultPricingSettings.customerTiers,
     accountPricing: row.customer_pricing?.accountPricing ?? defaultPricingSettings.accountPricing,
     hubTransferPerCase: row.customer_pricing?.hubTransferPerCase ?? defaultPricingSettings.hubTransferPerCase,
-    hubTransferCostPerCase: row.customer_pricing?.hubTransferCostPerCase ?? defaultPricingSettings.hubTransferCostPerCase
+    hubTransferCostPerCase: row.customer_pricing?.hubTransferCostPerCase ?? defaultPricingSettings.hubTransferCostPerCase,
+    retailerMarginAtSrpPct: row.customer_pricing?.retailerMarginAtSrpPct ?? defaultPricingSettings.retailerMarginAtSrpPct,
+    distributorMarginOnResalePct: row.customer_pricing?.distributorMarginOnResalePct ?? defaultPricingSettings.distributorMarginOnResalePct,
+    atlasMarginRetailerSalePct: row.customer_pricing?.atlasMarginRetailerSalePct ?? defaultPricingSettings.atlasMarginRetailerSalePct,
+    atlasMarginDistributorSalePct: row.customer_pricing?.atlasMarginDistributorSalePct ?? defaultPricingSettings.atlasMarginDistributorSalePct,
+    minimumAtlasMarginPct: row.customer_pricing?.minimumAtlasMarginPct ?? defaultPricingSettings.minimumAtlasMarginPct
   };
 }
 
@@ -239,7 +249,12 @@ function pricingToRow(settings: PricingSettings) {
       customerTiers: settings.customerTiers ?? [],
       accountPricing: settings.accountPricing ?? [],
       hubTransferPerCase: settings.hubTransferPerCase,
-      hubTransferCostPerCase: settings.hubTransferCostPerCase
+      hubTransferCostPerCase: settings.hubTransferCostPerCase,
+      retailerMarginAtSrpPct: settings.retailerMarginAtSrpPct,
+      distributorMarginOnResalePct: settings.distributorMarginOnResalePct,
+      atlasMarginRetailerSalePct: settings.atlasMarginRetailerSalePct,
+      atlasMarginDistributorSalePct: settings.atlasMarginDistributorSalePct,
+      minimumAtlasMarginPct: settings.minimumAtlasMarginPct
     },
     updated_at: new Date().toISOString()
   };

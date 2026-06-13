@@ -77,10 +77,14 @@ export const defaultPricingSettings: PricingSettings = {
   supplierMembershipRate: 99,
   customerTiers: [
     { id: "retailer", label: "Retailer", marginPct: 30, isReference: true },
-    { id: "distributor", label: "Distributor", marginPct: 30 },
-    { id: "atlas_rep", label: "Sales Rep", marginPct: 30 }
+    { id: "distributor", label: "Distributor", marginPct: 25 }
   ],
-  accountPricing: []
+  accountPricing: [],
+  retailerMarginAtSrpPct: 30,
+  distributorMarginOnResalePct: 25,
+  atlasMarginRetailerSalePct: 35,
+  atlasMarginDistributorSalePct: 25,
+  minimumAtlasMarginPct: 15
 };
 
 export const productCategories: Record<string, string[]> = {
