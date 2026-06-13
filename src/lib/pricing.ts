@@ -25,15 +25,29 @@ export function marginOfSale(price: number, cost: number): number {
 }
 
 /**
- * Suggested case price from the retail price: SRP/unit × units-per-case × (1 − level margin).
- * Returns undefined when no SRP is set on the product.
+ * Channel cascade: start from the shelf price (SRP/unit × units-per-case) and walk DOWN
+ * the distribution chain, each level taking its margin off what it sells for. The price
+ * levels are applied in their configured order (top of channel first), so each level pays
+ * less than the one above it. Atlas keeps whatever is left above cost.
+ *
+ * Retailer = SRP/case × (1 − retailerMargin); Distributor = Retailer × (1 − distMargin); …
  */
+export function cascadeTierPrices(product: Product, settings: PricingSettings): Record<string, number> {
+  const out: Record<string, number> = {};
+  const shelfCase = (product.suggestedRetail || 0) * (product.casePack || 1);
+  if (shelfCase <= 0) return out;
+  let running = shelfCase;
+  for (const tier of settings.customerTiers ?? []) {
+    running = Math.round(running * (1 - (tier.marginPct || 0) / 100) * 100) / 100;
+    out[tier.id] = running;
+  }
+  return out;
+}
+
+/** A single level's calculated case price from the channel cascade (undefined when no SRP). */
 export function suggestedCasePrice(product: Product, settings: PricingSettings, tierId: string): number | undefined {
-  const srpPerUnit = product.suggestedRetail;
-  const pack = product.casePack || 1;
-  if (!srpPerUnit || srpPerUnit <= 0) return undefined;
-  const margin = tierMarginPct(settings, tierId);
-  return Math.round(srpPerUnit * pack * (1 - margin / 100) * 100) / 100;
+  const prices = cascadeTierPrices(product, settings);
+  return tierId in prices ? prices[tierId] : undefined;
 }
 
 /** Per-account % off the tier price (special deals). 0 when none. */

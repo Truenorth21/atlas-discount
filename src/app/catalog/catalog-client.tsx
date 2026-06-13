@@ -9,7 +9,7 @@ import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { atlasHubs, fulfillmentTypes } from "@/lib/data";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
-import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel } from "@/lib/pricing";
+import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel, tierMarginPct } from "@/lib/pricing";
 import type { PricingContext } from "@/lib/pricing";
 import type { FulfillmentType, OrderRequest, Product } from "@/lib/types";
 
@@ -312,8 +312,7 @@ export default function CatalogClient({
                       const yourPrice = buyerCasePrice({ settings: store.pricingSettings, product, tierId: buyerTierId, accountId: userId });
                       const discounted = yourPrice < standard - 0.001;
                       const srpPerUnit = product.suggestedRetail || 0;
-                      const caseSrp = srpPerUnit * (product.casePack || 1);
-                      const marginPct = caseSrp > 0 && yourPrice > 0 ? Math.round(((caseSrp - yourPrice) / caseSrp) * 100) : 0;
+                      const marginPct = tierMarginPct(store.pricingSettings, buyerTierId);
                       return (
                         <>
                           <p className="text-xs font-bold uppercase text-slate-500">

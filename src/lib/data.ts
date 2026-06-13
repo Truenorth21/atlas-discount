@@ -64,7 +64,7 @@ export const defaultPricingSettings: PricingSettings = {
   localDeliveryCost: 48,
   freightCoordinationFee: 125,
   freightCostEstimate: 95,
-  routeSellerCommissionPercent: 3,
+  routeSellerCommissionPercent: 10,
   freightCaseThreshold: 96,
   featuredProductRate: 250,
   weeklyDealsRate: 175,
@@ -76,9 +76,9 @@ export const defaultPricingSettings: PricingSettings = {
   closeoutListingRate: 75,
   supplierMembershipRate: 99,
   customerTiers: [
-    { id: "retailer", label: "Retailer", marginPct: 33, isReference: true },
-    { id: "distributor", label: "Distributor", marginPct: 40 },
-    { id: "atlas_rep", label: "Sales Rep", marginPct: 45 }
+    { id: "retailer", label: "Retailer", marginPct: 30, isReference: true },
+    { id: "distributor", label: "Distributor", marginPct: 30 },
+    { id: "atlas_rep", label: "Sales Rep", marginPct: 30 }
   ],
   accountPricing: []
 };

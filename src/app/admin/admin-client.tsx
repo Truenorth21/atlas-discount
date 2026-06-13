@@ -821,15 +821,21 @@ function buildTierPricing(form: typeof blankProductForm): TierPricing {
 }
 
 const PRODUCT_FORM_TIERS: Array<{ id: string; label: string; priceField: keyof typeof blankProductForm; palletField: keyof typeof blankProductForm; marginPct: number }> = [
-  { id: "retailer", label: "Retailer", priceField: "priceRetailer", palletField: "palletPriceRetailer", marginPct: 33 },
-  { id: "distributor", label: "Distributor", priceField: "priceDistributor", palletField: "palletPriceDistributor", marginPct: 40 },
-  { id: "atlas_rep", label: "Sales Rep", priceField: "priceAtlasRep", palletField: "palletPriceAtlasRep", marginPct: 45 }
+  { id: "retailer", label: "Retailer", priceField: "priceRetailer", palletField: "palletPriceRetailer", marginPct: 30 },
+  { id: "distributor", label: "Distributor", priceField: "priceDistributor", palletField: "palletPriceDistributor", marginPct: 30 },
+  { id: "atlas_rep", label: "Sales Rep", priceField: "priceAtlasRep", palletField: "palletPriceAtlasRep", marginPct: 30 }
 ];
 
-/** Suggested case price from SRP/unit × pack × (1 − buyer margin). 0 when no SRP. */
-function suggestedFromSrp(srpPerUnit: number, casePack: number, marginPct: number) {
-  if (!srpPerUnit || srpPerUnit <= 0) return 0;
-  return Math.round(srpPerUnit * (casePack || 1) * (1 - marginPct / 100) * 100) / 100;
+/** Channel cascade for the add form: shelf price down each level by its margin. */
+function cascadeFormPrices(srpPerUnit: number, casePack: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  let running = (srpPerUnit || 0) * (casePack || 1);
+  if (running <= 0) return out;
+  for (const tier of PRODUCT_FORM_TIERS) {
+    running = Math.round(running * (1 - tier.marginPct / 100) * 100) / 100;
+    out[tier.id] = running;
+  }
+  return out;
 }
 
 function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeof useAtlasStore>["addProducts"] }) {
@@ -1046,29 +1052,31 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
         <AdminProductInput label="Suggested retail per UNIT ($)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
         <div className="hidden md:block" />
         <p className="md:col-span-3 -mb-1 text-xs text-slate-500">
-          Enter the retail price per unit and each level&apos;s case price is calculated as SRP × units-per-case × (1 − the level&apos;s margin).
-          Leave a price blank to use that calculation, or type an exact price. Cost just shows Atlas&apos;s margin.
+          Enter the retail price per unit. Each level&apos;s case price is calculated down the channel from the shelf price (each level
+          takes its margin). Leave a price blank to use the calculation, or type an exact price to override.
         </p>
         <div className="md:col-span-3 grid gap-3 rounded-md border border-slate-200 bg-atlas-light p-3 sm:grid-cols-3">
-          {PRODUCT_FORM_TIERS.map((tier) => {
+          {(() => {
             const cost = toNum(form.supplierCost) ?? 0;
             const srp = toNum(form.suggestedRetail) ?? 0;
             const pack = toNum(form.casePack) ?? 1;
-            const suggested = suggestedFromSrp(srp, pack, tier.marginPct);
+            const calc = cascadeFormPrices(srp, pack);
+            return PRODUCT_FORM_TIERS.map((tier) => {
+            const calculated = calc[tier.id] ?? 0;
             const priceRaw = form[tier.priceField];
-            const effective = priceRaw.trim() === "" ? suggested : toNum(priceRaw) ?? 0;
+            const effective = priceRaw.trim() === "" ? calculated : toNum(priceRaw) ?? 0;
             const atlasMargin = marginOfSale(effective, cost);
             return (
               <div key={tier.id} className="grid gap-1 rounded-md bg-white p-2">
                 <span className="text-xs font-black uppercase tracking-wide text-atlas-blue">{tier.label}</span>
-                <span className="text-[11px] font-semibold text-slate-400">{tier.marginPct}% buyer margin off SRP</span>
+                <span className="text-[11px] font-semibold text-slate-400">earns {tier.marginPct}% margin on resale</span>
                 <label className="grid gap-1">
                   <span className="text-[11px] font-semibold text-slate-500">Case price $</span>
                   <input
                     className="field h-9 min-h-9"
                     type="number"
                     step="0.01"
-                    placeholder={suggested > 0 ? `${formatMoney(suggested)} (from SRP)` : "enter SRP or price"}
+                    placeholder={calculated > 0 ? `${formatMoney(calculated)} (calculated)` : "enter SRP or price"}
                     value={priceRaw}
                     onChange={updateField(tier.priceField)}
                   />
@@ -1089,7 +1097,8 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
                 </span>
               </div>
             );
-          })}
+          });
+          })()}
         </div>
 
         <ProductSectionHeading>Stock &amp; order minimum</ProductSectionHeading>
@@ -2069,7 +2078,7 @@ function PricingSettingsPanel({
         <NumberField label="Freight coordination — charge" value={settings.freightCoordinationFee} onChange={updateNumber("freightCoordinationFee")} hint="What the buyer pays when Atlas arranges freight." prefix="$" />
         <NumberField label="Freight — Atlas cost estimate" value={settings.freightCostEstimate} onChange={updateNumber("freightCostEstimate")} hint="Estimated freight cost to Atlas." prefix="$" />
         <NumberField label="Freight kicks in above" value={settings.freightCaseThreshold} onChange={updateNumber("freightCaseThreshold")} hint="Orders larger than this many cases go to freight review." suffix="cases" />
-        <NumberField label="Sales Rep commission" value={settings.routeSellerCommissionPercent} onChange={updateNumber("routeSellerCommissionPercent")} hint="Commission paid to a Sales Rep on their orders." suffix="%" />
+        <NumberField label="Sales Rep commission" value={settings.routeSellerCommissionPercent} onChange={updateNumber("routeSellerCommissionPercent")} hint="The seller earns this % of the total sale on their orders." suffix="%" />
       </PricingGroup>
 
       <PricingGroup
@@ -2532,18 +2541,17 @@ function CustomerPricingPanel({
       <section className="panel p-5">
         <h2 className="text-xl font-black text-atlas-navy">Product prices</h2>
         <p className="mt-2 max-w-3xl text-sm text-slate-600">
-          Atlas sells by the <span className="font-bold">master case</span>. On each product you set the
-          <span className="font-bold"> retail price per unit (SRP)</span>; each level&apos;s case price is then calculated as
-          SRP × units-per-case × (1 − that level&apos;s margin). You can type an exact price to override. Buyers see only their own level&apos;s
-          price after sign-in — cost and margin are never shown to them.
+          Prices are worked <span className="font-bold">down the distribution channel</span> from the shelf price. On each product you set
+          <span className="font-bold"> Cost + SRP per unit</span>; the system calculates the Retailer price, then the Distributor price below
+          it, each level taking its margin. Atlas keeps whatever is left above cost. Buyers see only their own level&apos;s price.
         </p>
       </section>
 
       <section className="panel p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-black text-atlas-navy">Price levels</h3>
-            <p className="mt-1 text-sm text-slate-600">Each customer type and the buyer margin off retail used to calculate their price.</p>
+            <h3 className="text-lg font-black text-atlas-navy">Channel margins</h3>
+            <p className="mt-1 text-sm text-slate-600">The margin each level earns when it resells (a % of its sale price). Listed top of channel first.</p>
           </div>
           <button className="btn-secondary" type="button" onClick={addTier}>
             Add level
@@ -2557,7 +2565,7 @@ function CustomerPricingPanel({
                 <input className="field" value={tier.label} onChange={(event) => updateTier(tier.id, { label: event.target.value })} />
               </label>
               <label className="grid gap-1">
-                <span className="label">Buyer margin off SRP (%)</span>
+                <span className="label">Resale margin (%)</span>
                 <input
                   className="field"
                   type="number"
@@ -2712,7 +2720,6 @@ function ProductTierPriceRow({
   onSave: (id: string, tierPricing: TierPricing) => void;
   updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
 }) {
-  const cost = product.supplierCost;
   const pack = product.casePack || 1;
   const seed: Record<string, string> = {};
   for (const tier of tiers) {
@@ -2721,9 +2728,23 @@ function ProductTierPriceRow({
   }
   const [draft, setDraft] = useState<Record<string, string>>(seed);
   const [srp, setSrp] = useState(product.suggestedRetail ? String(product.suggestedRetail) : "");
+  const [costDraft, setCostDraft] = useState(product.supplierCost ? String(product.supplierCost) : "");
   const [saved, setSaved] = useState(false);
 
   const srpNum = Number(srp) || 0;
+  const cost = Number(costDraft) || 0;
+
+  // Channel cascade: from shelf price (SRP × pack) down each level by its margin.
+  const shelfCase = srpNum * pack;
+  const calc: Record<string, number> = {};
+  let running = shelfCase;
+  for (const tier of tiers) {
+    running = Math.round(running * (1 - (tier.marginPct || 0) / 100) * 100) / 100;
+    calc[tier.id] = running;
+  }
+  const lowestTierId = tiers[tiers.length - 1]?.id;
+  const lowestPrice = lowestTierId ? calc[lowestTierId] : 0;
+  const costTooHigh = cost > 0 && lowestPrice > 0 && cost >= lowestPrice;
 
   function save() {
     const casePrices: Record<string, number> = {};
@@ -2731,7 +2752,10 @@ function ProductTierPriceRow({
       const numeric = Number(value);
       if (value.trim() !== "" && !Number.isNaN(numeric) && numeric > 0) casePrices[tierId] = numeric;
     }
-    if (srpNum !== (product.suggestedRetail || 0)) updateProduct(product.id, { suggestedRetail: srpNum });
+    const patch: Partial<Product> = {};
+    if (srpNum !== (product.suggestedRetail || 0)) patch.suggestedRetail = srpNum;
+    if (cost !== (product.supplierCost || 0)) patch.supplierCost = cost;
+    if (Object.keys(patch).length > 0) updateProduct(product.id, patch);
     onSave(product.id, { case: casePrices, pallet: product.tierPricing?.pallet });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -2741,53 +2765,65 @@ function ProductTierPriceRow({
 
   return (
     <div className="rounded-md border border-slate-200 p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-bold text-atlas-navy">
             <span className="truncate">{product.brand}</span>
             {product.status === "pending" && <span className="badge bg-amber-50 text-amber-800">Pending</span>}
           </p>
           <p className="truncate text-xs text-slate-500">
-            {product.sku} · {pack} units/case · {palletCases > 0 ? `${palletCases} cases/pallet` : "pallet not set"} · min {product.moq || 1} {(product.moq || 1) === 1 ? "case" : "cases"}
+            {product.sku} · {pack} units/case · {palletCases > 0 ? `${palletCases} cases/pallet` : "pallet not set"}
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm font-black text-atlas-navy">
-          SRP / unit
-          <span className="flex items-center rounded-md border border-slate-300 bg-white">
-            <span className="pl-2 text-xs text-slate-400">$</span>
-            <input
-              className="w-20 border-0 bg-transparent px-1 py-1 text-sm focus:outline-none"
-              type="number"
-              step="0.01"
-              placeholder="4.99"
-              value={srp}
-              onChange={(event) => setSrp(event.target.value)}
-            />
-          </span>
-        </label>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="grid gap-0.5">
+            <span className="text-[11px] font-bold text-slate-500">Cost / case</span>
+            <span className="flex items-center rounded-md border border-slate-300 bg-white">
+              <span className="pl-2 text-xs text-slate-400">$</span>
+              <input className="w-20 border-0 bg-transparent px-1 py-1.5 text-sm focus:outline-none" type="number" step="0.01" placeholder="45.00" value={costDraft} onChange={(event) => setCostDraft(event.target.value)} />
+            </span>
+          </label>
+          <label className="grid gap-0.5">
+            <span className="text-[11px] font-bold text-slate-500">SRP / unit</span>
+            <span className="flex items-center rounded-md border border-slate-300 bg-white">
+              <span className="pl-2 text-xs text-slate-400">$</span>
+              <input className="w-20 border-0 bg-transparent px-1 py-1.5 text-sm focus:outline-none" type="number" step="0.01" placeholder="4.99" value={srp} onChange={(event) => setSrp(event.target.value)} />
+            </span>
+          </label>
+        </div>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      {shelfCase > 0 && (
+        <p className={`mt-2 text-xs font-semibold ${costTooHigh ? "text-atlas-red" : "text-emerald-700"}`}>
+          {costTooHigh
+            ? `⚠ Cost ${formatMoney(cost)} is above the lowest channel price — raise SRP or lower cost.`
+            : `Shelf price ${formatMoney(srpNum)}/unit · ${formatMoney(shelfCase)}/case. Prices calculated down the channel:`}
+        </p>
+      )}
+      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {tiers.map((tier) => {
           const raw = draft[tier.id] ?? "";
-          const suggested = suggestedFromSrp(srpNum, pack, tier.marginPct);
-          const effective = raw.trim() === "" ? suggested : Number(raw) || 0;
-          const usingSuggested = raw.trim() === "";
+          const calculated = calc[tier.id] ?? 0;
+          const effective = raw.trim() === "" ? calculated : Number(raw) || 0;
+          const overridden = raw.trim() !== "";
           const atlasMargin = marginOfSale(effective, cost);
           return (
             <label key={tier.id} className="grid gap-1 rounded-md bg-atlas-light p-2">
-              <span className="text-xs font-bold text-slate-600">{tier.label} · $ / case</span>
+              <span className="flex items-center justify-between text-xs font-bold text-slate-600">
+                {tier.label}
+                {overridden && <span className="text-[10px] font-black uppercase text-atlas-blue">override</span>}
+              </span>
               <input
                 className="field h-9 min-h-9"
                 type="number"
                 step="0.01"
-                placeholder={suggested > 0 ? `${formatMoney(suggested)}` : "enter SRP or price"}
+                placeholder={calculated > 0 ? `${formatMoney(calculated)}` : "enter SRP"}
                 value={raw}
                 onChange={(event) => setDraft((current) => ({ ...current, [tier.id]: event.target.value }))}
               />
               <span className="text-xs font-semibold text-emerald-700">
                 {effective > 0
-                  ? `${usingSuggested ? `From SRP ${formatMoney(suggested)} · ` : ""}${tier.marginPct}% buyer margin${cost > 0 ? ` · Atlas ${atlasMargin}%` : ""}`
-                  : "Set SRP or type a price"}
+                  ? `${formatMoney(effective)}/case${cost > 0 ? ` · Atlas ${atlasMargin}%` : ""}`
+                  : "Set SRP above"}
               </span>
             </label>
           );
