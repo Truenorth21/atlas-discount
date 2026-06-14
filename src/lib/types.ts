@@ -129,6 +129,23 @@ export type SupplierAssignment = {
   fulfillmentTier: string;
 };
 
+/** A sold advertising/promotion placement Atlas schedules and tracks for revenue. */
+export type PlacementBooking = {
+  id: string;
+  supplierName: string;
+  productId?: string;
+  productName?: string;
+  /** adPlacements id (featured/weekly/category/...). */
+  slot: string;
+  slotName: string;
+  /** Amount charged for the placement. */
+  rate: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  paymentStatus: "unpaid" | "invoiced" | "paid";
+  createdAt: string;
+};
+
 export type CartLine = {
   product: Product;
   quantity: number;
@@ -272,6 +289,8 @@ export type PricingSettings = {
   freeDeliveryThreshold?: number;
   /** Per-supplier plan + fulfillment tier assignments. */
   supplierAssignments?: SupplierAssignment[];
+  /** Sold advertising/promotion placements Atlas schedules + tracks for revenue. */
+  placementBookings?: PlacementBooking[];
 };
 
 export type QuoteFinancials = {

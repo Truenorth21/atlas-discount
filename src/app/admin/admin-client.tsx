@@ -22,8 +22,8 @@ import {
   marginOfSale,
   productPalletSize
 } from "@/lib/pricing";
-import { atlasHubs, defaultFulfillmentTierId, fulfillmentTiers, fulfillmentTypes, productCategories } from "@/lib/data";
-import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
+import { adPlacements, atlasHubs, defaultFulfillmentTierId, fulfillmentTiers, fulfillmentTypes, productCategories } from "@/lib/data";
+import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PlacementBooking, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
 
 const documentRejectionReasons = [
   "Document is expired",
@@ -1936,6 +1936,7 @@ function MarketingPanel({
         </p>
       </div>
       <SupplierAdRequests submissions={promotionSubmissions} updateStatus={updatePromotionSubmissionStatus} />
+      <PlacementBookingsPanel settings={settings} updatePricingSettings={updatePricingSettings} products={products} updateProductPlacements={updateProductPlacements} />
       <SupplierFulfillmentPanel applications={applications} settings={settings} updatePricingSettings={updatePricingSettings} />
       <PromoteProductsPanel products={products} updateProductPromotion={updateProductPromotion} updateProductPlacements={updateProductPlacements} />
       <div className="panel p-5">
@@ -2030,6 +2031,198 @@ function SupplierAdRequests({
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BookingStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-atlas-light p-3">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-black text-atlas-navy">{value}</p>
+    </div>
+  );
+}
+
+function bookingStatus(b: PlacementBooking, today: string): "active" | "upcoming" | "ended" {
+  if (today < b.startDate) return "upcoming";
+  if (today > b.endDate) return "ended";
+  return "active";
+}
+
+function PlacementBookingsPanel({
+  settings,
+  updatePricingSettings,
+  products,
+  updateProductPlacements
+}: {
+  settings: PricingSettings;
+  updatePricingSettings: ReturnType<typeof useAtlasStore>["updatePricingSettings"];
+  products: Product[];
+  updateProductPlacements: ReturnType<typeof useAtlasStore>["updateProductPlacements"];
+}) {
+  const bookings = settings.placementBookings ?? [];
+  const today = new Date().toISOString().slice(0, 10);
+  const approvedProducts = products.filter((p) => p.status === "approved");
+  const blank = { supplierName: "", productId: "", slot: adPlacements[0].id, rate: "", startDate: today, endDate: "" };
+  const [form, setForm] = useState(blank);
+
+  const slotDef = adPlacements.find((p) => p.id === form.slot) ?? adPlacements[0];
+  const defaultRate = Number(settings[slotDef.rateKey]) || 0;
+
+  function setField(field: keyof typeof blank, value: string) {
+    setForm((c) => ({ ...c, [field]: value }));
+  }
+  function persist(next: PlacementBooking[]) {
+    updatePricingSettings({ ...settings, placementBookings: next });
+  }
+  function addBooking() {
+    if (!form.supplierName.trim() || !form.endDate) return;
+    const product = approvedProducts.find((p) => p.id === form.productId);
+    const booking: PlacementBooking = {
+      id: `pb-${Date.now().toString(36)}`,
+      supplierName: form.supplierName.trim(),
+      productId: product?.id,
+      productName: product?.brand,
+      slot: slotDef.id,
+      slotName: slotDef.name,
+      rate: Number(form.rate) || defaultRate,
+      startDate: form.startDate,
+      endDate: form.endDate,
+      paymentStatus: "unpaid",
+      createdAt: today
+    };
+    persist([booking, ...bookings]);
+    // Light link: turn on the matching product placement so the slot actually shows.
+    if (product) {
+      if (slotDef.id === "featured") updateProductPlacements(product.id, { ...product.placements, homepageFeatured: true });
+      if (slotDef.id === "weekly") updateProductPlacements(product.id, { ...product.placements, weeklyDeal: true });
+    }
+    setForm({ ...blank, slot: form.slot });
+  }
+  function cyclePayment(id: string) {
+    const order: PlacementBooking["paymentStatus"][] = ["unpaid", "invoiced", "paid"];
+    persist(bookings.map((b) => (b.id === id ? { ...b, paymentStatus: order[(order.indexOf(b.paymentStatus) + 1) % 3] } : b)));
+  }
+  function remove(id: string) {
+    persist(bookings.filter((b) => b.id !== id));
+  }
+
+  const activeBookings = bookings.filter((b) => bookingStatus(b, today) === "active");
+  const booked = bookings.reduce((s, b) => s + b.rate, 0);
+  const paid = bookings.filter((b) => b.paymentStatus === "paid").reduce((s, b) => s + b.rate, 0);
+  const activeRevenue = activeBookings.reduce((s, b) => s + b.rate, 0);
+
+  const statusTone: Record<string, string> = {
+    active: "bg-emerald-50 text-emerald-700",
+    upcoming: "bg-sky-50 text-atlas-blue",
+    ended: "bg-slate-100 text-slate-500"
+  };
+  const payTone: Record<string, string> = {
+    paid: "bg-emerald-50 text-emerald-700",
+    invoiced: "bg-amber-50 text-amber-800",
+    unpaid: "bg-red-50 text-atlas-red"
+  };
+
+  return (
+    <div className="panel p-5">
+      <h3 className="text-lg font-black text-atlas-navy">Placement bookings &amp; ad revenue</h3>
+      <p className="mt-1 max-w-3xl text-sm text-slate-600">
+        Schedule and track sold placements — which product, which slot, dates, and payment. Booking a Featured or Weekly Deal slot for a
+        product also turns its catalog placement on.
+      </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <BookingStat label="Active now" value={`${activeBookings.length} · ${formatMoney(activeRevenue)}`} />
+        <BookingStat label="Booked total" value={formatMoney(booked)} />
+        <BookingStat label="Paid" value={formatMoney(paid)} />
+        <BookingStat label="Outstanding" value={formatMoney(booked - paid)} />
+      </div>
+
+      {/* Add a booking */}
+      <div className="mt-4 grid gap-3 rounded-md border border-slate-200 bg-atlas-light p-3 md:grid-cols-3 lg:grid-cols-6">
+        <label className="grid gap-1">
+          <span className="text-xs font-bold text-slate-600">Supplier</span>
+          <input className="field h-9 min-h-9" value={form.supplierName} onChange={(e) => setField("supplierName", e.target.value)} placeholder="Brand / supplier" />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-xs font-bold text-slate-600">Product (optional)</span>
+          <select className="field h-9 min-h-9" value={form.productId} onChange={(e) => setField("productId", e.target.value)}>
+            <option value="">—</option>
+            {approvedProducts.map((p) => (
+              <option key={p.id} value={p.id}>{p.brand}</option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="text-xs font-bold text-slate-600">Slot</span>
+          <select className="field h-9 min-h-9" value={form.slot} onChange={(e) => setField("slot", e.target.value)}>
+            {adPlacements.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1">
+          <span className="text-xs font-bold text-slate-600">Rate ($)</span>
+          <input className="field h-9 min-h-9" type="number" value={form.rate} onChange={(e) => setField("rate", e.target.value)} placeholder={String(defaultRate)} />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-xs font-bold text-slate-600">Start</span>
+          <input className="field h-9 min-h-9" type="date" value={form.startDate} onChange={(e) => setField("startDate", e.target.value)} />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-xs font-bold text-slate-600">End</span>
+          <input className="field h-9 min-h-9" type="date" value={form.endDate} onChange={(e) => setField("endDate", e.target.value)} />
+        </label>
+        <div className="md:col-span-3 lg:col-span-6">
+          <button className="btn-primary" type="button" onClick={addBooking}>Book placement</button>
+        </div>
+      </div>
+
+      {/* Bookings list */}
+      {bookings.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">No placements booked yet.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-slate-500">
+                <th className="px-2 py-2">Slot</th>
+                <th className="px-2 py-2">Supplier / product</th>
+                <th className="px-2 py-2">Dates</th>
+                <th className="px-2 py-2">Status</th>
+                <th className="px-2 py-2">Rate</th>
+                <th className="px-2 py-2">Payment</th>
+                <th className="px-2 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {bookings.map((b) => {
+                const status = bookingStatus(b, today);
+                return (
+                  <tr key={b.id} className="border-t border-slate-100">
+                    <td className="px-2 py-2 font-bold text-atlas-navy">{b.slotName}</td>
+                    <td className="px-2 py-2 text-slate-600">{b.supplierName}{b.productName ? ` · ${b.productName}` : ""}</td>
+                    <td className="px-2 py-2 text-slate-600">{b.startDate} → {b.endDate}</td>
+                    <td className="px-2 py-2"><span className={`badge ${statusTone[status]}`}>{status}</span></td>
+                    <td className="px-2 py-2 font-bold text-atlas-navy">{formatMoney(b.rate)}</td>
+                    <td className="px-2 py-2">
+                      <button type="button" className={`badge ${payTone[b.paymentStatus]}`} onClick={() => cyclePayment(b.id)} title="Click to change">
+                        {b.paymentStatus}
+                      </button>
+                    </td>
+                    <td className="px-2 py-2">
+                      <button className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-atlas-red" type="button" onClick={() => remove(b.id)} aria-label="Remove booking">
+                        <X size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -2166,8 +2359,8 @@ function PromoteRow({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 p-3">
-      <div className="min-w-0 flex-1">
+    <div className="flex min-w-0 flex-wrap items-center gap-3 rounded-md border border-slate-200 p-3">
+      <div className="min-w-0 flex-1 basis-48">
         <p className="font-black text-atlas-navy">{product.brand}</p>
         <p className="truncate text-xs text-slate-600">{product.description}</p>
       </div>

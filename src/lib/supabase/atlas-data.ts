@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductPlacements, ProductSpec, PromotionSubmission, RouteSellerPreference, SupplierAssignment, TierPricing } from "@/lib/types";
+import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PlacementBooking, PricingSettings, Product, ProductPlacements, ProductSpec, PromotionSubmission, RouteSellerPreference, SupplierAssignment, TierPricing } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -84,6 +84,7 @@ type PricingRow = {
     minimumAtlasMarginPct?: number;
     freeDeliveryThreshold?: number;
     supplierAssignments?: SupplierAssignment[];
+    placementBookings?: PlacementBooking[];
   } | null;
 };
 
@@ -216,7 +217,8 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     atlasMarginDistributorSalePct: row.customer_pricing?.atlasMarginDistributorSalePct ?? defaultPricingSettings.atlasMarginDistributorSalePct,
     minimumAtlasMarginPct: row.customer_pricing?.minimumAtlasMarginPct ?? defaultPricingSettings.minimumAtlasMarginPct,
     freeDeliveryThreshold: row.customer_pricing?.freeDeliveryThreshold ?? defaultPricingSettings.freeDeliveryThreshold,
-    supplierAssignments: row.customer_pricing?.supplierAssignments ?? []
+    supplierAssignments: row.customer_pricing?.supplierAssignments ?? [],
+    placementBookings: row.customer_pricing?.placementBookings ?? []
   };
 }
 
@@ -262,7 +264,8 @@ function pricingToRow(settings: PricingSettings) {
       atlasMarginDistributorSalePct: settings.atlasMarginDistributorSalePct,
       minimumAtlasMarginPct: settings.minimumAtlasMarginPct,
       freeDeliveryThreshold: settings.freeDeliveryThreshold,
-      supplierAssignments: settings.supplierAssignments ?? []
+      supplierAssignments: settings.supplierAssignments ?? [],
+      placementBookings: settings.placementBookings ?? []
     },
     updated_at: new Date().toISOString()
   };
