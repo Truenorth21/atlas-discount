@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Check, DollarSign, FileCheck2, Megaphone, PackageCheck, Settings, Trash2, UsersRound, X } from "lucide-react";
+import { BarChart3, Check, FileCheck2, Megaphone, PackageCheck, Settings, Trash2, UsersRound, X } from "lucide-react";
 import { useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Nav } from "@/components/nav";
@@ -59,6 +59,7 @@ export function AdminClient() {
   const uploadedDocumentCount = store.applications.reduce((sum, item) => sum + item.documents.filter((document) => document.status === "uploaded").length, 0);
   const userPendingCount = store.applications.filter((item) => item.status === "pending").length;
   const openQuoteCount = store.orders.filter((order) => order.status !== "Ready to confirm").length;
+  const promoRequestCount = store.promotionSubmissions.filter((submission) => submission.status === "pending").length;
   const tabs = [
     { id: "overview", label: "Overview", count: uploadedDocumentCount + userPendingCount + pendingProducts.length + quoteReviewOrders.length },
     { id: "documents", label: "Documents", count: uploadedDocumentCount },
@@ -84,7 +85,7 @@ export function AdminClient() {
           <Metric icon={<FileCheck2 />} label="Docs to review" value={uploadedDocumentCount} />
           <Metric icon={<PackageCheck />} label="Product approvals" value={pendingProducts.length} />
           <Metric icon={<Check />} label="Open quotes" value={openQuoteCount} />
-          <Metric icon={<DollarSign />} label="Loose case markup %" value={store.pricingSettings.caseMarkupPercent} />
+          <Metric icon={<Megaphone />} label="Promo requests" value={promoRequestCount} />
         </section>
         <section className="panel p-2">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
