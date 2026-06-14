@@ -224,8 +224,8 @@ export type QuoteAdjustment = {
   fulfillmentType?: FulfillmentType;
   hubRouting?: string;
   lineOverrides?: QuoteLineOverride[];
-  caseMarkupPercent?: number;
-  palletMarkupPercent?: number;
+  caseMarginPercent?: number;
+  palletMarginPercent?: number;
   supplierDirectFeePercent?: number;
   localDeliveryFee?: number;
   pickupFee?: number;
@@ -247,8 +247,10 @@ export type PricingSettings = {
   minimumOrderValue: number;
   supplierDirectFeePercent: number;
   supplierDirectMinimumFee: number;
-  caseMarkupPercent: number;
-  palletMarkupPercent: number;
+  /** Atlas target margin % (of sale price) for loose cases when a product has no explicit tier price. */
+  caseMarginPercent: number;
+  /** Atlas target margin % (of sale price) for full-pallet cases when a product has no explicit tier price. */
+  palletMarginPercent: number;
   minimumCaseMarginPerCase: number;
   minimumPalletMarginPerCase: number;
   miamiHubHandlingPerCase: number;

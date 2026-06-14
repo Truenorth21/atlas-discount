@@ -292,16 +292,22 @@ export function palletConfigLabel(product: Product) {
   return product.palletConfiguration;
 }
 
+/** Sell price that earns a target margin (% of sale price): price = cost / (1 − margin). */
+function priceForMargin(cost: number, marginPercent: number) {
+  const margin = Math.min(Math.max(marginPercent, 0), 95) / 100;
+  return cost / (1 - margin);
+}
+
 export function atlasCaseSellPrice(supplierCost: number, settings: PricingSettings) {
-  const percentagePrice = supplierCost * (1 + settings.caseMarkupPercent / 100);
+  const marginPrice = priceForMargin(supplierCost, settings.caseMarginPercent);
   const floorPrice = supplierCost + settings.minimumCaseMarginPerCase;
-  return Math.max(percentagePrice, floorPrice);
+  return Math.max(marginPrice, floorPrice);
 }
 
 export function atlasPalletSellPrice(supplierCost: number, settings: PricingSettings) {
-  const percentagePrice = supplierCost * (1 + settings.palletMarkupPercent / 100);
+  const marginPrice = priceForMargin(supplierCost, settings.palletMarginPercent);
   const floorPrice = supplierCost + settings.minimumPalletMarginPerCase;
-  return Math.max(percentagePrice, floorPrice);
+  return Math.max(marginPrice, floorPrice);
 }
 
 /** Optional buyer context: which tier/account is shopping (drives explicit tier prices). */
@@ -487,8 +493,8 @@ export function calculateQuoteFinancials(
 ): QuoteFinancials {
   const effectiveSettings = {
     ...settings,
-    caseMarkupPercent: adjustment?.caseMarkupPercent ?? settings.caseMarkupPercent,
-    palletMarkupPercent: adjustment?.palletMarkupPercent ?? settings.palletMarkupPercent,
+    caseMarginPercent: adjustment?.caseMarginPercent ?? settings.caseMarginPercent,
+    palletMarginPercent: adjustment?.palletMarginPercent ?? settings.palletMarginPercent,
     supplierDirectFeePercent: adjustment?.supplierDirectFeePercent ?? settings.supplierDirectFeePercent,
     localDeliveryFee: adjustment?.localDeliveryFee ?? settings.localDeliveryFee,
     pickupFee: adjustment?.pickupFee ?? settings.pickupFee,

@@ -48,8 +48,8 @@ type PricingRow = {
   minimum_order_value: number;
   supplier_direct_fee_percent: number;
   supplier_direct_minimum_fee: number;
-  case_markup_percent: number;
-  pallet_markup_percent: number;
+  case_margin_percent: number | null;
+  pallet_margin_percent: number | null;
   minimum_case_margin_per_case: number;
   minimum_pallet_margin_per_case: number;
   miami_hub_handling_per_case: number;
@@ -183,8 +183,8 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     minimumOrderValue: Number(row.minimum_order_value),
     supplierDirectFeePercent: Number(row.supplier_direct_fee_percent),
     supplierDirectMinimumFee: Number(row.supplier_direct_minimum_fee),
-    caseMarkupPercent: Number(row.case_markup_percent),
-    palletMarkupPercent: Number(row.pallet_markup_percent),
+    caseMarginPercent: row.case_margin_percent != null ? Number(row.case_margin_percent) : defaultPricingSettings.caseMarginPercent,
+    palletMarginPercent: row.pallet_margin_percent != null ? Number(row.pallet_margin_percent) : defaultPricingSettings.palletMarginPercent,
     minimumCaseMarginPerCase: Number(row.minimum_case_margin_per_case),
     minimumPalletMarginPerCase: Number(row.minimum_pallet_margin_per_case),
     miamiHubHandlingPerCase: Number(row.miami_hub_handling_per_case),
@@ -229,8 +229,8 @@ function pricingToRow(settings: PricingSettings) {
     minimum_order_value: settings.minimumOrderValue,
     supplier_direct_fee_percent: settings.supplierDirectFeePercent,
     supplier_direct_minimum_fee: settings.supplierDirectMinimumFee,
-    case_markup_percent: settings.caseMarkupPercent,
-    pallet_markup_percent: settings.palletMarkupPercent,
+    case_margin_percent: settings.caseMarginPercent,
+    pallet_margin_percent: settings.palletMarginPercent,
     minimum_case_margin_per_case: settings.minimumCaseMarginPerCase,
     minimum_pallet_margin_per_case: settings.minimumPalletMarginPerCase,
     miami_hub_handling_per_case: settings.miamiHubHandlingPerCase,

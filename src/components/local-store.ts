@@ -110,7 +110,8 @@ function normalizeStore(store: Store): Store {
         legacySettings.supplierDirectFeePercent ?? defaultPricingSettings.supplierDirectFeePercent,
       supplierDirectMinimumFee:
         legacySettings.supplierDirectMinimumFee ?? defaultPricingSettings.supplierDirectMinimumFee,
-      caseMarkupPercent: legacySettings.caseMarkupPercent ?? legacySettings.defaultMarkupPercent ?? defaultPricingSettings.caseMarkupPercent,
+      caseMarginPercent: legacySettings.caseMarginPercent ?? defaultPricingSettings.caseMarginPercent,
+      palletMarginPercent: legacySettings.palletMarginPercent ?? defaultPricingSettings.palletMarginPercent,
       minimumCaseMarginPerCase:
         legacySettings.minimumCaseMarginPerCase ?? legacySettings.minimumMarginPerCase ?? defaultPricingSettings.minimumCaseMarginPerCase
     }

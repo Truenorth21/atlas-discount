@@ -20,7 +20,8 @@ import {
   formatMoney,
   formatPercent,
   marginOfSale,
-  productPalletSize
+  productPalletSize,
+  standardCasePrice
 } from "@/lib/pricing";
 import { adPlacements, atlasHubs, defaultFulfillmentTierId, fulfillmentTiers, fulfillmentTypes, productCategories } from "@/lib/data";
 import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PlacementBooking, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
@@ -304,7 +305,7 @@ export function AdminClient() {
           </div>}
         </section>}
         {activeTab === "pricing" && (
-          <PricingSettingsPanel settings={store.pricingSettings} updatePricingSettings={updatePricingSettings} />
+          <PricingSettingsPanel settings={store.pricingSettings} updatePricingSettings={updatePricingSettings} products={store.products} />
         )}
         {activeTab === "customerPricing" && (
           <CustomerPricingPanel
@@ -1591,8 +1592,8 @@ function QuoteBuilderCard({
   };
   const effectivePricingSettings = {
     ...pricingSettings,
-    caseMarkupPercent: adjustment?.caseMarkupPercent ?? pricingSettings.caseMarkupPercent,
-    palletMarkupPercent: adjustment?.palletMarkupPercent ?? pricingSettings.palletMarkupPercent,
+    caseMarginPercent: adjustment?.caseMarginPercent ?? pricingSettings.caseMarginPercent,
+    palletMarginPercent: adjustment?.palletMarginPercent ?? pricingSettings.palletMarginPercent,
     supplierDirectFeePercent: adjustment?.supplierDirectFeePercent ?? pricingSettings.supplierDirectFeePercent,
     localDeliveryFee: adjustment?.localDeliveryFee ?? pricingSettings.localDeliveryFee,
     pickupFee: adjustment?.pickupFee ?? pricingSettings.pickupFee,
@@ -1749,8 +1750,8 @@ function QuoteBuilderCard({
               ))}
             </select>
           </label>
-          <NumberField label="Loose case markup %" value={adjustment?.caseMarkupPercent ?? pricingSettings.caseMarkupPercent} onChange={updateNumber("caseMarkupPercent")} />
-          <NumberField label="Full pallet markup %" value={adjustment?.palletMarkupPercent ?? pricingSettings.palletMarkupPercent} onChange={updateNumber("palletMarkupPercent")} />
+          <NumberField label="Loose case margin %" value={adjustment?.caseMarginPercent ?? pricingSettings.caseMarginPercent} onChange={updateNumber("caseMarginPercent")} />
+          <NumberField label="Full pallet margin %" value={adjustment?.palletMarginPercent ?? pricingSettings.palletMarginPercent} onChange={updateNumber("palletMarginPercent")} />
           <NumberField label="Supplier direct fee %" value={adjustment?.supplierDirectFeePercent ?? pricingSettings.supplierDirectFeePercent} onChange={updateNumber("supplierDirectFeePercent")} />
           <NumberField label="Local delivery fee" value={adjustment?.localDeliveryFee ?? pricingSettings.localDeliveryFee} onChange={updateNumber("localDeliveryFee")} />
           <NumberField label="Pickup fee" value={adjustment?.pickupFee ?? pricingSettings.pickupFee} onChange={updateNumber("pickupFee")} />
@@ -2533,10 +2534,12 @@ function MarketingTable({ icon, title, rows, columns }: { icon: React.ReactNode;
 
 function PricingSettingsPanel({
   settings,
-  updatePricingSettings
+  updatePricingSettings,
+  products
 }: {
   settings: PricingSettings;
   updatePricingSettings: ReturnType<typeof useAtlasStore>["updatePricingSettings"];
+  products: Product[];
 }) {
   function updateNumber(key: keyof PricingSettings) {
     return (event: ChangeEvent<HTMLInputElement>) => {
@@ -2546,6 +2549,13 @@ function PricingSettingsPanel({
       });
     };
   }
+
+  // Real average Atlas margin across listed (approved) products that have a price and cost.
+  const margins = products
+    .filter((product) => product.status === "approved")
+    .map((product) => marginOfSale(standardCasePrice(product, settings), product.supplierCost))
+    .filter((margin) => margin > 0);
+  const avgMargin = margins.length > 0 ? Math.round(margins.reduce((sum, m) => sum + m, 0) / margins.length) : null;
 
   return (
     <section className="grid gap-6">
@@ -2577,6 +2587,32 @@ function PricingSettingsPanel({
           Each product carries its own minimum (cases and/or value) in the Products tab — there&apos;s no separate order-wide minimum.
         </p>
       </div>
+
+      <div className="panel p-5">
+        <h3 className="text-lg font-black text-atlas-navy">Average product margin</h3>
+        <p className="mt-1 max-w-3xl text-sm text-slate-600">
+          Atlas&apos;s average gross margin across all listed products, measured on each item&apos;s Retailer (reference) case price versus
+          its cost. Live figure — it updates as you add products or change prices.
+        </p>
+        <div className="mt-3 flex items-baseline gap-3">
+          <span className="text-3xl font-black text-atlas-navy">{avgMargin === null ? "—" : `${avgMargin}%`}</span>
+          <span className="text-sm text-slate-500">
+            {avgMargin === null
+              ? "No listed products with both a price and a cost yet."
+              : `Average of ${margins.length} listed ${margins.length === 1 ? "product" : "products"}.`}
+          </span>
+        </div>
+      </div>
+
+      <PricingGroup
+        title="Default product margins"
+        body="When a product has no explicit per-tier price set, Atlas prices it to earn these target margins (% of the sale price). US distribution is run on margins, not markups. Per-product prices in the Product prices tab always win over these."
+      >
+        <NumberField label="Loose case target margin" value={settings.caseMarginPercent} onChange={updateNumber("caseMarginPercent")} hint="Atlas margin on a single loose case when no explicit price is set." suffix="%" />
+        <NumberField label="Full pallet target margin" value={settings.palletMarginPercent} onChange={updateNumber("palletMarginPercent")} hint="Atlas margin on full-pallet cases (usually lower than loose)." suffix="%" />
+        <NumberField label="Loose case minimum $ margin" value={settings.minimumCaseMarginPerCase} onChange={updateNumber("minimumCaseMarginPerCase")} hint="Never sell a loose case for less than cost + this dollar margin." prefix="$" />
+        <NumberField label="Full pallet minimum $ margin" value={settings.minimumPalletMarginPerCase} onChange={updateNumber("minimumPalletMarginPerCase")} hint="Never sell a pallet case for less than cost + this dollar margin." prefix="$" />
+      </PricingGroup>
 
       <PricingGroup
         title="Hub handling &amp; pickup"
@@ -3018,7 +3054,7 @@ function CustomerPricingPanel({
   updateProductTierPricing: (id: string, tierPricing: TierPricing) => void;
   updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
 }) {
-  const [tierDraft, setTierDraft] = useState<CustomerTier[]>(settings.customerTiers ?? []);
+  const [tierDraft] = useState<CustomerTier[]>(settings.customerTiers ?? []);
   const [accountDraft, setAccountDraft] = useState<AccountPricing[]>(settings.accountPricing ?? []);
   const [savedNote, setSavedNote] = useState(false);
 
@@ -3040,15 +3076,6 @@ function CustomerPricingPanel({
     (product) => !product.tierPricing?.case || Object.keys(product.tierPricing.case).length === 0
   ).length;
 
-  function updateTier(id: string, patch: Partial<CustomerTier>) {
-    setTierDraft((current) => current.map((tier) => (tier.id === id ? { ...tier, ...patch } : tier)));
-  }
-  function addTier() {
-    setTierDraft((current) => [...current, { id: `tier_${Date.now().toString(36)}`, label: "New level", marginPct: 35 }]);
-  }
-  function removeTier(id: string) {
-    setTierDraft((current) => current.filter((tier) => tier.id !== id));
-  }
   function accountEntry(accountId: string) {
     return accountDraft.find((entry) => entry.accountId === accountId);
   }
@@ -3074,52 +3101,6 @@ function CustomerPricingPanel({
           <span className="font-bold"> Cost + SRP per unit</span>; the system calculates the Retailer price, then the Distributor price below
           it, each level taking its margin. Atlas keeps whatever is left above cost. Buyers see only their own level&apos;s price.
         </p>
-      </section>
-
-      <section className="panel p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-black text-atlas-navy">Channel margins</h3>
-            <p className="mt-1 text-sm text-slate-600">The margin each level earns when it resells (a % of its sale price). Listed top of channel first.</p>
-          </div>
-          <button className="btn-secondary" type="button" onClick={addTier}>
-            Add level
-          </button>
-        </div>
-        <div className="mt-4 grid gap-3">
-          {tierDraft.map((tier) => (
-            <div key={tier.id} className="grid items-end gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-[1fr_180px_auto]">
-              <label className="grid gap-1">
-                <span className="label">Level name</span>
-                <input className="field" value={tier.label} onChange={(event) => updateTier(tier.id, { label: event.target.value })} />
-              </label>
-              <label className="grid gap-1">
-                <span className="label">Resale margin (%)</span>
-                <input
-                  className="field"
-                  type="number"
-                  step="0.5"
-                  value={tier.marginPct}
-                  onChange={(event) => updateTier(tier.id, { marginPct: Number(event.target.value) })}
-                />
-              </label>
-              <div className="flex items-center gap-2 pb-2">
-                {tier.isReference ? (
-                  <span className="badge bg-sky-50 text-atlas-blue">Reference</span>
-                ) : (
-                  <button
-                    className="rounded-md p-2 text-slate-500 hover:bg-red-50 hover:text-atlas-red"
-                    type="button"
-                    onClick={() => removeTier(tier.id)}
-                    aria-label={`Remove ${tier.label} level`}
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
       </section>
 
       <section className="panel p-5">
