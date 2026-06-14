@@ -398,7 +398,7 @@ function ProductAdminPanel({
           submittedMessage="valid products published to the catalog."
         />
       )}
-      {activeProductTab === "single" && <AdminSingleProductForm addProducts={addProducts} products={products} />}
+      {activeProductTab === "single" && <SingleProductForm addProducts={addProducts} products={products} />}
       {activeProductTab === "approvals" && (
         <ProductApprovalsList
           pendingProducts={pendingProducts}
@@ -884,14 +884,28 @@ function formFromProduct(product: Product): typeof blankProductForm {
   };
 }
 
-function AdminSingleProductForm({
+export function SingleProductForm({
   addProducts,
-  products
+  products,
+  defaultSupplierName = "Atlas Admin",
+  lockSupplierName = false,
+  defaultStatus = "approved",
+  title = "Add one product",
+  subtitle = "Only SKU, brand, product name, and category are required — fill in the rest as you have it.",
+  submitLabel = "Publish product",
+  submittedVerb = "published to the catalog"
 }: {
   addProducts: ReturnType<typeof useAtlasStore>["addProducts"];
   products: Product[];
+  defaultSupplierName?: string;
+  lockSupplierName?: boolean;
+  defaultStatus?: Product["status"];
+  title?: string;
+  subtitle?: string;
+  submitLabel?: string;
+  submittedVerb?: string;
 }) {
-  const [form, setForm] = useState(blankProductForm);
+  const [form, setForm] = useState({ ...blankProductForm, supplierName: defaultSupplierName });
   const [hasInner, setHasInner] = useState(false);
   const [message, setMessage] = useState("");
   const [copyFromId, setCopyFromId] = useState("");
@@ -903,13 +917,15 @@ function AdminSingleProductForm({
     if (!id) return;
     const source = products.find((p) => p.id === id);
     if (!source) return;
-    setForm(formFromProduct(source));
+    const next = formFromProduct(source);
+    if (lockSupplierName) next.supplierName = defaultSupplierName;
+    setForm(next);
     setHasInner(source.spec?.hasInner ?? false);
-    setMessage(`Copied from ${source.brand} ${source.sku}. Update the SKU, product name, UPC, and any other details — then publish.`);
+    setMessage(`Copied from ${source.brand} ${source.sku}. Update the SKU, product name, UPC, and any other details — then ${submitLabel.toLowerCase()}.`);
   }
 
   function clearForm() {
-    setForm(blankProductForm);
+    setForm({ ...blankProductForm, supplierName: defaultSupplierName });
     setHasInner(false);
     setCopyFromId("");
     setMessage("");
@@ -1001,14 +1017,14 @@ function AdminSingleProductForm({
         preferredHub === "Miami hub"
           ? "Stage through Miami for South Florida pickup and delivery."
           : "Stage through Orlando for Central Florida pickup and delivery.",
-      status: "approved",
-      supplierName: form.supplierName || "Atlas Admin",
+      status: defaultStatus,
+      supplierName: (lockSupplierName ? defaultSupplierName : form.supplierName) || defaultSupplierName,
       promotion: form.promotion || undefined,
       spec
     };
 
     addProducts([product]);
-    setMessage(`${product.brand} ${product.sku} was published to the catalog.`);
+    setMessage(`${product.brand} ${product.sku} was ${submittedVerb}.`);
     setForm((current) => ({ ...blankProductForm, supplierName: current.supplierName, shippingWarehouse: current.shippingWarehouse, fulfillmentMode: current.fulfillmentMode }));
     setHasInner(false);
     setCopyFromId("");
@@ -1018,11 +1034,11 @@ function AdminSingleProductForm({
     <section className="panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black text-atlas-navy">Add one product</h2>
-          <p className="mt-1 text-sm text-slate-600">Only SKU, brand, product name, and category are required — fill in the rest as you have it.</p>
+          <h2 className="text-xl font-black text-atlas-navy">{title}</h2>
+          <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
         </div>
         <button className="btn-primary" type="button" onClick={addProduct}>
-          Publish product
+          {submitLabel}
         </button>
       </div>
 
@@ -1055,7 +1071,7 @@ function AdminSingleProductForm({
         <AdminProductInput label="UPC" value={form.upc} onChange={updateField("upc")} />
         <AdminProductInput label="GTIN (case)" value={form.gtinCase} onChange={updateField("gtinCase")} />
         <AdminProductInput label="GTIN (inner)" value={form.gtinInner} onChange={updateField("gtinInner")} />
-        <AdminProductInput label="Supplier name" value={form.supplierName} onChange={updateField("supplierName")} />
+        {!lockSupplierName && <AdminProductInput label="Supplier name" value={form.supplierName} onChange={updateField("supplierName")} />}
         <AdminProductInput label="Product name *" value={form.productName} onChange={updateField("productName")} />
         <AdminProductInput label="Unit size (e.g. 16oz)" value={form.unitSize} onChange={updateField("unitSize")} />
         <AdminProductInput label="Image URL" value={form.imageUrl} onChange={updateField("imageUrl")} />

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Megaphone } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
+import { SingleProductForm } from "@/app/admin/admin-client";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { getDocumentAlerts } from "@/lib/documents";
@@ -13,7 +14,7 @@ import { useI18n } from "@/lib/i18n";
 
 export default function SupplierDashboardPage() {
   const { t } = useI18n();
-  const { store, setStore, addPromotionSubmission } = useAtlasStore();
+  const { store, setStore, addProducts, addPromotionSubmission } = useAtlasStore();
   const [promo, setPromo] = useState(t("noPromotionSubmitted"));
   const adPlacements = [
     "Weekly deals email",
@@ -26,6 +27,7 @@ export default function SupplierDashboardPage() {
   const supplierProducts = store.products.filter((product) => product.supplierName === "Current Supplier" || product.supplierName === "Harborline Brands");
   const documentAlerts = getDocumentAlerts(store.applications, "supplier");
   const supplierApplication = store.applications.find((application) => application.type === "supplier");
+  const companyName = supplierApplication?.companyName ?? "Current Supplier";
   const assignment = supplierApplication
     ? (store.pricingSettings.supplierAssignments ?? []).find((a) => a.supplierId === supplierApplication.id)
     : undefined;
@@ -129,6 +131,18 @@ export default function SupplierDashboardPage() {
             <p className="mt-3 text-sm font-semibold text-atlas-blue">{promo}</p>
           </form>
         </aside>
+        <div className="grid h-fit gap-6">
+        <SingleProductForm
+          addProducts={addProducts}
+          products={supplierProducts}
+          defaultSupplierName={companyName}
+          lockSupplierName
+          defaultStatus="pending"
+          title="Add one product"
+          subtitle="Add a single product, or start from a copy of one you already listed and change only what differs (SKU, name, UPC). New products go to Atlas for review."
+          submitLabel="Submit for review"
+          submittedVerb="submitted to Atlas for review"
+        />
         <section className="panel overflow-hidden">
           <div className="border-b border-slate-200 p-5">
             <h1 className="text-3xl font-black text-atlas-navy">{t("supplierDashboard")}</h1>
@@ -176,6 +190,7 @@ export default function SupplierDashboardPage() {
             </table>
           </div>
         </section>
+        </div>
       </main>
     </>
   );
