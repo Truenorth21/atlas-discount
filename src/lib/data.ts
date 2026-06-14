@@ -103,6 +103,8 @@ export const supplierPlans: Array<{
   name: string;
   priceYear: number;
   commission: string;
+  /** Max catalog SKUs. 0 = unlimited. */
+  maxSkus: number;
   highlight?: boolean;
   features: string[];
 }> = [
@@ -111,6 +113,7 @@ export const supplierPlans: Array<{
     name: "Roots",
     priceYear: 450,
     commission: "0% commission",
+    maxSkus: 5,
     features: ["Up to 5 SKUs", "Listed to verified Atlas buyers", "Monthly sell-through report", "Compliance & GTIN setup"]
   },
   {
@@ -118,6 +121,7 @@ export const supplierPlans: Array<{
     name: "Rise",
     priceYear: 1500,
     commission: "5–7% commission",
+    maxSkus: 0,
     highlight: true,
     features: ["Unlimited SKUs", "Store-level analytics dashboard", "2 featured placements / year", "Seasonal campaign inclusion"]
   },
@@ -126,9 +130,13 @@ export const supplierPlans: Array<{
     name: "Reach",
     priceYear: 3000,
     commission: "3–5% commission",
+    maxSkus: 0,
     features: ["Everything in Rise", "Dedicated category manager", "4 placements + 1 brand spotlight", "Quarterly competitive intelligence"]
   }
 ];
+
+export const defaultSupplierPlanId = "roots";
+export const defaultFulfillmentTierId = "direct";
 
 /** Named fulfillment service tiers a supplier can choose. */
 export const fulfillmentTiers: Array<{ id: string; name: string; fee: string; blurb: string; points: string[] }> = [

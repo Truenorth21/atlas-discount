@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductPlacements, ProductSpec, PromotionSubmission, RouteSellerPreference, TierPricing } from "@/lib/types";
+import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PricingSettings, Product, ProductPlacements, ProductSpec, PromotionSubmission, RouteSellerPreference, SupplierAssignment, TierPricing } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -83,6 +83,7 @@ type PricingRow = {
     atlasMarginDistributorSalePct?: number;
     minimumAtlasMarginPct?: number;
     freeDeliveryThreshold?: number;
+    supplierAssignments?: SupplierAssignment[];
   } | null;
 };
 
@@ -214,7 +215,8 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     atlasMarginRetailerSalePct: row.customer_pricing?.atlasMarginRetailerSalePct ?? defaultPricingSettings.atlasMarginRetailerSalePct,
     atlasMarginDistributorSalePct: row.customer_pricing?.atlasMarginDistributorSalePct ?? defaultPricingSettings.atlasMarginDistributorSalePct,
     minimumAtlasMarginPct: row.customer_pricing?.minimumAtlasMarginPct ?? defaultPricingSettings.minimumAtlasMarginPct,
-    freeDeliveryThreshold: row.customer_pricing?.freeDeliveryThreshold ?? defaultPricingSettings.freeDeliveryThreshold
+    freeDeliveryThreshold: row.customer_pricing?.freeDeliveryThreshold ?? defaultPricingSettings.freeDeliveryThreshold,
+    supplierAssignments: row.customer_pricing?.supplierAssignments ?? []
   };
 }
 
@@ -259,7 +261,8 @@ function pricingToRow(settings: PricingSettings) {
       atlasMarginRetailerSalePct: settings.atlasMarginRetailerSalePct,
       atlasMarginDistributorSalePct: settings.atlasMarginDistributorSalePct,
       minimumAtlasMarginPct: settings.minimumAtlasMarginPct,
-      freeDeliveryThreshold: settings.freeDeliveryThreshold
+      freeDeliveryThreshold: settings.freeDeliveryThreshold,
+      supplierAssignments: settings.supplierAssignments ?? []
     },
     updated_at: new Date().toISOString()
   };

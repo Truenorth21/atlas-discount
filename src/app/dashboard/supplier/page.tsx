@@ -1,12 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { Megaphone } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { getDocumentAlerts } from "@/lib/documents";
+import { defaultFulfillmentTierId, defaultSupplierPlanId, fulfillmentTiers, supplierPlans } from "@/lib/data";
 import { useI18n } from "@/lib/i18n";
 
 export default function SupplierDashboardPage() {
@@ -24,6 +26,13 @@ export default function SupplierDashboardPage() {
   const supplierProducts = store.products.filter((product) => product.supplierName === "Current Supplier" || product.supplierName === "Harborline Brands");
   const documentAlerts = getDocumentAlerts(store.applications, "supplier");
   const supplierApplication = store.applications.find((application) => application.type === "supplier");
+  const assignment = supplierApplication
+    ? (store.pricingSettings.supplierAssignments ?? []).find((a) => a.supplierId === supplierApplication.id)
+    : undefined;
+  const plan = supplierPlans.find((p) => p.id === (assignment?.plan ?? defaultSupplierPlanId)) ?? supplierPlans[0];
+  const fulfillment = fulfillmentTiers.find((t) => t.id === (assignment?.fulfillmentTier ?? defaultFulfillmentTierId)) ?? fulfillmentTiers[0];
+  const skuCount = supplierProducts.length;
+  const overSkuLimit = plan.maxSkus > 0 && skuCount > plan.maxSkus;
 
   function updateInventory(id: string, inventoryAvailable: number) {
     setStore((current) => ({
@@ -53,6 +62,40 @@ export default function SupplierDashboardPage() {
       <Nav />
       <main className="atlas-container grid gap-6 py-8 lg:grid-cols-[390px_1fr]">
         <aside className="grid h-fit gap-5">
+          <div className="panel p-5">
+            <p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Your Atlas plan</p>
+            <div className="mt-1 flex items-baseline justify-between gap-2">
+              <h2 className="text-2xl font-black text-atlas-navy">{plan.name}</h2>
+              <span className="text-sm font-bold text-emerald-700">{plan.commission}</span>
+            </div>
+            <div className="mt-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                <span>SKUs used</span>
+                <span className={overSkuLimit ? "text-atlas-red" : ""}>
+                  {skuCount}
+                  {plan.maxSkus > 0 ? ` / ${plan.maxSkus}` : " · unlimited"}
+                </span>
+              </div>
+              {plan.maxSkus > 0 && (
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className={`h-full rounded-full ${overSkuLimit ? "bg-atlas-red" : "bg-atlas-blue"}`}
+                    style={{ width: `${Math.min(100, (skuCount / plan.maxSkus) * 100)}%` }}
+                  />
+                </div>
+              )}
+              {overSkuLimit && (
+                <p className="mt-1 text-xs font-semibold text-atlas-red">Over your SKU limit — upgrade your plan to list more products.</p>
+              )}
+            </div>
+            <div className="mt-3 rounded-md bg-atlas-light p-3 text-sm">
+              <p className="font-black text-atlas-navy">Fulfillment: {fulfillment.name}</p>
+              <p className="mt-0.5 text-xs text-slate-600">{fulfillment.blurb}</p>
+            </div>
+            <Link className="btn-secondary mt-3 w-fit rounded-full" href="/sell">
+              View plans &amp; upgrade
+            </Link>
+          </div>
           <ProductUpload />
           {documentAlerts.length > 0 && (
             <div className="panel p-5">

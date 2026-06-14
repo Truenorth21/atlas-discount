@@ -123,6 +123,15 @@ export type AccountPricing = {
   adjustmentPct?: number;
 };
 
+/** A supplier's assigned subscription plan + fulfillment service tier. */
+export type SupplierAssignment = {
+  supplierId: string;
+  /** Plan id from supplierPlans (roots/rise/reach). */
+  plan: string;
+  /** Fulfillment tier id from fulfillmentTiers (direct/fulfilled/import). */
+  fulfillmentTier: string;
+};
+
 export type CartLine = {
   product: Product;
   quantity: number;
@@ -264,6 +273,8 @@ export type PricingSettings = {
   minimumAtlasMarginPct?: number;
   /** Product subtotal at/above which local delivery is free. 0 = no free-delivery offer. */
   freeDeliveryThreshold?: number;
+  /** Per-supplier plan + fulfillment tier assignments. */
+  supplierAssignments?: SupplierAssignment[];
 };
 
 export type QuoteFinancials = {

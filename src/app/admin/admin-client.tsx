@@ -22,8 +22,8 @@ import {
   marginOfSale,
   productPalletSize
 } from "@/lib/pricing";
-import { atlasHubs, fulfillmentTypes, productCategories } from "@/lib/data";
-import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, TierPricing } from "@/lib/types";
+import { atlasHubs, defaultFulfillmentTierId, defaultSupplierPlanId, fulfillmentTiers, fulfillmentTypes, productCategories, supplierPlans } from "@/lib/data";
+import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
 
 const documentRejectionReasons = [
   "Document is expired",
@@ -320,6 +320,7 @@ export function AdminClient() {
             settings={store.pricingSettings}
             updatePricingSettings={updatePricingSettings}
             products={store.products}
+            applications={store.applications}
             updateProductPromotion={updateProductPromotion}
             updateProductPlacements={updateProductPlacements}
             promotionSubmissions={store.promotionSubmissions}
@@ -1861,6 +1862,7 @@ function MarketingPanel({
   settings,
   updatePricingSettings,
   products,
+  applications,
   updateProductPromotion,
   updateProductPlacements,
   promotionSubmissions,
@@ -1869,6 +1871,7 @@ function MarketingPanel({
   settings: PricingSettings;
   updatePricingSettings: ReturnType<typeof useAtlasStore>["updatePricingSettings"];
   products: Product[];
+  applications: Application[];
   updateProductPromotion: ReturnType<typeof useAtlasStore>["updateProductPromotion"];
   updateProductPlacements: ReturnType<typeof useAtlasStore>["updateProductPlacements"];
   promotionSubmissions: PromotionSubmission[];
@@ -1933,6 +1936,7 @@ function MarketingPanel({
         </p>
       </div>
       <SupplierAdRequests submissions={promotionSubmissions} updateStatus={updatePromotionSubmissionStatus} />
+      <SupplierPlansPanel applications={applications} products={products} settings={settings} updatePricingSettings={updatePricingSettings} />
       <PromoteProductsPanel products={products} updateProductPromotion={updateProductPromotion} updateProductPlacements={updateProductPlacements} />
       <div className="panel p-5">
         <h3 className="text-lg font-black text-atlas-navy">Where promotions show up</h3>
@@ -2026,6 +2030,115 @@ function SupplierAdRequests({
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function supplierSkuCount(products: Product[], supplierName: string) {
+  return products.filter((p) => p.supplierName === supplierName).length;
+}
+
+function SupplierPlansPanel({
+  applications,
+  products,
+  settings,
+  updatePricingSettings
+}: {
+  applications: Application[];
+  products: Product[];
+  settings: PricingSettings;
+  updatePricingSettings: ReturnType<typeof useAtlasStore>["updatePricingSettings"];
+}) {
+  const suppliers = applications.filter((a) => a.type === "supplier" && a.status === "approved");
+  const [draft, setDraft] = useState<SupplierAssignment[]>(settings.supplierAssignments ?? []);
+  const [saved, setSaved] = useState(false);
+
+  function entry(id: string) {
+    return draft.find((e) => e.supplierId === id);
+  }
+  function setAssign(id: string, patch: Partial<SupplierAssignment>) {
+    setDraft((cur) => {
+      const ex = cur.find((e) => e.supplierId === id);
+      if (ex) return cur.map((e) => (e.supplierId === id ? { ...e, ...patch } : e));
+      return [...cur, { supplierId: id, plan: defaultSupplierPlanId, fulfillmentTier: defaultFulfillmentTierId, ...patch }];
+    });
+  }
+  function save() {
+    updatePricingSettings({ ...settings, supplierAssignments: draft });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div className="panel p-5">
+      <h3 className="text-lg font-black text-atlas-navy">Supplier plans &amp; fulfillment</h3>
+      <p className="mt-1 max-w-3xl text-sm text-slate-600">
+        Assign each approved supplier a <span className="font-bold">plan</span> (sets their SKU limit + commission band) and a
+        <span className="font-bold"> fulfillment tier</span> (how Atlas moves their goods). SKU usage is flagged when a supplier exceeds their plan limit.
+      </p>
+      {suppliers.length === 0 ? (
+        <p className="mt-4 rounded-md bg-atlas-light p-4 text-sm text-slate-600">No approved suppliers yet.</p>
+      ) : (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-slate-500">
+                <th className="px-2 py-2">Supplier</th>
+                <th className="px-2 py-2">SKUs</th>
+                <th className="px-2 py-2">Plan</th>
+                <th className="px-2 py-2">Commission</th>
+                <th className="px-2 py-2">Fulfillment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {suppliers.map((supplier) => {
+                const e = entry(supplier.id);
+                const planId = e?.plan ?? defaultSupplierPlanId;
+                const plan = supplierPlans.find((p) => p.id === planId) ?? supplierPlans[0];
+                const skus = supplierSkuCount(products, supplier.companyName);
+                const over = plan.maxSkus > 0 && skus > plan.maxSkus;
+                return (
+                  <tr key={supplier.id} className="border-t border-slate-100">
+                    <td className="px-2 py-2 font-bold text-atlas-navy">{supplier.companyName}</td>
+                    <td className={`px-2 py-2 font-bold ${over ? "text-atlas-red" : "text-slate-600"}`}>
+                      {skus}
+                      {plan.maxSkus > 0 ? ` / ${plan.maxSkus}` : " / ∞"}
+                      {over && <span className="ml-1 text-xs">over limit</span>}
+                    </td>
+                    <td className="px-2 py-2">
+                      <select
+                        className="field h-9 min-h-9"
+                        value={planId}
+                        onChange={(event) => setAssign(supplier.id, { plan: event.target.value })}
+                      >
+                        {supplierPlans.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-2 text-slate-600">{plan.commission}</td>
+                    <td className="px-2 py-2">
+                      <select
+                        className="field h-9 min-h-9"
+                        value={e?.fulfillmentTier ?? defaultFulfillmentTierId}
+                        onChange={(event) => setAssign(supplier.id, { fulfillmentTier: event.target.value })}
+                      >
+                        {fulfillmentTiers.map((tier) => (
+                          <option key={tier.id} value={tier.id}>{tier.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="mt-3 flex items-center gap-3">
+            <button className="btn-primary" type="button" onClick={save}>Save supplier plans</button>
+            {saved && <span className="text-sm font-bold text-emerald-700">Saved.</span>}
+          </div>
         </div>
       )}
     </div>
