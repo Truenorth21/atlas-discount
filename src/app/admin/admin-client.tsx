@@ -58,6 +58,7 @@ export function AdminClient() {
   const pickupReadyOrders = store.orders.length - quoteReviewOrders.length;
   const uploadedDocumentCount = store.applications.reduce((sum, item) => sum + item.documents.filter((document) => document.status === "uploaded").length, 0);
   const userPendingCount = store.applications.filter((item) => item.status === "pending").length;
+  const openQuoteCount = store.orders.filter((order) => order.status !== "Ready to confirm").length;
   const tabs = [
     { id: "overview", label: "Overview", count: uploadedDocumentCount + userPendingCount + pendingProducts.length + quoteReviewOrders.length },
     { id: "documents", label: "Documents", count: uploadedDocumentCount },
@@ -79,11 +80,11 @@ export function AdminClient() {
           <p className="mt-1 text-slate-600">Approve users, verify documents, review products, and manage quote/order requests.</p>
         </div>
         <section className="grid gap-4 md:grid-cols-5">
-          <Metric icon={<UsersRound />} label="Users pending" value={store.applications.filter((item) => item.status === "pending").length} />
-          <Metric icon={<FileCheck2 />} label="Documents" value={store.applications.reduce((sum, item) => sum + item.documents.length, 0)} />
+          <Metric icon={<UsersRound />} label="Users pending" value={userPendingCount} />
+          <Metric icon={<FileCheck2 />} label="Docs to review" value={uploadedDocumentCount} />
           <Metric icon={<PackageCheck />} label="Product approvals" value={pendingProducts.length} />
-          <Metric icon={<Check />} label="Open quotes" value={store.orders.length} />
-          <Metric icon={<DollarSign />} label="Case markup %" value={store.pricingSettings.caseMarkupPercent} />
+          <Metric icon={<Check />} label="Open quotes" value={openQuoteCount} />
+          <Metric icon={<DollarSign />} label="Loose case markup %" value={store.pricingSettings.caseMarkupPercent} />
         </section>
         <section className="panel p-2">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
