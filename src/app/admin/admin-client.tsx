@@ -398,7 +398,7 @@ function ProductAdminPanel({
           submittedMessage="valid products published to the catalog."
         />
       )}
-      {activeProductTab === "single" && <AdminSingleProductForm addProducts={addProducts} />}
+      {activeProductTab === "single" && <AdminSingleProductForm addProducts={addProducts} products={products} />}
       {activeProductTab === "approvals" && (
         <ProductApprovalsList
           pendingProducts={pendingProducts}
@@ -826,10 +826,94 @@ function buildTierPricing(form: typeof blankProductForm): TierPricing {
   return Object.keys(palletPrices).length > 0 ? { case: casePrices, pallet: palletPrices } : { case: casePrices };
 }
 
-function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeof useAtlasStore>["addProducts"] }) {
+const numToStr = (n?: number) => (n === undefined || n === null || Number.isNaN(n) ? "" : String(n));
+
+/** Map an existing product back into the editable form, so a new product can start as a copy. */
+function formFromProduct(product: Product): typeof blankProductForm {
+  const spec = product.spec;
+  const tier = product.tierPricing;
+  return {
+    ...blankProductForm,
+    sku: product.sku ? `${product.sku}-COPY` : "",
+    brand: product.brand ?? "",
+    upc: product.upc ?? "",
+    gtinCase: spec?.gtinCase ?? "",
+    gtinInner: spec?.gtinInner ?? "",
+    productName: product.productName ?? "",
+    unitSize: product.unitSize ?? "",
+    description: product.description ?? "",
+    category: product.category ?? "",
+    subcategory: product.subcategory ?? "",
+    imageUrl: product.imageUrl ?? "",
+    unitL: numToStr(spec?.unit?.length),
+    unitW: numToStr(spec?.unit?.width),
+    unitH: numToStr(spec?.unit?.height),
+    unitWeight: numToStr(spec?.unit?.weight),
+    unitWeightUnit: spec?.unit?.weightUnit ?? "lb",
+    innerPack: numToStr(spec?.innerPack),
+    innerL: numToStr(spec?.inner?.length),
+    innerW: numToStr(spec?.inner?.width),
+    innerH: numToStr(spec?.inner?.height),
+    innerWeight: numToStr(spec?.inner?.weight),
+    innerWeightUnit: spec?.inner?.weightUnit ?? "lb",
+    casePack: numToStr(product.casePack) || "1",
+    caseL: numToStr(spec?.caseDims?.length),
+    caseW: numToStr(spec?.caseDims?.width),
+    caseH: numToStr(spec?.caseDims?.height),
+    caseWeight: numToStr(spec?.caseDims?.weight),
+    caseWeightUnit: spec?.caseDims?.weightUnit ?? "lb",
+    palletCasesPerFloor: numToStr(spec?.palletCasesPerFloor),
+    palletLayers: numToStr(spec?.palletLayers),
+    palletStandardWeight: numToStr(spec?.palletStandardWeight) || "40",
+    shippingWarehouse: spec?.shippingWarehouse ?? (product.preferredHub === "Miami hub" ? "Miami hub" : "Orlando hub"),
+    fulfillmentMode: spec?.fulfillmentMode ?? "delivered",
+    pickupAddress: spec?.pickupAddress ?? "",
+    pickupPhone: spec?.pickupPhone ?? "",
+    supplierCost: numToStr(product.supplierCost),
+    suggestedRetail: numToStr(product.suggestedRetail),
+    moq: numToStr(product.moq) || "1",
+    minOrderValue: numToStr(product.minOrderValue),
+    leadTime: product.leadTime === "Ready now" ? "" : product.leadTime ?? "",
+    inventoryAvailable: numToStr(product.inventoryAvailable) || "0",
+    priceRetailer: numToStr(tier?.case?.retailer),
+    priceDistributor: numToStr(tier?.case?.distributor),
+    palletPriceRetailer: numToStr(tier?.pallet?.retailer),
+    palletPriceDistributor: numToStr(tier?.pallet?.distributor),
+    supplierName: product.supplierName ?? "Atlas Admin",
+    promotion: product.promotion ?? ""
+  };
+}
+
+function AdminSingleProductForm({
+  addProducts,
+  products
+}: {
+  addProducts: ReturnType<typeof useAtlasStore>["addProducts"];
+  products: Product[];
+}) {
   const [form, setForm] = useState(blankProductForm);
   const [hasInner, setHasInner] = useState(false);
   const [message, setMessage] = useState("");
+  const [copyFromId, setCopyFromId] = useState("");
+
+  const copyOptions = [...products].sort((a, b) => `${a.brand} ${a.productName}`.localeCompare(`${b.brand} ${b.productName}`));
+
+  function copyFrom(id: string) {
+    setCopyFromId(id);
+    if (!id) return;
+    const source = products.find((p) => p.id === id);
+    if (!source) return;
+    setForm(formFromProduct(source));
+    setHasInner(source.spec?.hasInner ?? false);
+    setMessage(`Copied from ${source.brand} ${source.sku}. Update the SKU, product name, UPC, and any other details — then publish.`);
+  }
+
+  function clearForm() {
+    setForm(blankProductForm);
+    setHasInner(false);
+    setCopyFromId("");
+    setMessage("");
+  }
 
   const updateField = (field: keyof typeof blankProductForm) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -927,6 +1011,7 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
     setMessage(`${product.brand} ${product.sku} was published to the catalog.`);
     setForm((current) => ({ ...blankProductForm, supplierName: current.supplierName, shippingWarehouse: current.shippingWarehouse, fulfillmentMode: current.fulfillmentMode }));
     setHasInner(false);
+    setCopyFromId("");
   }
 
   return (
@@ -940,6 +1025,28 @@ function AdminSingleProductForm({ addProducts }: { addProducts: ReturnType<typeo
           Publish product
         </button>
       </div>
+
+      {copyOptions.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-end gap-3 rounded-md border border-slate-200 bg-atlas-light p-3">
+          <label className="grid flex-1 gap-1" style={{ minWidth: "16rem" }}>
+            <span className="text-sm font-bold text-slate-700">Start from a copy of an existing product</span>
+            <select className="input" value={copyFromId} onChange={(event) => copyFrom(event.target.value)}>
+              <option value="">Start from blank…</option>
+              {copyOptions.map((p) => (
+                <option key={p.id} value={p.id}>{p.brand} — {p.productName || p.description} ({p.sku})</option>
+              ))}
+            </select>
+          </label>
+          {copyFromId && (
+            <button className="btn-secondary" type="button" onClick={clearForm}>
+              Clear &amp; start blank
+            </button>
+          )}
+          <p className="w-full text-xs text-slate-500">
+            Copying fills in every field from the chosen product. We add “-COPY” to the SKU — change the SKU, product name, and UPC before publishing so you don’t duplicate an item.
+          </p>
+        </div>
+      )}
 
       <div className="mt-5 grid gap-4 md:grid-cols-3">
         <ProductSectionHeading>Identifiers</ProductSectionHeading>
