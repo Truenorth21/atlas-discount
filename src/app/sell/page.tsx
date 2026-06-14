@@ -21,7 +21,7 @@ import {
 import { Check } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { AtlasMark } from "@/components/atlas-logo";
-import { fulfillmentTiers, supplierPlans } from "@/lib/data";
+import { adPlacements, defaultPricingSettings, fulfillmentTiers } from "@/lib/data";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 
 const whyCards: Array<{ titleKey: TranslationKey; bodyKey: TranslationKey; icon: typeof Boxes }> = [
@@ -125,40 +125,28 @@ export default function SellPage() {
           </div>
         </section>
 
-        {/* Supplier plans */}
+        {/* Advertising & promotions (pay per placement, no subscription) */}
         <section className="bg-white py-16">
           <div className="atlas-container">
-            <p className="text-sm font-bold uppercase text-atlas-blue">Supplier plans</p>
-            <h2 className="mt-2 text-3xl font-black text-atlas-navy">Choose how you grow with Atlas</h2>
-            <p className="mt-2 max-w-2xl text-slate-600">Annual plans, billed yearly. Higher plans earn a lower commission and more visibility with verified Atlas buyers.</p>
-            <div className="mt-8 grid gap-6 md:grid-cols-3">
-              {supplierPlans.map((plan) => (
-                <div
-                  key={plan.id}
-                  className={`flex flex-col rounded-2xl border bg-white p-6 shadow-sm ${plan.highlight ? "border-atlas-blue ring-2 ring-atlas-blue/20" : "border-slate-200"}`}
-                >
-                  {plan.highlight && <span className="w-fit rounded-full bg-atlas-blue px-3 py-1 text-xs font-black uppercase text-white">Most popular</span>}
-                  <h3 className="mt-3 text-2xl font-black text-atlas-navy">{plan.name}</h3>
-                  <p className="mt-1 text-3xl font-black text-atlas-navy">
-                    ${plan.priceYear.toLocaleString()}
-                    <span className="text-sm font-semibold text-slate-500"> / year</span>
+            <p className="text-sm font-bold uppercase text-atlas-blue">Advertise &amp; promote</p>
+            <h2 className="mt-2 text-3xl font-black text-atlas-navy">No subscriptions — pay only for the promotions you want</h2>
+            <p className="mt-2 max-w-2xl text-slate-600">
+              Listing on Atlas is free. Grow demand by buying supplier-funded placements à la carte — featured slots, weekly deals, category
+              sponsorships, launches, email, and WhatsApp. Atlas approves every placement before buyers see it.
+            </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {adPlacements.map((p) => (
+                <div key={p.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h3 className="font-black text-atlas-navy">{p.name}</h3>
+                  <p className="mt-1 flex-1 text-sm text-slate-600">{p.blurb}</p>
+                  <p className="mt-3 text-2xl font-black text-atlas-navy">
+                    ${Number(defaultPricingSettings[p.rateKey]).toLocaleString()}
+                    <span className="text-xs font-semibold text-slate-500"> / placement</span>
                   </p>
-                  <p className="mt-1 text-sm font-bold text-emerald-700">{plan.commission}</p>
-                  <ul className="mt-4 grid flex-1 gap-2 text-sm text-slate-700">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex gap-2">
-                        <Check className="mt-0.5 shrink-0 text-atlas-blue" size={16} />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link className="btn-secondary mt-5 w-fit rounded-full" href="/register/supplier">
-                    Get started
-                    <ArrowRight size={16} />
-                  </Link>
                 </div>
               ))}
             </div>
+            <p className="mt-4 text-xs text-slate-500">Rates are starting points set by Atlas and may vary by season and demand.</p>
           </div>
         </section>
 

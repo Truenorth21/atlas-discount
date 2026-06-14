@@ -97,46 +97,19 @@ export const productCollections: Array<{ id: string; label: string; keywords: st
   { id: "closeouts", label: "Closeouts", keywords: ["closeout", "overstock", "clearance", "liquidation"] }
 ];
 
-/** Supplier subscription plans (annual). Higher plan = lower commission + more visibility. */
-export const supplierPlans: Array<{
-  id: string;
-  name: string;
-  priceYear: number;
-  commission: string;
-  /** Max catalog SKUs. 0 = unlimited. */
-  maxSkus: number;
-  highlight?: boolean;
-  features: string[];
-}> = [
-  {
-    id: "roots",
-    name: "Roots",
-    priceYear: 450,
-    commission: "0% commission",
-    maxSkus: 5,
-    features: ["Up to 5 SKUs", "Listed to verified Atlas buyers", "Monthly sell-through report", "Compliance & GTIN setup"]
-  },
-  {
-    id: "rise",
-    name: "Rise",
-    priceYear: 1500,
-    commission: "5–7% commission",
-    maxSkus: 0,
-    highlight: true,
-    features: ["Unlimited SKUs", "Store-level analytics dashboard", "2 featured placements / year", "Seasonal campaign inclusion"]
-  },
-  {
-    id: "reach",
-    name: "Reach",
-    priceYear: 3000,
-    commission: "3–5% commission",
-    maxSkus: 0,
-    features: ["Everything in Rise", "Dedicated category manager", "4 placements + 1 brand spotlight", "Quarterly competitive intelligence"]
-  }
-];
-
-export const defaultSupplierPlanId = "roots";
 export const defaultFulfillmentTierId = "direct";
+
+/** Supplier-paid advertising / promotion placements (KeHE/UNFI style — pay per placement, no subscription). */
+export const adPlacements: Array<{ id: string; name: string; rateKey: keyof PricingSettings; blurb: string }> = [
+  { id: "featured", name: "Featured product", rateKey: "featuredProductRate", blurb: "Premium slot on the homepage ordering portal." },
+  { id: "weekly", name: "Weekly Deals", rateKey: "weeklyDealsRate", blurb: "Deals row in the catalog + weekly email." },
+  { id: "category", name: "Sponsored category", rateKey: "sponsoredCategoryRate", blurb: "Own a category spot (beverages, snacks, cleaning…)." },
+  { id: "newLaunch", name: "New product launch", rateKey: "newProductLaunchRate", blurb: "Homepage + weekly deals + newsletter launch push." },
+  { id: "circular", name: "Monthly circular", rateKey: "monthlyCircularRate", blurb: "Digital wholesale flyer placement." },
+  { id: "newsletter", name: "Newsletter sponsor", rateKey: "newsletterSponsorshipRate", blurb: "Sponsor section in the retailer email." },
+  { id: "whatsapp", name: "WhatsApp promotion", rateKey: "whatsappPromotionRate", blurb: "Supplier-funded broadcast promotion." },
+  { id: "closeout", name: "Closeout listing", rateKey: "closeoutListingRate", blurb: "Overstock / short-dated / liquidation listing." }
+];
 
 /** Named fulfillment service tiers a supplier can choose. */
 export const fulfillmentTiers: Array<{ id: string; name: string; fee: string; blurb: string; points: string[] }> = [

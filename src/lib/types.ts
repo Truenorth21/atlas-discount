@@ -123,12 +123,9 @@ export type AccountPricing = {
   adjustmentPct?: number;
 };
 
-/** A supplier's assigned subscription plan + fulfillment service tier. */
+/** A supplier's assigned fulfillment service tier (direct/fulfilled/import). */
 export type SupplierAssignment = {
   supplierId: string;
-  /** Plan id from supplierPlans (roots/rise/reach). */
-  plan: string;
-  /** Fulfillment tier id from fulfillmentTiers (direct/fulfilled/import). */
   fulfillmentTier: string;
 };
 
