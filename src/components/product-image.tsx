@@ -1,9 +1,10 @@
 import { Droplets, FileText, Package, SprayCan, UtensilsCrossed } from "lucide-react";
 import type { Product } from "@/lib/types";
 
-/** Seeded/demo products use bundled SVG placeholders under /product-images. */
+/** Only products with no image at all fall back to the category icon tile.
+ *  An explicitly set image (bundled /product-images SVG or external URL) renders. */
 export function isPlaceholderImage(product: Pick<Product, "imageUrl">) {
-  return !product.imageUrl || product.imageUrl.startsWith("/product-images/");
+  return !product.imageUrl;
 }
 
 function categoryStyle(category: string) {

@@ -1004,7 +1004,7 @@ export function SingleProductForm({
       category: form.category,
       subcategory: form.subcategory,
       unitSize: form.unitSize,
-      imageUrl: form.imageUrl || "/product-images/disinfecting-wipes.svg",
+      imageUrl: form.imageUrl || "",
       productDimensions: dimsLabel(form.unitL, form.unitW, form.unitH),
       unitWeight: form.unitWeight ? `${form.unitWeight} ${form.unitWeightUnit}` : "",
       casePack: toNum(form.casePack) ?? 1,

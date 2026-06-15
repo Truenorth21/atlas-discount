@@ -102,7 +102,7 @@ function productFromRow(row: ProductRow): Product {
     category: row.category,
     subcategory: row.subcategory,
     unitSize: row.unit_size ?? "",
-    imageUrl: row.image_url || "/product-images/disinfecting-wipes.svg",
+    imageUrl: row.image_url || "",
     productDimensions: row.product_dimensions ?? "",
     unitWeight: row.unit_weight ?? "",
     spec: (row.spec as ProductSpec) ?? undefined,
