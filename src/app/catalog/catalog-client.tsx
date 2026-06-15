@@ -85,13 +85,19 @@ export default function CatalogClient({
       const matchesSub = subcategory === "All" || product.subcategory === subcategory;
       const matchesBrand = brand === "All" || product.brand === brand;
       const matchesHub = hub === "All hubs" || product.preferredHub === hub;
-      const haystack = [product.brand, product.upc, product.description, product.sku, product.category, product.subcategory, product.productName]
+      // Full text (incl. description) powers free-text search.
+      const searchHaystack = [product.brand, product.upc, product.description, product.sku, product.category, product.subcategory, product.productName]
         .join(" ")
         .toLowerCase();
-      const matchesTerm = haystack.includes(term);
+      // Collection keyword matching uses only structured fields — never the long
+      // marketing description — so a soap isn't tagged a "beverage" for saying "water".
+      const collectionHaystack = [product.brand, product.productName, product.category, product.subcategory]
+        .join(" ")
+        .toLowerCase();
+      const matchesTerm = searchHaystack.includes(term);
       const matchesCollection =
         collection === "all" ||
-        (collection === "favorites" ? store.favorites.includes(product.id) : !!activeCollection?.keywords.some((k) => haystack.includes(k)));
+        (collection === "favorites" ? store.favorites.includes(product.id) : !!activeCollection?.keywords.some((k) => collectionHaystack.includes(k)));
       return matchesCategory && matchesSub && matchesBrand && matchesHub && matchesTerm && matchesCollection;
     });
     const price = (p: Product) => buyerCasePrice({ settings: store.pricingSettings, product: p, tierId: buyerTierId, accountId: userId });
@@ -512,7 +518,10 @@ export default function CatalogClient({
               store.cart.map((line) => (
                 <div key={line.product.id} className="rounded-md border border-slate-200 p-3 text-sm">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-bold">{line.product.brand}</p>
+                    <div className="min-w-0">
+                      <p className="font-bold">{line.product.brand}</p>
+                      {line.product.productName && <p className="text-xs text-slate-500">{line.product.productName}</p>}
+                    </div>
                     <button
                       className="rounded-md p-1 text-slate-500 hover:bg-red-50 hover:text-atlas-red"
                       type="button"
@@ -842,7 +851,7 @@ function StoreProductCard({
           )}
         </div>
         <h3 className="mt-2 font-black leading-snug text-atlas-navy">{product.brand}</h3>
-        <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{product.description}</p>
+        <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{product.productName || product.description}</p>
         <p className="mt-1 text-xs font-semibold text-slate-500">
           {product.casePack} {t("perCaseUnits")}
           {product.unitSize ? ` · ${product.unitSize}` : ""} · {product.preferredHub ?? "Orlando hub"}
@@ -920,7 +929,7 @@ function DealCard({ product, addToCart }: { product: Product; addToCart: (produc
         <ProductImage product={product} className="h-16 w-16 shrink-0 rounded-md border border-slate-200" iconSize={22} />
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-atlas-navy">{product.brand}</p>
-          <p className="line-clamp-2 text-xs font-semibold text-slate-600">{product.description}</p>
+          <p className="line-clamp-2 text-xs font-semibold text-slate-600">{product.productName || product.description}</p>
           <p className="mt-1 text-xs font-bold text-atlas-blue">{product.preferredHub ?? "Supplier direct"}</p>
         </div>
       </div>
