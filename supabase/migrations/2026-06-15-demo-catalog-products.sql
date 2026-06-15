@@ -17,7 +17,7 @@ insert into public.products (
   preferred_hub, supplier_name, promotion, placements, status
 ) values
 (
-  'DEMO-COOKIE-12', 'Imported Cookies', '850000000011', 'Imported Cookies',
+  'DEMO-COOKIE-12', 'Imported Cookies', '850000000011', 'Belgian Butter Cookies, Assorted Tin',
   'Assorted imported butter cookies, retail-ready 12-unit case.', 'Grocery / Pantry', 'Snacks & candy', '5 oz',
   '/product-images/cookies.svg', '3 x 3 x 6 in', '5 oz',
   '{"casesPerPallet":80,"caseDims":{"weight":11,"weightUnit":"lb"},"fulfillmentMode":"delivered","shippingWarehouse":"Miami hub"}'::jsonb,
@@ -27,7 +27,7 @@ insert into public.products (
   'Miami hub', 'Demo Imports Co.', 'Weekly deal', '{"weeklyDeal":true}'::jsonb, 'approved'
 ),
 (
-  'DEMO-ENERGY-24', 'Energy Drinks', '850000000028', 'Energy Drinks',
+  'DEMO-ENERGY-24', 'Energy Drinks', '850000000028', 'Sugar-Free Energy Drink, 16 oz',
   'Sugar-free energy drinks, 24-can case.', 'Grocery / Pantry', 'Beverages', '16 oz',
   '/product-images/energy-drinks.svg', '2.6 x 2.6 x 6.5 in', '16 oz',
   '{"casesPerPallet":60,"caseDims":{"weight":28,"weightUnit":"lb"},"fulfillmentMode":"delivered","shippingWarehouse":"Orlando hub"}'::jsonb,
@@ -37,7 +37,7 @@ insert into public.products (
   'Orlando hub', 'Demo Beverage LLC', 'Fast mover', '{"homepageFeatured":true}'::jsonb, 'approved'
 ),
 (
-  'DEMO-HOTSAUCE-12', 'Hot Sauce Assortment', '850000000035', 'Hot Sauce Assortment',
+  'DEMO-HOTSAUCE-12', 'Hot Sauce Assortment', '850000000035', 'Hot Sauce Variety Pack (3 Flavors)',
   'Assorted hot sauces, 12-bottle variety case.', 'Grocery / Pantry', 'Condiments', '5 oz',
   '/product-images/hot-sauce.svg', '2 x 2 x 7 in', '8 oz',
   '{"casesPerPallet":96,"caseDims":{"weight":9,"weightUnit":"lb"},"fulfillmentMode":"delivered","shippingWarehouse":"Orlando hub"}'::jsonb,
@@ -47,7 +47,7 @@ insert into public.products (
   'Orlando hub', 'Demo Pantry Goods', 'New arrival', '{"homepageFeatured":true}'::jsonb, 'approved'
 ),
 (
-  'DEMO-COCONUT-12', 'Coconut Water', '850000000042', 'Coconut Water',
+  'DEMO-COCONUT-12', 'Coconut Water', '850000000042', '100% Pure Coconut Water, 1 L',
   'Pure coconut water, 12 x 1L cartons.', 'Grocery / Pantry', 'Beverages', '1 L',
   '/product-images/coconut-water.svg', '3.5 x 3.5 x 9 in', '2.2 lb',
   '{"casesPerPallet":64,"caseDims":{"weight":29,"weightUnit":"lb"},"fulfillmentMode":"delivered"}'::jsonb,

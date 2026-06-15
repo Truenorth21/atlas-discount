@@ -24,10 +24,17 @@ export default function SupplierDashboardPage() {
     "Closeout listing",
     "WhatsApp promotion"
   ];
-  const supplierProducts = store.products.filter((product) => product.supplierName === "Current Supplier" || product.supplierName === "Harborline Brands");
-  const documentAlerts = getDocumentAlerts(store.applications, "supplier");
   const supplierApplication = store.applications.find((application) => application.type === "supplier");
   const companyName = supplierApplication?.companyName ?? "Current Supplier";
+  // Scope to the signed-in supplier's own products — matches how uploads are tagged
+  // (supplierName = the supplier's company). Legacy demo names kept as a fallback.
+  const supplierProducts = store.products.filter(
+    (product) =>
+      product.supplierName === companyName ||
+      product.supplierName === "Current Supplier" ||
+      product.supplierName === "Harborline Brands"
+  );
+  const documentAlerts = getDocumentAlerts(store.applications, "supplier");
   const assignment = supplierApplication
     ? (store.pricingSettings.supplierAssignments ?? []).find((a) => a.supplierId === supplierApplication.id)
     : undefined;

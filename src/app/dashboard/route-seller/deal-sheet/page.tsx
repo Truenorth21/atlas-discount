@@ -50,6 +50,8 @@ export default function DealSheetPage() {
   const sheetProducts = lines
     .map((line) => ({ line, product: store.products.find((item) => item.id === line.productId) }))
     .filter((entry): entry is { line: SheetLine; product: NonNullable<typeof entry.product> } => Boolean(entry.product));
+  // Rep's per-case margin (your price − Atlas wholesale). Screen-only; never printed on the customer sheet.
+  const sheetMarginPerCase = sheetProducts.reduce((sum, { line, product }) => sum + (line.yourPrice - wholesale(product.id)), 0);
 
   return (
     <>
@@ -141,9 +143,18 @@ export default function DealSheetPage() {
                       </div>
                       <p className="hidden text-2xl font-black text-atlas-navy print:block">{formatMoney(line.yourPrice)}</p>
                       <p className="text-xs text-slate-500">{t("perCaseLabel")}</p>
+                      <p className={`text-xs font-bold print:hidden ${line.yourPrice - wholesale(product.id) >= 0 ? "text-emerald-700" : "text-atlas-red"}`}>
+                        {t("yourMarginLabel")}: {formatMoney(line.yourPrice - wholesale(product.id))}
+                      </p>
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+            {sheetProducts.length > 0 && (
+              <div className="flex items-center justify-between gap-2 border-t border-slate-200 bg-emerald-50 px-6 py-3 text-sm print:hidden">
+                <span className="font-bold text-atlas-navy">{t("sheetMarginLabel")}</span>
+                <span className="font-black text-emerald-700">{formatMoney(sheetMarginPerCase)} / {t("casePack").toLowerCase()}</span>
               </div>
             )}
             <div className="flex items-center gap-2 border-t border-slate-200 bg-atlas-light px-6 py-4 text-sm text-slate-600">

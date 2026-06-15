@@ -14,6 +14,8 @@ export default function RouteSellerDashboardPage() {
   const { t } = useI18n();
   const { store, addToCart } = useAtlasStore();
   const routeSeller = store.routeSellers[0];
+  const commissionPct = store.pricingSettings.routeSellerCommissionPercent ?? 10;
+  const estMonthlyCommission = Math.round((routeSeller.monthlySales * commissionPct) / 100);
   const documentAlerts = getDocumentAlerts(store.applications, "route_seller");
   const routeApplication = store.applications.find((application) => application.type === "route_seller");
   const approvedProducts = store.products.filter((product) => product.status === "approved");
@@ -66,7 +68,19 @@ export default function RouteSellerDashboardPage() {
                 {t("routePlaybook")}
               </Link>
             </div>
-            <div className="mt-5 rounded-lg border border-sky-200 bg-sky-50 p-4">
+            <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+              <p className="flex flex-wrap items-baseline gap-2 text-sm font-black text-atlas-navy">
+                <span>{t("repCommissionTitle")}:</span>
+                <span className="text-lg">{commissionPct}%</span>
+                <span className="font-semibold text-slate-600">{t("repCommissionRateLabel")}</span>
+              </p>
+              <p className="mt-1 text-sm text-slate-700">
+                {t("repCommissionEstLabel")}: <span className="font-black text-atlas-navy">${estMonthlyCommission.toLocaleString()}</span>{" "}
+                <span className="text-slate-500">({commissionPct}% × ${routeSeller.monthlySales.toLocaleString()})</span>
+              </p>
+              <p className="mt-1 text-xs text-slate-500">{t("repCommissionNote")}</p>
+            </div>
+            <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-4">
               <p className="flex flex-wrap items-center gap-2 text-sm font-black text-atlas-navy">
                 <Sparkles size={16} className="text-atlas-blue" />
                 {t("repAssistant")}
