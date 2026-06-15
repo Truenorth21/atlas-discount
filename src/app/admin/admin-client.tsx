@@ -24,7 +24,8 @@ import {
   standardCasePrice
 } from "@/lib/pricing";
 import { adPlacements, atlasHubs, defaultFulfillmentTierId, fulfillmentTiers, fulfillmentTypes, productCategories } from "@/lib/data";
-import type { AccountPricing, Application, AtlasHub, CustomerTier, DocumentStatus, OrderRequest, PlacementBooking, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
+import { planOrderPallets } from "@/lib/pallets";
+import type { AccountPricing, Application, AtlasHub, CartLine, CustomerTier, DocumentStatus, OrderRequest, PlacementBooking, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
 
 const documentRejectionReasons = [
   "Document is expired",
@@ -1732,6 +1733,7 @@ function QuoteBuilderCard({
           </dl>
         </div>
       </div>
+      <PalletPlanPanel lines={order.lineItems ?? []} maxPalletWeightLb={pricingSettings.maxPalletWeightLb} />
       <div className="mt-4 rounded-lg border border-slate-200 p-4">
         <h4 className="font-black text-atlas-navy">Adjust this quotation</h4>
         <p className="mt-1 text-sm text-slate-600">
@@ -2532,6 +2534,87 @@ function MarketingTable({ icon, title, rows, columns }: { icon: React.ReactNode;
   );
 }
 
+function PalletPlanPanel({ lines, maxPalletWeightLb }: { lines: CartLine[]; maxPalletWeightLb?: number }) {
+  const [open, setOpen] = useState(false);
+  if (lines.length === 0) return null;
+  const plan = planOrderPallets(lines, { maxPalletWeightLb });
+
+  return (
+    <div className="mt-4 rounded-lg border border-slate-200 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h4 className="font-black text-atlas-navy">Pallet load plan</h4>
+          <p className="mt-1 text-sm text-slate-600">
+            How this order packs onto pallets for the hub — full pallets first, then mixed pallets for the leftovers. Max{" "}
+            {plan.maxPalletWeightLb.toLocaleString()} lb per pallet.
+          </p>
+        </div>
+        <button className="btn-secondary" type="button" onClick={() => setOpen((value) => !value)}>
+          {open ? "Hide stack list" : "Show stack list"}
+        </button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <PalletStat label="Pallets" value={String(plan.totalPallets)} sub={`${plan.fullPallets} full · ${plan.mixedPallets} mixed`} />
+        <PalletStat label="Cases palletized" value={String(plan.totalCases)} />
+        <PalletStat label="Total weight" value={`${plan.totalWeightLb.toLocaleString()} lb`} />
+        <PalletStat
+          label="Off-pallet"
+          value={String(plan.supplierDirect.reduce((s, i) => s + i.cases, 0))}
+          sub="supplier-direct cases"
+        />
+      </div>
+
+      {plan.needsConfig.length > 0 && (
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <span className="font-bold">Missing pallet config:</span>{" "}
+          {plan.needsConfig.map((item) => `${item.productName} (${item.cases} cases)`).join(", ")}. Set cases-per-pallet on these
+          products to include them in the plan.
+        </div>
+      )}
+
+      {open && (
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {plan.pallets.map((pallet) => (
+            <div key={pallet.index} className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-black text-atlas-navy">Pallet {pallet.index}</span>
+                <span className={`badge ${pallet.kind === "full" ? "bg-sky-50 text-atlas-blue" : "bg-amber-50 text-amber-800"}`}>
+                  {pallet.kind === "full" ? "Full — single SKU" : "Mixed"}
+                </span>
+              </div>
+              <ul className="mt-2 grid gap-1 text-sm text-slate-700">
+                {pallet.items.map((item) => (
+                  <li key={item.sku} className="flex justify-between gap-3">
+                    <span><span className="font-bold text-atlas-navy">{item.cases}×</span> {item.productName} <span className="text-xs text-slate-400">({item.sku})</span></span>
+                    <span className="shrink-0 text-slate-500">{item.weightLb.toLocaleString()} lb</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-slate-500">
+                <span>{pallet.cases} cases · {pallet.fillPct}% full</span>
+                <span className={pallet.overweight ? "font-bold text-atlas-red" : ""}>
+                  {pallet.weightLb.toLocaleString()} lb{pallet.overweight ? " · over max" : ""}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PalletStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-atlas-light p-3">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-0.5 text-lg font-black text-atlas-navy">{value}</p>
+      {sub && <p className="text-[11px] text-slate-500">{sub}</p>}
+    </div>
+  );
+}
+
 function PricingSettingsPanel({
   settings,
   updatePricingSettings,
@@ -2612,6 +2695,13 @@ function PricingSettingsPanel({
         <NumberField label="Full pallet target margin" value={settings.palletMarginPercent} onChange={updateNumber("palletMarginPercent")} hint="Atlas margin on full-pallet cases (usually lower than loose)." suffix="%" />
         <NumberField label="Loose case minimum $ margin" value={settings.minimumCaseMarginPerCase} onChange={updateNumber("minimumCaseMarginPerCase")} hint="Never sell a loose case for less than cost + this dollar margin." prefix="$" />
         <NumberField label="Full pallet minimum $ margin" value={settings.minimumPalletMarginPerCase} onChange={updateNumber("minimumPalletMarginPerCase")} hint="Never sell a pallet case for less than cost + this dollar margin." prefix="$" />
+      </PricingGroup>
+
+      <PricingGroup
+        title="Pallet load planning"
+        body="Used by the order load planner to decide how many pallets an order needs and how cases stack. A pallet never loads heavier than this."
+      >
+        <NumberField label="Max pallet weight" value={settings.maxPalletWeightLb ?? 2200} onChange={updateNumber("maxPalletWeightLb")} hint="Maximum stacked weight per pallet. Standard GMA loads run ~2,000–2,500 lb." suffix="lb" />
       </PricingGroup>
 
       <PricingGroup

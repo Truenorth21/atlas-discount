@@ -83,6 +83,7 @@ type PricingRow = {
     atlasMarginDistributorSalePct?: number;
     minimumAtlasMarginPct?: number;
     freeDeliveryThreshold?: number;
+    maxPalletWeightLb?: number;
     supplierAssignments?: SupplierAssignment[];
     placementBookings?: PlacementBooking[];
   } | null;
@@ -217,6 +218,7 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     atlasMarginDistributorSalePct: row.customer_pricing?.atlasMarginDistributorSalePct ?? defaultPricingSettings.atlasMarginDistributorSalePct,
     minimumAtlasMarginPct: row.customer_pricing?.minimumAtlasMarginPct ?? defaultPricingSettings.minimumAtlasMarginPct,
     freeDeliveryThreshold: row.customer_pricing?.freeDeliveryThreshold ?? defaultPricingSettings.freeDeliveryThreshold,
+    maxPalletWeightLb: row.customer_pricing?.maxPalletWeightLb ?? defaultPricingSettings.maxPalletWeightLb,
     supplierAssignments: row.customer_pricing?.supplierAssignments ?? [],
     placementBookings: row.customer_pricing?.placementBookings ?? []
   };
@@ -264,6 +266,7 @@ function pricingToRow(settings: PricingSettings) {
       atlasMarginDistributorSalePct: settings.atlasMarginDistributorSalePct,
       minimumAtlasMarginPct: settings.minimumAtlasMarginPct,
       freeDeliveryThreshold: settings.freeDeliveryThreshold,
+      maxPalletWeightLb: settings.maxPalletWeightLb,
       supplierAssignments: settings.supplierAssignments ?? [],
       placementBookings: settings.placementBookings ?? []
     },

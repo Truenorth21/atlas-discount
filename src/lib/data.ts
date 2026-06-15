@@ -51,6 +51,7 @@ export const defaultPricingSettings: PricingSettings = {
   supplierDirectMinimumFee: 35,
   caseMarginPercent: 25,
   palletMarginPercent: 18,
+  maxPalletWeightLb: 2200,
   minimumCaseMarginPerCase: 3,
   minimumPalletMarginPerCase: 1.5,
   miamiHubHandlingPerCase: 1.5,

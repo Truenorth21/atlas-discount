@@ -289,6 +289,8 @@ export type PricingSettings = {
   minimumAtlasMarginPct?: number;
   /** Product subtotal at/above which local delivery is free. 0 = no free-delivery offer. */
   freeDeliveryThreshold?: number;
+  /** Max stacked weight per pallet (lb) used by the order load planner. */
+  maxPalletWeightLb?: number;
   /** Per-supplier plan + fulfillment tier assignments. */
   supplierAssignments?: SupplierAssignment[];
   /** Sold advertising/promotion placements Atlas schedules + tracks for revenue. */
