@@ -27,7 +27,7 @@ export default function CatalogClient({
   isApproved?: boolean;
 }) {
   const { t } = useI18n();
-  const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, verifyDocuments, toggleFavorite, reorder } = useAtlasStore();
+  const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, verifyDocuments, toggleFavorite, reorder, setCurrentTier } = useAtlasStore();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState(searchParams.get("category") || "All");
@@ -42,7 +42,9 @@ export default function CatalogClient({
   const [submittedQuoteId, setSubmittedQuoteId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ src: string; label: string } | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const canSeePricing = isAuthenticated && (isApproved || store.documentsVerified);
+  // Admins can preview the buyer catalog: they see pricing and can switch the buyer tier.
+  const isAdminPreview = userRole === "admin";
+  const canSeePricing = (isAuthenticated && (isApproved || store.documentsVerified)) || isAdminPreview;
   // Buy tier: the admin's per-account assignment wins; otherwise the role default.
   // Sales reps don't buy at a rep price — if they shop, they use retailer pricing.
   const accountEntry = userId ? (store.pricingSettings.accountPricing ?? []).find((entry) => entry.accountId === userId) : undefined;
@@ -203,6 +205,40 @@ export default function CatalogClient({
     <>
       <Nav />
       <main className="atlas-container grid gap-6 py-8">
+        {isAdminPreview && (
+          <section className="rounded-lg border border-atlas-blue bg-sky-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Admin preview</p>
+                <p className="mt-0.5 text-sm text-slate-700">
+                  You&apos;re viewing the buyer catalog as a customer. Switch the price level to see exactly what each tier sees.
+                </p>
+              </div>
+              <Link className="btn-secondary w-fit" href="/admin">
+                Back to admin
+              </Link>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">Viewing as:</span>
+              {(store.pricingSettings.customerTiers ?? []).map((tier) => (
+                <button
+                  key={tier.id}
+                  type="button"
+                  onClick={() => setCurrentTier(tier.id)}
+                  className={`rounded-full border px-3 py-1 text-xs font-black ${
+                    buyerTierId === tier.id ? "border-atlas-blue bg-atlas-blue text-white" : "border-slate-300 bg-white text-atlas-navy hover:border-atlas-blue"
+                  }`}
+                >
+                  {tier.label}
+                </button>
+              ))}
+              <span className="mx-1 h-4 w-px bg-slate-300" />
+              <Link className="text-xs font-bold text-atlas-blue hover:underline" href="/dashboard/retailer">Buyer dashboard</Link>
+              <Link className="text-xs font-bold text-atlas-blue hover:underline" href="/dashboard/supplier">Supplier dashboard</Link>
+              <Link className="text-xs font-bold text-atlas-blue hover:underline" href="/dashboard/route-seller">Sales rep dashboard</Link>
+            </div>
+          </section>
+        )}
         <section className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-black text-atlas-navy">{t("shopWholesale")}</h1>
           <Link className="btn-secondary w-fit" href="/dashboard/retailer">

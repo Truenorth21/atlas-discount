@@ -650,9 +650,18 @@ function AdminOverviewPanel({
               Start here. Each card is a queue that needs an Atlas decision before buyers, suppliers, products, or orders can move forward.
             </p>
           </div>
-          <Link className="btn-primary" href="/catalog">
-            View buyer catalog
-          </Link>
+        </div>
+        <div className="mt-4 rounded-lg border border-slate-200 bg-atlas-light p-3">
+          <p className="text-xs font-black uppercase tracking-wide text-atlas-blue">See the site as your users do</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Link className="btn-primary" href="/catalog">Buyer catalog</Link>
+            <Link className="btn-secondary" href="/dashboard/retailer">Buyer dashboard</Link>
+            <Link className="btn-secondary" href="/dashboard/supplier">Supplier dashboard</Link>
+            <Link className="btn-secondary" href="/dashboard/route-seller">Sales rep dashboard</Link>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            The buyer catalog opens in admin preview — prices are visible and you can switch the price level to see what each customer tier sees.
+          </p>
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
