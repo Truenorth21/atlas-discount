@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-label="Energy drinks case">
+  <rect width="640" height="480" fill="#f3f5f8"/>
+  <rect x="92" y="96" width="456" height="288" rx="20" fill="#ffffff" stroke="#d7deea" stroke-width="6"/>
+  <g>
+    <rect x="190" y="150" width="74" height="170" rx="14" fill="#16a34a"/>
+    <rect x="283" y="150" width="74" height="170" rx="14" fill="#eab308"/>
+    <rect x="376" y="150" width="74" height="170" rx="14" fill="#16a34a"/>
+    <rect x="190" y="150" width="74" height="26" rx="10" fill="#0f5132"/>
+    <rect x="283" y="150" width="74" height="26" rx="10" fill="#854d0e"/>
+    <rect x="376" y="150" width="74" height="26" rx="10" fill="#0f5132"/>
+    <path d="M227 196 l-14 40 h16 l-10 36 30 -48 h-16 z" fill="#fde047"/>
+    <path d="M413 196 l-14 40 h16 l-10 36 30 -48 h-16 z" fill="#fde047"/>
+  </g>
+  <text x="320" y="346" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#10194a">Energy Drinks</text>
+  <text x="320" y="378" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#475569">24 cans / case</text>
+</svg>

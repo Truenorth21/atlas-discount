@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-label="Coconut water case">
+  <rect width="640" height="480" fill="#f3f5f8"/>
+  <rect x="92" y="96" width="456" height="288" rx="20" fill="#ffffff" stroke="#d7deea" stroke-width="6"/>
+  <g>
+    <path d="M214 150 h60 v18 l10 152 h-80 l10 -152 z" fill="#0ea5e9"/>
+    <path d="M295 150 h60 v18 l10 152 h-80 l10 -152 z" fill="#38bdf8"/>
+    <path d="M376 150 h60 v18 l10 152 h-80 l10 -152 z" fill="#0ea5e9"/>
+    <rect x="232" y="196" width="24" height="24" rx="12" fill="#ecfeff"/>
+    <rect x="313" y="196" width="24" height="24" rx="12" fill="#ecfeff"/>
+    <rect x="394" y="196" width="24" height="24" rx="12" fill="#ecfeff"/>
+  </g>
+  <text x="320" y="346" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#10194a">Coconut Water</text>
+  <text x="320" y="378" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#475569">12 cartons / case</text>
+</svg>

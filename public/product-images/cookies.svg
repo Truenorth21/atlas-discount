@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480" role="img" aria-label="Imported cookies case">
+  <rect width="640" height="480" fill="#f3f5f8"/>
+  <rect x="92" y="96" width="456" height="288" rx="20" fill="#ffffff" stroke="#d7deea" stroke-width="6"/>
+  <g fill="#c8843c">
+    <circle cx="240" cy="210" r="52"/>
+    <circle cx="340" cy="240" r="52"/>
+    <circle cx="430" cy="200" r="52"/>
+  </g>
+  <g fill="#7c4a1e">
+    <circle cx="222" cy="196" r="8"/><circle cx="258" cy="220" r="8"/><circle cx="240" cy="232" r="8"/>
+    <circle cx="324" cy="226" r="8"/><circle cx="356" cy="252" r="8"/><circle cx="338" cy="262" r="8"/>
+    <circle cx="414" cy="186" r="8"/><circle cx="446" cy="212" r="8"/><circle cx="430" cy="222" r="8"/>
+  </g>
+  <text x="320" y="346" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#10194a">Imported Cookies</text>
+  <text x="320" y="378" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#475569">12 units / case</text>
+</svg>
