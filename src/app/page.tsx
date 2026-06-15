@@ -157,17 +157,20 @@ export default function HomePage() {
   const { t } = useI18n();
   const { store } = useAtlasStore();
 
-  // Admin-controlled deals: promoted, approved products replace the mockup rows.
-  // Admin edits/removes these from Marketing → Promote products (the promotion flag).
-  const livePortalDeals: PortalDeal[] = store.products
-    .filter((product) => product.status === "approved" && product.placements?.homepageFeatured)
-    .slice(0, 4)
-    .map((product) => ({
-      name: product.brand || product.productName,
-      pack: product.unitSize || `${product.casePack} / case`,
-      meta: [product.preferredHub, product.location].filter(Boolean).join(" · ") || "Local delivery available",
-      tag: product.promotion || "Featured"
-    }));
+  // Real catalog drives the portal: homepage-featured products first, then any
+  // other approved products so the page always reflects the live catalog.
+  // The hardcoded demo rows only appear when there are no approved products yet.
+  const approvedProducts = store.products.filter((product) => product.status === "approved");
+  const featuredFirst = [
+    ...approvedProducts.filter((product) => product.placements?.homepageFeatured),
+    ...approvedProducts.filter((product) => !product.placements?.homepageFeatured)
+  ];
+  const livePortalDeals: PortalDeal[] = featuredFirst.slice(0, 4).map((product) => ({
+    name: product.brand || product.productName,
+    pack: product.unitSize || `${product.casePack} / case`,
+    meta: [...new Set([product.preferredHub, product.location].filter(Boolean))].join(" · ") || "Local delivery available",
+    tag: product.promotion || (product.placements?.homepageFeatured ? "Featured" : product.category)
+  }));
   const deals: PortalDeal[] = livePortalDeals.length > 0 ? livePortalDeals : portalDeals;
 
   return (
