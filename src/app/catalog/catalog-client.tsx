@@ -6,7 +6,17 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeftRight, CheckCircle2, Heart, MessageCircle, Minus, Plus, Search, ShoppingCart, Snowflake, Sparkles, Tag, Trash2, Warehouse, X } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
-import { atlasHubs, fulfillmentTypes, productCollections } from "@/lib/data";
+import { atlasHubs, fulfillmentTypes, productCategories, productCollections } from "@/lib/data";
+
+// Short chip labels for the full category names.
+const categoryChipLabels: Record<string, string> = {
+  "Janitorial / Cleaning Supplies": "Cleaning",
+  "Grocery / Pantry": "Grocery / Pantry",
+  "Health & Beauty (HBA)": "Health & Beauty",
+  "Office / Paper": "Office / Paper",
+  "Foodservice / Disposables": "Foodservice",
+  "Closeout / Special buys": "Closeout buys"
+};
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
 import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel, tierMarginPct } from "@/lib/pricing";
@@ -310,18 +320,31 @@ export default function CatalogClient({
             </div>
           )}
 
-          {/* Collection chips */}
-          <div className="flex flex-wrap gap-2">
+          {/* Quick filters: curated collections + real product categories */}
+          <div className="flex flex-wrap items-center gap-2">
             {[{ id: "all", label: t("allProducts") }, { id: "favorites", label: `★ ${t("favorites")}` }, ...productCollections].map((c) => (
               <button
                 key={c.id}
                 type="button"
-                onClick={() => setCollection(c.id)}
+                onClick={() => { setCollection(c.id); setCategory("All"); setSubcategory("All"); }}
                 className={`rounded-full border px-3 py-1.5 text-sm font-bold transition ${
-                  collection === c.id ? "border-atlas-blue bg-atlas-blue text-white" : "border-slate-200 bg-white text-atlas-navy hover:border-atlas-blue"
+                  collection === c.id && category === "All" ? "border-atlas-blue bg-atlas-blue text-white" : "border-slate-200 bg-white text-atlas-navy hover:border-atlas-blue"
                 }`}
               >
                 {c.label}
+              </button>
+            ))}
+            <span className="mx-1 hidden h-5 w-px bg-slate-200 sm:block" aria-hidden />
+            {Object.keys(productCategories).map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => { setCategory(name); setSubcategory("All"); setCollection("all"); }}
+                className={`rounded-full border px-3 py-1.5 text-sm font-bold transition ${
+                  category === name ? "border-atlas-blue bg-atlas-blue text-white" : "border-slate-200 bg-white text-atlas-navy hover:border-atlas-blue"
+                }`}
+              >
+                {categoryChipLabels[name] ?? name}
               </button>
             ))}
           </div>
@@ -336,7 +359,7 @@ export default function CatalogClient({
                     <button
                       key={item}
                       type="button"
-                      onClick={() => { setCategory(item); setSubcategory("All"); }}
+                      onClick={() => { setCategory(item); setSubcategory("All"); setCollection("all"); }}
                       className={`rounded px-2 py-1.5 text-left text-sm transition ${category === item ? "bg-atlas-blue font-bold text-white" : "text-atlas-navy hover:bg-atlas-light"}`}
                     >
                       {item === "All" ? t("allDepartments") : item}
