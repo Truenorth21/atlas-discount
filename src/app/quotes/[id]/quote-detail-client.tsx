@@ -6,6 +6,7 @@ import { Nav } from "@/components/nav";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { calculateLinePricing, calculateQuoteFinancials, formatMoney } from "@/lib/pricing";
+import { planOrderPallets } from "@/lib/pallets";
 import { useI18n } from "@/lib/i18n";
 
 export function QuoteDetailClient({ id }: { id: string }) {
@@ -32,6 +33,7 @@ export function QuoteDetailClient({ id }: { id: string }) {
   }
 
   const financials = calculateQuoteFinancials(order, store.pricingSettings, adjustment);
+  const palletPlan = planOrderPallets(order.lineItems ?? [], { maxPalletWeightLb: store.pricingSettings.maxPalletWeightLb });
 
   return (
     <>
@@ -97,6 +99,22 @@ export function QuoteDetailClient({ id }: { id: string }) {
             </div>
           </div>
         </section>
+        {palletPlan.totalPallets > 0 && (
+          <section className="panel p-5">
+            <h2 className="text-xl font-black text-atlas-navy">{t("palletLoad")}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t("palletLoadBody")}</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <FinancialCard label={t("estimatedPallets")} value={String(palletPlan.totalPallets)} emphasis />
+              <FinancialCard label={t("fullMixedPallets")} value={`${palletPlan.fullPallets} / ${palletPlan.mixedPallets}`} />
+              <FinancialCard label={t("estimatedPalletWeight")} value={`${palletPlan.totalWeightLb.toLocaleString()} lb`} />
+            </div>
+            {palletPlan.supplierDirect.length > 0 && (
+              <p className="mt-3 text-xs text-slate-500">
+                {t("palletSupplierDirectNote")} {palletPlan.supplierDirect.reduce((sum, item) => sum + item.cases, 0)}
+              </p>
+            )}
+          </section>
+        )}
         <section className="panel overflow-hidden">
           <div className="border-b border-slate-200 p-5">
             <h2 className="text-xl font-black text-atlas-navy">{t("lineItems")}</h2>

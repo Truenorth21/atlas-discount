@@ -24,7 +24,7 @@ import {
   standardCasePrice
 } from "@/lib/pricing";
 import { adPlacements, atlasHubs, defaultFulfillmentTierId, fulfillmentTiers, fulfillmentTypes, productCategories } from "@/lib/data";
-import { planOrderPallets } from "@/lib/pallets";
+import { buildPalletSheetHtml, planOrderPallets } from "@/lib/pallets";
 import type { AccountPricing, Application, AtlasHub, CartLine, CustomerTier, DocumentStatus, OrderRequest, PlacementBooking, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
 
 const documentRejectionReasons = [
@@ -1733,7 +1733,7 @@ function QuoteBuilderCard({
           </dl>
         </div>
       </div>
-      <PalletPlanPanel lines={order.lineItems ?? []} maxPalletWeightLb={pricingSettings.maxPalletWeightLb} />
+      <PalletPlanPanel order={order} lines={order.lineItems ?? []} maxPalletWeightLb={pricingSettings.maxPalletWeightLb} />
       <div className="mt-4 rounded-lg border border-slate-200 p-4">
         <h4 className="font-black text-atlas-navy">Adjust this quotation</h4>
         <p className="mt-1 text-sm text-slate-600">
@@ -2534,7 +2534,15 @@ function MarketingTable({ icon, title, rows, columns }: { icon: React.ReactNode;
   );
 }
 
-function PalletPlanPanel({ lines, maxPalletWeightLb }: { lines: CartLine[]; maxPalletWeightLb?: number }) {
+function printPalletSheet(order: OrderRequest, plan: ReturnType<typeof planOrderPallets>) {
+  const win = window.open("", "_blank", "width=920,height=720");
+  if (!win) return;
+  win.document.open();
+  win.document.write(buildPalletSheetHtml(order, plan));
+  win.document.close();
+}
+
+function PalletPlanPanel({ order, lines, maxPalletWeightLb }: { order: OrderRequest; lines: CartLine[]; maxPalletWeightLb?: number }) {
   const [open, setOpen] = useState(false);
   if (lines.length === 0) return null;
   const plan = planOrderPallets(lines, { maxPalletWeightLb });
@@ -2549,9 +2557,14 @@ function PalletPlanPanel({ lines, maxPalletWeightLb }: { lines: CartLine[]; maxP
             {plan.maxPalletWeightLb.toLocaleString()} lb per pallet.
           </p>
         </div>
-        <button className="btn-secondary" type="button" onClick={() => setOpen((value) => !value)}>
-          {open ? "Hide stack list" : "Show stack list"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-secondary" type="button" onClick={() => printPalletSheet(order, plan)} disabled={plan.totalPallets === 0}>
+            Print pallet sheet
+          </button>
+          <button className="btn-secondary" type="button" onClick={() => setOpen((value) => !value)}>
+            {open ? "Hide stack list" : "Show stack list"}
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">

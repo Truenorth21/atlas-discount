@@ -1,4 +1,4 @@
-import type { CartLine, Product } from "./types";
+import type { CartLine, OrderRequest, Product } from "./types";
 import { productPalletSize } from "./pricing";
 
 /** Default max stacked weight for a single pallet load (lb) — standard GMA pallet ballpark. */
@@ -171,4 +171,72 @@ export function planOrderPallets(lines: CartLine[], opts: { maxPalletWeightLb?: 
     needsConfig,
     maxPalletWeightLb: maxWeight
   };
+}
+
+const escHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+
+/** Printable warehouse pallet sheet — one page per pallet. Returns a full HTML document. */
+export function buildPalletSheetHtml(order: OrderRequest, plan: PalletPlan): string {
+  const destination = order.destinationHub ?? order.hubRouting?.match(/Receive at:\s*(Miami hub|Orlando hub)/i)?.[1] ?? "—";
+  const today = new Date().toISOString().slice(0, 10);
+
+  const palletPage = (p: PlannedPallet) => `
+    <section class="pallet">
+      <header>
+        <div><strong>Atlas Discount</strong> — Pallet sheet</div>
+        <div class="muted">Order ${escHtml(order.id)} · ${escHtml(order.buyer)} · Receive at: ${escHtml(String(destination))} · ${today}</div>
+      </header>
+      <div class="palletline">
+        <h1>Pallet ${p.index} <span class="of">of ${plan.totalPallets}</span></h1>
+        <span class="tag">${p.kind === "full" ? "FULL — single SKU" : "MIXED"}</span>
+      </div>
+      <table>
+        <thead><tr><th>Cases</th><th>Product</th><th>SKU</th><th class="r">Weight</th></tr></thead>
+        <tbody>
+          ${p.items
+            .map(
+              (it) =>
+                `<tr><td class="cases">${it.cases}</td><td>${escHtml(it.productName)}</td><td class="muted">${escHtml(it.sku)}</td><td class="r">${it.weightLb.toLocaleString()} lb</td></tr>`
+            )
+            .join("")}
+        </tbody>
+      </table>
+      <footer>
+        <span>${p.cases} cases · ${p.fillPct}% full</span>
+        <span class="${p.overweight ? "warn" : ""}">${p.weightLb.toLocaleString()} lb${p.overweight ? " · OVER MAX" : ""} (max ${plan.maxPalletWeightLb.toLocaleString()} lb)</span>
+      </footer>
+      ${
+        p.index === plan.totalPallets && (plan.supplierDirect.length > 0 || plan.needsConfig.length > 0)
+          ? `<div class="notes">
+            ${plan.supplierDirect.length > 0 ? `<p><strong>Ships supplier-direct (not on a hub pallet):</strong> ${plan.supplierDirect.map((i) => `${escHtml(i.productName)} (${i.cases})`).join(", ")}</p>` : ""}
+            ${plan.needsConfig.length > 0 ? `<p class="warn"><strong>Missing pallet config:</strong> ${plan.needsConfig.map((i) => `${escHtml(i.productName)} (${i.cases})`).join(", ")}</p>` : ""}
+          </div>`
+          : ""
+      }
+    </section>`;
+
+  return `<!doctype html><html><head><meta charset="utf-8" /><title>Pallet sheet — ${escHtml(order.id)}</title>
+    <style>
+      @page { size: letter; margin: 0.6in; }
+      * { box-sizing: border-box; }
+      body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; }
+      .pallet { page-break-after: always; padding-bottom: 8px; }
+      .pallet:last-child { page-break-after: auto; }
+      header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #0f172a; padding-bottom: 6px; font-size: 12px; }
+      .muted { color: #64748b; }
+      .palletline { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+      h1 { font-size: 30px; margin: 0; }
+      .of { color: #64748b; font-weight: 400; font-size: 18px; }
+      .tag { border: 2px solid #0f172a; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
+      table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14px; }
+      th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #e2e8f0; }
+      th { font-size: 11px; text-transform: uppercase; color: #64748b; }
+      .r { text-align: right; } .cases { font-weight: 800; }
+      footer { display: flex; justify-content: space-between; margin-top: 12px; font-weight: 700; font-size: 14px; }
+      .warn { color: #b91c1c; }
+      .notes { margin-top: 18px; font-size: 12px; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
+    </style></head><body onload="window.focus();window.print();">
+    ${plan.pallets.map(palletPage).join("")}
+  </body></html>`;
 }
