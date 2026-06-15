@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, LayoutDashboard, LifeBuoy, LogIn, MapPin, ShieldCheck, ShoppingCart, UserRound, X } from "lucide-react";
+import { ChevronDown, Eye, LayoutDashboard, LifeBuoy, LogIn, MapPin, ShieldCheck, ShoppingCart, UserRound, X } from "lucide-react";
 import { AtlasMark } from "./atlas-logo";
 import { useEffect, useState } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/browser";
@@ -208,6 +208,30 @@ export function Nav() {
                           <ShieldCheck size={16} className="text-atlas-blue" />
                           {t("admin")}
                         </Link>
+                      )}
+                      {role === "admin" && (
+                        <div className="border-t border-slate-200">
+                          <p className="flex items-center gap-1.5 px-4 pb-1 pt-3 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                            <Eye size={13} />
+                            {t("previewAs")}
+                          </p>
+                          {([
+                            { href: "/catalog", label: t("previewBuyerCatalog") },
+                            { href: "/dashboard/retailer", label: t("previewBuyerDashboard") },
+                            { href: "/dashboard/supplier", label: t("previewSupplierDashboard") },
+                            { href: "/dashboard/route-seller", label: t("previewRepDashboard") }
+                          ] as const).map((item) => (
+                            <Link
+                              key={item.href}
+                              className="block px-4 py-2 pl-9 text-sm font-semibold text-atlas-navy hover:bg-atlas-light"
+                              href={item.href}
+                              role="menuitem"
+                              onClick={() => setMenuOpen(false)}
+                            >
+                              {item.label}
+                            </Link>
+                          ))}
+                        </div>
                       )}
                       <div className="border-t border-slate-200 p-2">
                         <SignOutButton />
