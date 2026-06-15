@@ -81,7 +81,7 @@ export default function DealSheetPage() {
               {approved.map((product) => {
                 const selected = lines.some((line) => line.productId === product.id);
                 return (
-                  <div key={product.id} className={`flex items-center gap-3 rounded-lg border p-3 ${selected ? "border-atlas-blue bg-sky-50" : "border-slate-200"}`}>
+                  <div key={product.id} className={`flex min-w-0 items-center gap-3 rounded-lg border p-3 ${selected ? "border-atlas-blue bg-sky-50" : "border-slate-200"}`}>
                     <ProductImage product={product} className="h-12 w-12 shrink-0 rounded-md border border-slate-200" iconSize={20} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-black text-atlas-navy">{product.brand}</p>
