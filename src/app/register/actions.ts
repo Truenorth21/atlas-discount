@@ -56,7 +56,16 @@ export async function registerUser(formData: FormData) {
       await supabase!.from("supplier_profiles").upsert({
         profile_id: userId,
         legal_name: companyName,
-        status: "pending"
+        status: "pending",
+        pickup_location: {
+          address: String(formData.get("warehouseAddress") || ""),
+          city: String(formData.get("warehouseCity") || ""),
+          state: String(formData.get("warehouseState") || ""),
+          zip: String(formData.get("warehouseZip") || ""),
+          contact: String(formData.get("warehouseContact") || ""),
+          phone: String(formData.get("warehousePhone") || ""),
+          hours: String(formData.get("warehouseHours") || "")
+        }
       });
     }
 

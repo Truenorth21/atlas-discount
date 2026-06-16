@@ -41,6 +41,7 @@ create table public.supplier_profiles (
   profile_id uuid not null unique references public.profiles(id) on delete cascade,
   legal_name text not null,
   warehouse_locations text[] not null default '{}',
+  pickup_location jsonb,
   primary_hub public.atlas_hub not null default 'Orlando hub',
   fulfillment_capabilities public.fulfillment_type[] not null default '{}',
   status public.approval_status not null default 'pending',

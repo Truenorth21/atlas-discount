@@ -74,6 +74,18 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
       status: "pending",
       documents,
       newsletterOptIn: type === "buyer" ? form.get("newsletterOptIn") === "on" : undefined,
+      pickupLocation:
+        type === "supplier"
+          ? {
+              address: String(form.get("warehouseAddress") ?? ""),
+              city: String(form.get("warehouseCity") ?? ""),
+              state: String(form.get("warehouseState") ?? ""),
+              zip: String(form.get("warehouseZip") ?? ""),
+              contact: String(form.get("warehouseContact") ?? "") || undefined,
+              phone: String(form.get("warehousePhone") ?? "") || undefined,
+              hours: String(form.get("warehouseHours") ?? "") || undefined
+            }
+          : undefined,
       routePreference:
         type === "route_seller"
           ? {
@@ -206,6 +218,46 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                   <option key={lane}>{lane}</option>
                 ))}
               </select>
+            </label>
+          </div>
+        </div>
+      )}
+      {type === "supplier" && (
+        <div className="grid gap-3 rounded-lg border border-slate-200 bg-atlas-light p-4">
+          <div>
+            <p className="text-sm font-black text-atlas-navy">{t("warehouseSectionTitle")}</p>
+            <p className="mt-1 text-sm text-slate-600">{t("warehouseSectionBody")}</p>
+          </div>
+          <label className="grid gap-2">
+            <span className="label">{t("warehouseAddressLabel")}</span>
+            <input className="field" name="warehouseAddress" required />
+          </label>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="grid gap-2">
+              <span className="label">{t("warehouseCityLabel")}</span>
+              <input className="field" name="warehouseCity" required />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("warehouseStateLabel")}</span>
+              <input className="field" name="warehouseState" required />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("warehouseZipLabel")}</span>
+              <input className="field" name="warehouseZip" required />
+            </label>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="grid gap-2">
+              <span className="label">{t("warehouseContactLabel")}</span>
+              <input className="field" name="warehouseContact" />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("warehousePhoneLabel")}</span>
+              <input className="field" name="warehousePhone" />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("warehouseHoursLabel")}</span>
+              <input className="field" name="warehouseHours" placeholder={t("warehouseHoursPlaceholder")} />
             </label>
           </div>
         </div>

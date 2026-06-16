@@ -161,8 +161,20 @@ export type Application = {
   status: ApprovalStatus;
   documents: BusinessDocument[];
   routePreference?: RouteSellerPreference;
+  /** Supplier pickup/warehouse address — structured data Atlas uses to route pickups & freight. */
+  pickupLocation?: PickupLocation;
   newsletterOptIn?: boolean;
   submittedAt: string;
+};
+
+export type PickupLocation = {
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  contact?: string;
+  phone?: string;
+  hours?: string;
 };
 
 export type PromotionSubmission = {

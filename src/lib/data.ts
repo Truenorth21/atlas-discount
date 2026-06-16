@@ -184,11 +184,11 @@ export const documentRequirements = {
     "Completed W-9",
     "Certificate of insurance",
     "Business license or state registration",
-    "Warehouse / pickup location details",
     "Product liability or compliance documents, if applicable"
   ],
   route_seller: [
     "Government ID",
+    "Completed W-9",
     "Business license or independent contractor profile",
     "Proof of auto insurance",
     "Vehicle registration"
