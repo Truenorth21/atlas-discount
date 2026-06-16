@@ -163,6 +163,10 @@ export type Application = {
   routePreference?: RouteSellerPreference;
   /** Supplier pickup/warehouse address — structured data Atlas uses to route pickups & freight. */
   pickupLocation?: PickupLocation;
+  /** Buyer business identity — EIN + business/ship-to address, collected at signup. */
+  businessDetails?: BuyerBusinessDetails;
+  /** Supplier remit-to / payment preference — collected post-approval (no bank numbers stored here). */
+  remitTo?: SupplierRemitTo;
   newsletterOptIn?: boolean;
   submittedAt: string;
 };
@@ -175,6 +179,21 @@ export type PickupLocation = {
   contact?: string;
   phone?: string;
   hours?: string;
+};
+
+export type BuyerBusinessDetails = {
+  ein: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+};
+
+export type SupplierRemitTo = {
+  payeeName: string;
+  email: string;
+  method: "ACH" | "Check" | "Zelle";
+  address?: string;
 };
 
 export type PromotionSubmission = {

@@ -2,15 +2,18 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { Megaphone } from "lucide-react";
+import { Megaphone, Wallet } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
 import { SingleProductForm } from "@/app/admin/admin-client";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
+import { saveSupplierPayment } from "@/app/register/actions";
 import { getDocumentAlerts } from "@/lib/documents";
 import { defaultFulfillmentTierId, fulfillmentTiers } from "@/lib/data";
 import { useI18n } from "@/lib/i18n";
+import { isSupabaseConfigured } from "@/lib/supabase/browser";
+import type { Application } from "@/lib/types";
 
 export default function SupplierDashboardPage() {
   const { t } = useI18n();
@@ -139,6 +142,7 @@ export default function SupplierDashboardPage() {
           </form>
         </aside>
         <div className="grid h-fit gap-6">
+        <SupplierPaymentCard application={supplierApplication} companyName={companyName} />
         <SingleProductForm
           addProducts={addProducts}
           products={supplierProducts}
@@ -201,5 +205,73 @@ export default function SupplierDashboardPage() {
         </div>
       </main>
     </>
+  );
+}
+
+function SupplierPaymentCard({ application, companyName }: { application?: Application; companyName: string }) {
+  const { t } = useI18n();
+  const { setStore } = useAtlasStore();
+  const [saved, setSaved] = useState(false);
+  if (!application) return null;
+  const approved = application.status === "approved";
+  const remit = application.remitTo;
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    if (isSupabaseConfigured) return; // server action handles the persisted path
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const next = {
+      payeeName: String(form.get("payeeName") ?? ""),
+      email: String(form.get("remitEmail") ?? ""),
+      method: String(form.get("remitMethod") ?? "ACH") as "ACH" | "Check" | "Zelle",
+      address: String(form.get("remitAddress") ?? "") || undefined
+    };
+    const appId = application!.id;
+    setStore((current) => ({
+      ...current,
+      applications: current.applications.map((item) => (item.id === appId ? { ...item, remitTo: next } : item))
+    }));
+    setSaved(true);
+  }
+
+  return (
+    <section className="panel p-5">
+      <h2 className="flex items-center gap-2 text-xl font-black text-atlas-navy">
+        <Wallet className="text-atlas-blue" size={20} />
+        {t("paymentSectionTitle")}
+      </h2>
+      {!approved ? (
+        <p className="mt-2 rounded-md bg-atlas-light p-3 text-sm text-slate-600">{t("paymentLockedNote")}</p>
+      ) : (
+        <form action={isSupabaseConfigured ? saveSupplierPayment : undefined} onSubmit={onSubmit} className="mt-3 grid gap-3">
+          <p className="text-sm text-slate-600">{t("paymentSectionBody")}</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="label">{t("payeeNameLabel")}</span>
+              <input className="field" name="payeeName" defaultValue={remit?.payeeName ?? companyName} required />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("remitEmailLabel")}</span>
+              <input className="field" name="remitEmail" type="email" defaultValue={remit?.email ?? application.email} required />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("remitMethodLabel")}</span>
+              <select className="field" name="remitMethod" defaultValue={remit?.method ?? "ACH"}>
+                <option value="ACH">ACH</option>
+                <option value="Check">Check</option>
+                <option value="Zelle">Zelle</option>
+              </select>
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("remitAddressLabel")}</span>
+              <input className="field" name="remitAddress" defaultValue={remit?.address ?? ""} />
+            </label>
+          </div>
+          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">{t("paymentSecurityNote")}</p>
+          <button className="btn-primary w-fit" type="submit">{t("savePaymentDetails")}</button>
+          {(saved || remit) && <p className="text-sm font-semibold text-emerald-700">{t("paymentSavedNote")}</p>}
+        </form>
+      )}
+    </section>
   );
 }

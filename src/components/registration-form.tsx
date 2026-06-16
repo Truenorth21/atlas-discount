@@ -74,6 +74,16 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
       status: "pending",
       documents,
       newsletterOptIn: type === "buyer" ? form.get("newsletterOptIn") === "on" : undefined,
+      businessDetails:
+        type === "buyer"
+          ? {
+              ein: String(form.get("businessEin") ?? ""),
+              address: String(form.get("businessAddress") ?? ""),
+              city: String(form.get("businessCity") ?? ""),
+              state: String(form.get("businessState") ?? ""),
+              zip: String(form.get("businessZip") ?? "")
+            }
+          : undefined,
       pickupLocation:
         type === "supplier"
           ? {
@@ -218,6 +228,38 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                   <option key={lane}>{lane}</option>
                 ))}
               </select>
+            </label>
+          </div>
+        </div>
+      )}
+      {type === "buyer" && (
+        <div className="grid gap-3 rounded-lg border border-slate-200 bg-atlas-light p-4">
+          <div>
+            <p className="text-sm font-black text-atlas-navy">{t("businessSectionTitle")}</p>
+            <p className="mt-1 text-sm text-slate-600">{t("businessSectionBody")}</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="label">{t("businessEinLabel")}</span>
+              <input className="field" name="businessEin" required />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("businessAddressLabel")}</span>
+              <input className="field" name="businessAddress" required />
+            </label>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="grid gap-2">
+              <span className="label">{t("warehouseCityLabel")}</span>
+              <input className="field" name="businessCity" required />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("warehouseStateLabel")}</span>
+              <input className="field" name="businessState" required />
+            </label>
+            <label className="grid gap-2">
+              <span className="label">{t("warehouseZipLabel")}</span>
+              <input className="field" name="businessZip" required />
             </label>
           </div>
         </div>

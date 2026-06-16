@@ -18,6 +18,7 @@ create table public.profiles (
   contact_name text not null,
   email text,
   phone text,
+  business_details jsonb,
   status public.approval_status not null default 'pending',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -42,6 +43,7 @@ create table public.supplier_profiles (
   legal_name text not null,
   warehouse_locations text[] not null default '{}',
   pickup_location jsonb,
+  remit_to jsonb,
   primary_hub public.atlas_hub not null default 'Orlando hub',
   fulfillment_capabilities public.fulfillment_type[] not null default '{}',
   status public.approval_status not null default 'pending',

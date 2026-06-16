@@ -49,7 +49,17 @@ export async function registerUser(formData: FormData) {
       contact_name: contactName,
       email,
       phone,
-      status: "pending"
+      status: "pending",
+      business_details:
+        role === "buyer"
+          ? {
+              ein: String(formData.get("businessEin") || ""),
+              address: String(formData.get("businessAddress") || ""),
+              city: String(formData.get("businessCity") || ""),
+              state: String(formData.get("businessState") || ""),
+              zip: String(formData.get("businessZip") || "")
+            }
+          : null
     });
 
     if (role === "supplier") {
@@ -102,4 +112,29 @@ export async function registerUser(formData: FormData) {
   }
 
   redirect(role === "supplier" ? "/dashboard/supplier" : role === "route_seller" ? "/dashboard/route-seller" : "/dashboard/retailer");
+}
+
+/** Post-approval supplier remit-to / payment preference. Non-sensitive only —
+ *  bank/ACH account numbers are never collected or stored here. */
+export async function saveSupplierPayment(formData: FormData) {
+  if (!isSupabaseConfigured) return;
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase!.auth.getUser();
+  if (!user) redirect("/login");
+
+  await supabase!
+    .from("supplier_profiles")
+    .update({
+      remit_to: {
+        payeeName: String(formData.get("payeeName") || ""),
+        email: String(formData.get("remitEmail") || ""),
+        method: String(formData.get("remitMethod") || "ACH"),
+        address: String(formData.get("remitAddress") || "")
+      }
+    })
+    .eq("profile_id", user!.id);
+
+  redirect("/dashboard/supplier?paymentSaved=1");
 }
