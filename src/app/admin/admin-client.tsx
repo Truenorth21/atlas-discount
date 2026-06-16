@@ -906,7 +906,8 @@ export function SingleProductForm({
   title = "Add one product",
   subtitle = "Only SKU, brand, product name, and category are required — fill in the rest as you have it.",
   submitLabel = "Publish product",
-  submittedVerb = "published to the catalog"
+  submittedVerb = "published to the catalog",
+  showAtlasEconomics = true
 }: {
   addProducts: ReturnType<typeof useAtlasStore>["addProducts"];
   products: Product[];
@@ -917,6 +918,8 @@ export function SingleProductForm({
   subtitle?: string;
   submitLabel?: string;
   submittedVerb?: string;
+  /** Atlas-only cost/margin/channel pricing. Hidden for supplier-facing use. */
+  showAtlasEconomics?: boolean;
 }) {
   const [form, setForm] = useState({ ...blankProductForm, supplierName: defaultSupplierName });
   const [hasInner, setHasInner] = useState(false);
@@ -1172,23 +1175,27 @@ export function SingleProductForm({
         )}
 
         <ProductSectionHeading>Pricing</ProductSectionHeading>
-        <AdminProductInput label="Case cost to Atlas (for margin)" type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
+        <AdminProductInput label={showAtlasEconomics ? "Case cost to Atlas (for margin)" : "Your case price to Atlas"} type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
         <AdminProductInput label="Suggested retail per UNIT ($)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
         <div className="hidden md:block" />
-        <div className="md:col-span-3">
-          <ChannelPricingPanel
-            caseCost={toNum(form.supplierCost) ?? 0}
-            casePack={toNum(form.casePack) ?? 1}
-            srpPerUnit={toNum(form.suggestedRetail) ?? 0}
-            retailerOverride={form.priceRetailer}
-            distributorOverride={form.priceDistributor}
-            repCommissionOverride={form.repCommissionPct}
-            onRetailer={(v) => setForm((c) => ({ ...c, priceRetailer: v }))}
-            onDistributor={(v) => setForm((c) => ({ ...c, priceDistributor: v }))}
-            onRepCommission={(v) => setForm((c) => ({ ...c, repCommissionPct: v }))}
-            onReset={() => setForm((c) => ({ ...c, priceRetailer: "", priceDistributor: "", repCommissionPct: "" }))}
-          />
-        </div>
+        {showAtlasEconomics ? (
+          <div className="md:col-span-3">
+            <ChannelPricingPanel
+              caseCost={toNum(form.supplierCost) ?? 0}
+              casePack={toNum(form.casePack) ?? 1}
+              srpPerUnit={toNum(form.suggestedRetail) ?? 0}
+              retailerOverride={form.priceRetailer}
+              distributorOverride={form.priceDistributor}
+              repCommissionOverride={form.repCommissionPct}
+              onRetailer={(v) => setForm((c) => ({ ...c, priceRetailer: v }))}
+              onDistributor={(v) => setForm((c) => ({ ...c, priceDistributor: v }))}
+              onRepCommission={(v) => setForm((c) => ({ ...c, repCommissionPct: v }))}
+              onReset={() => setForm((c) => ({ ...c, priceRetailer: "", priceDistributor: "", repCommissionPct: "" }))}
+            />
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500 md:col-span-3">Atlas sets the buyer price and owns the invoice. Enter your case price and an optional suggested retail; Atlas handles the rest.</p>
+        )}
 
         <ProductSectionHeading>Stock &amp; order minimum</ProductSectionHeading>
         <AdminProductInput label="Min order (cases)" type="number" value={form.moq} onChange={updateField("moq")} />

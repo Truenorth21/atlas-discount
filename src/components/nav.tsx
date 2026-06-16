@@ -94,11 +94,13 @@ export function Nav() {
   }, []);
 
   const dashboardHref =
-    role === "supplier"
-      ? "/dashboard/supplier"
-      : role === "route_seller"
-        ? "/dashboard/route-seller"
-        : "/dashboard/retailer";
+    role === "admin"
+      ? "/admin"
+      : role === "supplier"
+        ? "/dashboard/supplier"
+        : role === "route_seller"
+          ? "/dashboard/route-seller"
+          : "/dashboard/retailer";
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -189,15 +191,17 @@ export function Nav() {
                   <>
                     <button className="fixed inset-0 z-40 cursor-default" tabIndex={-1} aria-hidden onClick={() => setMenuOpen(false)} />
                     <div className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-panel" role="menu">
-                      <Link
-                        className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-atlas-navy hover:bg-atlas-light"
-                        href={dashboardHref}
-                        role="menuitem"
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        <LayoutDashboard size={16} className="text-atlas-blue" />
-                        {t("dashboard")}
-                      </Link>
+                      {role !== "admin" && (
+                        <Link
+                          className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-atlas-navy hover:bg-atlas-light"
+                          href={dashboardHref}
+                          role="menuitem"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <LayoutDashboard size={16} className="text-atlas-blue" />
+                          {t("dashboard")}
+                        </Link>
+                      )}
                       {role === "admin" && (
                         <Link
                           className="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-atlas-navy hover:bg-atlas-light"

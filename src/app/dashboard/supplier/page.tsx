@@ -145,6 +145,7 @@ export default function SupplierDashboardPage() {
           defaultSupplierName={companyName}
           lockSupplierName
           defaultStatus="pending"
+          showAtlasEconomics={false}
           title="Add one product"
           subtitle="Add a single product, or start from a copy of one you already listed and change only what differs (SKU, name, UPC). New products go to Atlas for review."
           submitLabel="Submit for review"
