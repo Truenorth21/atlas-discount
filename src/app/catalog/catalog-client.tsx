@@ -39,7 +39,7 @@ export default function CatalogClient({
   const { t } = useI18n();
   const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, verifyDocuments, toggleFavorite, reorder, setCurrentTier } = useAtlasStore();
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(searchParams.get("q") || "");
   const [category, setCategory] = useState(searchParams.get("category") || "All");
   const [subcategory, setSubcategory] = useState("All");
   const [brand, setBrand] = useState("All");

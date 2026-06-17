@@ -10,16 +10,12 @@ import {
   Boxes,
   CheckCircle2,
   Clock,
-  Droplets,
   FileText,
-  Flame,
   HeartPulse,
   Lock,
   Megaphone,
   MessageCircle,
-  Minus,
   PackageSearch,
-  Plus,
   Repeat2,
   Search,
   ShieldCheck,
@@ -28,51 +24,15 @@ import {
   Tag,
   Truck,
   UtensilsCrossed,
-  Zap,
 } from "lucide-react";
 
 import { AtlasMark } from "@/components/atlas-logo";
 import { useAtlasStore } from "@/components/local-store";
 import { Nav } from "@/components/nav";
+import { ProductImage } from "@/components/product-image";
+import type { Product } from "@/lib/types";
 import { productCategories } from "@/lib/data";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
-
-type PortalDeal = { name: string; pack: string; meta: string; tag: string };
-
-const portalDeals = [
-  {
-    name: "Imported Cookies",
-    pack: "12 units / case",
-    meta: "Hialeah Gardens · Ready today · Local delivery",
-    tag: "Weekly deal",
-    icon: UtensilsCrossed,
-    tint: "bg-amber-50 text-amber-600",
-  },
-  {
-    name: "Energy Drinks",
-    pack: "24 cans / case",
-    meta: "Orlando · Pickup tomorrow · Local delivery",
-    tag: "Fast mover",
-    icon: Zap,
-    tint: "bg-yellow-50 text-yellow-600",
-  },
-  {
-    name: "Hot Sauce Assortment",
-    pack: "12 bottles / case",
-    meta: "Both hubs · Ready today · Local delivery",
-    tag: "New arrival",
-    icon: Flame,
-    tint: "bg-rose-50 text-rose-500",
-  },
-  {
-    name: "Coconut Water",
-    pack: "12 cartons / case",
-    meta: "National shipping · Supplier direct",
-    tag: "Popular",
-    icon: Droplets,
-    tint: "bg-sky-50 text-atlas-blue",
-  },
-];
 
 // Real catalog categories (kept in sync with productCategories in lib/data.ts) so
 // every tile deep-links into a filtered catalog.
@@ -157,21 +117,13 @@ export default function HomePage() {
   const { t } = useI18n();
   const { store } = useAtlasStore();
 
-  // Real catalog drives the portal: homepage-featured products first, then any
-  // other approved products so the page always reflects the live catalog.
-  // The hardcoded demo rows only appear when there are no approved products yet.
+  // The live catalog drives the storefront: homepage-featured products first,
+  // then any other approved product, as real shoppable cards.
   const approvedProducts = store.products.filter((product) => product.status === "approved");
-  const featuredFirst = [
+  const featured = [
     ...approvedProducts.filter((product) => product.placements?.homepageFeatured),
     ...approvedProducts.filter((product) => !product.placements?.homepageFeatured)
-  ];
-  const livePortalDeals: PortalDeal[] = featuredFirst.slice(0, 4).map((product) => ({
-    name: product.brand || product.productName,
-    pack: product.unitSize || `${product.casePack} / case`,
-    meta: [...new Set([product.preferredHub, product.location].filter(Boolean))].join(" · ") || "Local delivery available",
-    tag: product.promotion || (product.placements?.homepageFeatured ? "Featured" : product.category)
-  }));
-  const deals: PortalDeal[] = livePortalDeals.length > 0 ? livePortalDeals : portalDeals;
+  ].slice(0, 8);
 
   return (
     <>
@@ -212,62 +164,49 @@ export default function HomePage() {
                 </Link>
               </div>
 
-              {/* Customer-focused promotions filling the left column */}
-              <div className="mt-8">
-                <p className="text-xs font-black uppercase tracking-wide text-slate-500">{t("shopThisWeek")}</p>
-                <div className="mt-3 grid max-w-xl grid-cols-3 gap-3">
-                  <PromoTile icon={<Flame size={18} />} label={t("weeklyDeals")} tint="bg-rose-50 text-rose-500" />
-                  <PromoTile icon={<Tag size={18} />} label={t("promoNewArrivals")} tint="bg-sky-50 text-atlas-blue" />
-                  <PromoTile icon={<BadgePercent size={18} />} label={t("promoCloseouts")} tint="bg-amber-50 text-amber-600" />
-                </div>
+              {/* Search-led storefront entry */}
+              <form action="/catalog" className="mt-7 flex max-w-xl items-center gap-2 rounded-full border border-slate-300 bg-white py-1.5 pl-4 pr-1.5 shadow-sm focus-within:border-atlas-blue">
+                <Search size={18} className="shrink-0 text-slate-400" />
+                <input
+                  name="q"
+                  className="h-9 flex-1 border-0 bg-transparent text-sm text-atlas-navy placeholder:text-slate-400 focus:outline-none"
+                  placeholder={t("portalSearchPlaceholder")}
+                  aria-label={t("portalSearchPlaceholder")}
+                />
+                <button type="submit" className="shrink-0 rounded-full bg-atlas-blue px-5 py-2 text-sm font-bold text-white transition hover:bg-atlas-navy">
+                  {t("searchButton")}
+                </button>
+              </form>
+              <div className="mt-4 flex max-w-xl flex-wrap gap-x-4 gap-y-2 text-xs font-bold text-slate-600">
+                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={14} className="text-atlas-blue" />{t("chipVerified")}</span>
+                <span className="inline-flex items-center gap-1.5"><Lock size={14} className="text-atlas-blue" />{t("chipMembersPricing")}</span>
+                <span className="inline-flex items-center gap-1.5"><Truck size={14} className="text-atlas-blue" />{t("chipFulfillment")}</span>
               </div>
             </div>
 
-            {/* Ordering portal card — pricing locked until signed in + verified */}
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-panel">
-              <div className="rounded-2xl bg-atlas-navy p-4 text-white">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-black">{t("portalTitle")}</p>
-                  <span className="rounded-full bg-yellow-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-atlas-navy">
-                    {t("businessOnly")}
-                  </span>
-                </div>
-                <div className="mt-3 flex items-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm text-slate-400">
-                  <Search size={16} />
-                  <span className="truncate">{t("portalSearchPlaceholder")}</span>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Link
-                    href="/login"
-                    className="flex items-center justify-center gap-2 rounded-lg bg-white/10 py-2 text-sm font-bold text-white transition hover:bg-white/20"
-                  >
-                    <Repeat2 size={15} />
-                    {t("buyAgain")}
-                  </Link>
-                  <a
-                    href="https://wa.me/"
-                    className="flex items-center justify-center gap-2 rounded-lg bg-white/10 py-2 text-sm font-bold text-white transition hover:bg-white/20"
-                  >
-                    <MessageCircle size={15} />
-                    {t("whatsapp")}
-                  </a>
-                </div>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between px-1">
-                <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-slate-500">
-                  <Sparkles size={13} className="text-atlas-blue" />
-                  {t("featuredPlacements")}
+            {/* Live product preview — real catalog */}
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-panel">
+              <div className="flex items-center justify-between gap-3">
+                <p className="flex items-center gap-1.5 text-sm font-black text-atlas-navy">
+                  <Sparkles size={15} className="text-atlas-blue" />
+                  {t("featuredThisWeek")}
                 </p>
+                <span className="rounded-full bg-yellow-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-atlas-navy">
+                  {t("businessOnly")}
+                </span>
               </div>
-              <div className="mt-2 grid gap-2">
-                {deals.map((deal) => (
-                  <PortalDealRow key={deal.name} deal={deal} />
-                ))}
-              </div>
+              {featured.length > 0 ? (
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {featured.slice(0, 4).map((product) => (
+                    <HomeProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 rounded-xl bg-atlas-light p-4 text-sm text-slate-600">{t("catalogEmptyHomeNote")}</p>
+              )}
               <Link
                 href="/catalog"
-                className="mt-3 flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white py-2.5 text-sm font-bold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue"
+                className="mt-4 flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white py-2.5 text-sm font-bold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue"
               >
                 {t("seeFullCatalog")}
                 <ArrowRight size={16} />
@@ -398,18 +337,6 @@ export default function HomePage() {
   );
 }
 
-function PromoTile({ icon, label, tint }: { icon: ReactNode; label: string; tint: string }) {
-  return (
-    <Link
-      href="/catalog"
-      className="flex flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:-translate-y-0.5 hover:border-atlas-blue hover:shadow-sm"
-    >
-      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${tint}`}>{icon}</span>
-      <span className="text-sm font-black leading-tight text-atlas-navy">{label}</span>
-    </Link>
-  );
-}
-
 function PromoCard({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-atlas-light p-5">
@@ -420,54 +347,28 @@ function PromoCard({ icon, title, body }: { icon: ReactNode; title: string; body
   );
 }
 
-function PortalDealRow({ deal }: { deal: PortalDeal }) {
+function HomeProductCard({ product }: { product: Product }) {
   const { t } = useI18n();
-  const [qty, setQty] = useState(1);
-
   return (
-    <div className="rounded-xl border border-slate-200 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">
-            {deal.tag}
-          </span>
-          <p className="mt-1 truncate font-black text-atlas-navy">{deal.name}</p>
-          <p className="truncate text-xs text-slate-500">{deal.pack}</p>
-        </div>
-        <p className="flex shrink-0 items-center gap-1 text-xs font-bold text-slate-400">
+    <Link
+      href="/catalog"
+      className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-atlas-blue hover:shadow-panel"
+    >
+      <div className="aspect-square w-full overflow-hidden bg-atlas-light">
+        <ProductImage product={product} className="h-full w-full" iconSize={36} />
+      </div>
+      <div className="flex flex-1 flex-col p-3">
+        <span className="w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">
+          {product.subcategory || product.category}
+        </span>
+        <p className="mt-1.5 line-clamp-1 font-black text-atlas-navy">{product.brand}</p>
+        <p className="line-clamp-1 text-xs text-slate-600">{product.productName || product.description}</p>
+        <p className="mt-auto flex items-center gap-1.5 pt-2 text-xs font-bold text-atlas-blue">
           <Lock size={12} />
           {t("memberPricing")}
         </p>
       </div>
-      <p className="mt-1 truncate text-[11px] text-slate-400">{deal.meta}</p>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setQty((current) => Math.max(1, current - 1))}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-atlas-blue hover:text-atlas-blue"
-            aria-label={`Decrease ${deal.name} quantity`}
-          >
-            <Minus size={14} />
-          </button>
-          <span className="w-8 text-center text-sm font-black text-atlas-navy">{qty}</span>
-          <button
-            type="button"
-            onClick={() => setQty((current) => current + 1)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-atlas-blue hover:text-atlas-blue"
-            aria-label={`Increase ${deal.name} quantity`}
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-        <Link
-          href="/login?next=/catalog"
-          className="inline-flex rounded-full bg-atlas-blue px-4 py-2 text-xs font-bold text-white transition hover:bg-atlas-navy"
-        >
-          {t("quickAdd")}
-        </Link>
-      </div>
-    </div>
+    </Link>
   );
 }
 
