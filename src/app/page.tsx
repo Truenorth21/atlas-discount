@@ -37,16 +37,16 @@ import { type TranslationKey, useI18n } from "@/lib/i18n";
 // Real catalog categories (kept in sync with productCategories in lib/data.ts) so
 // every tile deep-links into a filtered catalog.
 const homeCategories = Object.entries(productCategories).map(([name, subcategories]) => {
-  const icons: Record<string, { icon: typeof SprayCan; tint: string }> = {
-    "Janitorial / Cleaning Supplies": { icon: SprayCan, tint: "bg-sky-50 text-atlas-blue" },
-    "Grocery / Pantry": { icon: Apple, tint: "bg-amber-50 text-amber-600" },
-    "Health & Beauty (HBA)": { icon: HeartPulse, tint: "bg-rose-50 text-rose-500" },
-    "Office / Paper": { icon: FileText, tint: "bg-violet-50 text-violet-500" },
-    "Foodservice / Disposables": { icon: UtensilsCrossed, tint: "bg-emerald-50 text-emerald-600" },
-    "Closeout / Special buys": { icon: BadgePercent, tint: "bg-red-50 text-atlas-red" }
+  const icons: Record<string, { icon: typeof SprayCan; grad: string }> = {
+    "Janitorial / Cleaning Supplies": { icon: SprayCan, grad: "from-sky-500 to-atlas-blue" },
+    "Grocery / Pantry": { icon: Apple, grad: "from-amber-400 to-orange-500" },
+    "Health & Beauty (HBA)": { icon: HeartPulse, grad: "from-rose-400 to-pink-500" },
+    "Office / Paper": { icon: FileText, grad: "from-violet-400 to-violet-600" },
+    "Foodservice / Disposables": { icon: UtensilsCrossed, grad: "from-emerald-400 to-emerald-600" },
+    "Closeout / Special buys": { icon: BadgePercent, grad: "from-rose-500 to-atlas-red" }
   };
-  const style = icons[name] ?? { icon: Boxes, tint: "bg-slate-100 text-slate-600" };
-  return { name, count: String(subcategories.length), icon: style.icon, tint: style.tint };
+  const style = icons[name] ?? { icon: Boxes, grad: "from-slate-400 to-slate-600" };
+  return { name, count: String(subcategories.length), icon: style.icon, grad: style.grad };
 });
 
 const featureCards: { icon: typeof ShieldCheck; titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
@@ -130,90 +130,124 @@ export default function HomePage() {
       <Nav />
       <main className="bg-atlas-light">
         {/* Hero + live ordering portal */}
-        <section className="bg-white">
-          <div className="atlas-container grid grid-cols-1 gap-10 py-12 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:py-16">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-atlas-blue">
+        {/* Modern gradient hero banner */}
+        <section className="relative overflow-hidden bg-atlas-navy text-white">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_-10%,rgba(10,99,176,0.65),transparent_55%),radial-gradient(circle_at_95%_25%,rgba(10,99,176,0.4),transparent_45%)]" />
+          <div className="atlas-container relative py-16 lg:py-24">
+            <div className="max-w-3xl">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-sky-200">
                 <Tag size={13} />
                 {t("heroEyebrow2")}
               </span>
-              <h1 className="mt-5 text-4xl font-black leading-[1.05] tracking-tight text-atlas-navy sm:text-5xl">
+              <h1 className="mt-5 text-5xl font-black leading-[1.02] tracking-tight sm:text-6xl">
                 {t("heroHeadline2")}
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">{t("heroBody2")}</p>
-              <div className="mt-6 max-w-xl rounded-2xl border border-yellow-200 bg-yellow-50 p-4">
-                <p className="flex items-center gap-2 text-sm font-black text-atlas-navy">
-                  <ShieldCheck size={16} className="text-yellow-600" />
-                  {t("verifyNoticeTitle")}
-                </p>
-                <p className="mt-1 text-sm text-slate-600">{t("verifyNoticeBody")}</p>
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-sky-100/90">{t("heroBody2")}</p>
+
+              <form action="/catalog" className="mt-8 flex max-w-2xl items-center gap-2 rounded-full bg-white p-1.5 pl-5 shadow-2xl shadow-atlas-navy/40">
+                <Search size={20} className="shrink-0 text-slate-400" />
+                <input
+                  name="q"
+                  className="h-11 flex-1 border-0 bg-transparent text-base text-atlas-navy placeholder:text-slate-400 focus:outline-none"
+                  placeholder={t("portalSearchPlaceholder")}
+                  aria-label={t("portalSearchPlaceholder")}
+                />
+                <button type="submit" className="shrink-0 rounded-full bg-atlas-blue px-6 py-2.5 text-sm font-bold text-white transition hover:bg-atlas-navy">
+                  {t("searchButton")}
+                </button>
+              </form>
+
+              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-sky-100">
+                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={15} className="text-sky-300" />{t("chipVerified")}</span>
+                <span className="inline-flex items-center gap-1.5"><Lock size={15} className="text-sky-300" />{t("chipMembersPricing")}</span>
+                <span className="inline-flex items-center gap-1.5"><Truck size={15} className="text-sky-300" />{t("chipFulfillment")}</span>
               </div>
-              <div className="mt-6 flex flex-wrap gap-3">
+
+              <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-atlas-blue px-7 py-3 text-base font-bold text-white transition hover:bg-atlas-navy"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-7 py-3 text-base font-black text-atlas-navy transition hover:bg-sky-50"
                   href="/catalog"
                 >
                   {t("shopDeals")}
                   <ArrowRight size={18} />
                 </Link>
                 <Link
-                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-7 py-3 text-base font-bold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue"
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/30 bg-white/5 px-7 py-3 text-base font-bold text-white transition hover:bg-white/15"
                   href="/register/buyer"
                 >
-                  {t("applyBusinessAccess")}
+                  {t("becomeMember")}
                 </Link>
               </div>
-
-              {/* Search-led storefront entry */}
-              <form action="/catalog" className="mt-7 flex max-w-xl items-center gap-2 rounded-full border border-slate-300 bg-white py-1.5 pl-4 pr-1.5 shadow-sm focus-within:border-atlas-blue">
-                <Search size={18} className="shrink-0 text-slate-400" />
-                <input
-                  name="q"
-                  className="h-9 flex-1 border-0 bg-transparent text-sm text-atlas-navy placeholder:text-slate-400 focus:outline-none"
-                  placeholder={t("portalSearchPlaceholder")}
-                  aria-label={t("portalSearchPlaceholder")}
-                />
-                <button type="submit" className="shrink-0 rounded-full bg-atlas-blue px-5 py-2 text-sm font-bold text-white transition hover:bg-atlas-navy">
-                  {t("searchButton")}
-                </button>
-              </form>
-              <div className="mt-4 flex max-w-xl flex-wrap gap-x-4 gap-y-2 text-xs font-bold text-slate-600">
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={14} className="text-atlas-blue" />{t("chipVerified")}</span>
-                <span className="inline-flex items-center gap-1.5"><Lock size={14} className="text-atlas-blue" />{t("chipMembersPricing")}</span>
-                <span className="inline-flex items-center gap-1.5"><Truck size={14} className="text-atlas-blue" />{t("chipFulfillment")}</span>
-              </div>
             </div>
+          </div>
+        </section>
 
-            {/* Live product preview — real catalog */}
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-panel">
-              <div className="flex items-center justify-between gap-3">
-                <p className="flex items-center gap-1.5 text-sm font-black text-atlas-navy">
-                  <Sparkles size={15} className="text-atlas-blue" />
-                  {t("featuredThisWeek")}
-                </p>
-                <span className="rounded-full bg-yellow-300 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-atlas-navy">
-                  {t("businessOnly")}
-                </span>
-              </div>
-              {featured.length > 0 ? (
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  {featured.slice(0, 4).map((product) => (
-                    <HomeProductCard key={product.id} product={product} />
-                  ))}
+        {/* Shop by category — gradient tiles */}
+        <section className="atlas-container py-12">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-3xl font-black text-atlas-navy">{t("shopByCategory")}</h2>
+              <p className="mt-1 text-slate-600">{t("shopByCategoryBody")}</p>
+            </div>
+            <Link href="/catalog" className="hidden shrink-0 items-center gap-1 text-sm font-black text-atlas-blue hover:underline sm:flex">
+              {t("viewAll")}
+              <ArrowRight size={15} />
+            </Link>
+          </div>
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {homeCategories.map(({ name, count, icon: Icon, grad }) => (
+              <Link
+                key={name}
+                href={`/catalog?category=${encodeURIComponent(name)}`}
+                className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-panel"
+              >
+                <div className={`flex h-28 items-center justify-center bg-gradient-to-br ${grad}`}>
+                  <Icon size={40} className="text-white drop-shadow" />
                 </div>
-              ) : (
-                <p className="mt-4 rounded-xl bg-atlas-light p-4 text-sm text-slate-600">{t("catalogEmptyHomeNote")}</p>
-              )}
+                <div className="flex items-center justify-between gap-2 p-4">
+                  <div>
+                    <h3 className="font-black text-atlas-navy">{name}</h3>
+                    <p className="text-xs text-slate-500">{count ? `${count} ${t("subcategoriesLabel")}` : t("wholesaleCases")}</p>
+                  </div>
+                  <ArrowRight size={18} className="shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-atlas-blue" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* Featured products — full-width shoppable grid */}
+        {featured.length > 0 && (
+          <section className="border-y border-slate-200 bg-white py-12">
+            <div className="atlas-container">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="flex items-center gap-1.5 text-sm font-black uppercase tracking-wide text-atlas-blue">
+                    <Sparkles size={15} />
+                    {t("featuredThisWeek")}
+                  </p>
+                  <h2 className="mt-1 text-3xl font-black text-atlas-navy">{t("heroEyebrow2")}</h2>
+                </div>
+                <Link href="/catalog" className="hidden shrink-0 items-center gap-1 text-sm font-black text-atlas-blue hover:underline sm:flex">
+                  {t("seeFullCatalog")}
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
+              <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                {featured.map((product) => (
+                  <HomeProductCard key={product.id} product={product} />
+                ))}
+              </div>
               <Link
                 href="/catalog"
-                className="mt-4 flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white py-2.5 text-sm font-bold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue"
+                className="mt-6 flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white py-3 text-sm font-bold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue sm:hidden"
               >
                 {t("seeFullCatalog")}
                 <ArrowRight size={16} />
               </Link>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* How Atlas moves goods */}
         <section className="bg-atlas-navy py-8 text-white">
@@ -227,39 +261,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Shop by category */}
-        <section className="atlas-container py-12">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-3xl font-black text-atlas-navy">{t("shopByCategory")}</h2>
-              <p className="mt-1 text-slate-600">{t("shopByCategoryBody")}</p>
-            </div>
-            <Link
-              href="/catalog"
-              className="hidden shrink-0 items-center gap-1 text-sm font-black text-atlas-blue hover:underline sm:flex"
-            >
-              {t("viewAll")}
-              <ArrowRight size={15} />
-            </Link>
-          </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-            {homeCategories.map(({ name, count, icon: Icon, tint }) => (
-              <Link
-                key={name}
-                href={`/catalog?category=${encodeURIComponent(name)}`}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-atlas-blue hover:shadow-panel"
-              >
-                <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${tint}`}>
-                  <Icon size={24} />
-                </span>
-                <h3 className="mt-4 font-black text-atlas-navy">{name}</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  {count ? `${count} ${t("subcategoriesLabel")}` : t("wholesaleCases")}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
 
         {/* Why Atlas */}
         <section className="atlas-container py-14">
