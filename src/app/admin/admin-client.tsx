@@ -2843,6 +2843,41 @@ function RateCard({ title, body }: { title: string; body: string }) {
   );
 }
 
+function ApplicantDetailsCard({ application }: { application: Application }) {
+  const business = application.businessDetails;
+  const pickup = application.pickupLocation;
+  const remit = application.remitTo;
+  if (!business && !pickup && !remit) return null;
+
+  return (
+    <div className="mb-4 grid gap-3 rounded-lg border border-slate-200 bg-atlas-light p-4 md:grid-cols-2">
+      {business && (
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Business details</p>
+          <p className="mt-1 text-sm text-atlas-navy"><span className="font-bold">EIN:</span> {business.ein || "—"}</p>
+          <p className="text-sm text-slate-600">{[business.address, business.city, business.state, business.zip].filter(Boolean).join(", ") || "—"}</p>
+        </div>
+      )}
+      {pickup && (
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Warehouse / pickup</p>
+          <p className="mt-1 text-sm text-slate-600">{[pickup.address, pickup.city, pickup.state, pickup.zip].filter(Boolean).join(", ") || "—"}</p>
+          {(pickup.contact || pickup.phone || pickup.hours) && (
+            <p className="text-xs text-slate-500">{[pickup.contact, pickup.phone, pickup.hours].filter(Boolean).join(" · ")}</p>
+          )}
+        </div>
+      )}
+      {remit && (
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-slate-500">Payment / remit-to</p>
+          <p className="mt-1 text-sm text-atlas-navy"><span className="font-bold">{remit.payeeName || "—"}</span> · {remit.method}</p>
+          <p className="text-sm text-slate-600">{remit.email}{remit.address ? ` · ${remit.address}` : ""}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RoutePreferenceCard({
   application,
   applications
@@ -2989,7 +3024,9 @@ function DocumentReviewQueue({
                 >
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="badge bg-slate-100 text-slate-700">{application.type}</span>
+                      <span className="badge bg-slate-100 text-slate-700">
+                        {application.type === "buyer" ? "Member" : application.type === "route_seller" ? "Sales rep" : "Supplier"}
+                      </span>
                       <StatusBadge status={application.status} />
                     </div>
                     <h3 className="mt-2 text-lg font-black text-atlas-navy">{application.companyName}</h3>
@@ -3009,6 +3046,7 @@ function DocumentReviewQueue({
                 </button>
                 {isExpanded && (
                   <div className="border-t border-slate-200 bg-white p-5">
+                    <ApplicantDetailsCard application={application} />
                     <RoutePreferenceCard application={application} applications={applications} />
                     <DocumentReviewList
                       application={application}

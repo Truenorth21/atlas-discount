@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { AccountPricing, Application, ApprovalStatus, AtlasHub, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PlacementBooking, PricingSettings, Product, ProductPlacements, ProductSpec, PromotionSubmission, RouteSellerPreference, SupplierAssignment, TierPricing } from "@/lib/types";
+import type { AccountPricing, Application, ApprovalStatus, AtlasHub, BuyerBusinessDetails, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PickupLocation, PlacementBooking, PricingSettings, Product, ProductPlacements, ProductSpec, PromotionSubmission, RouteSellerPreference, SupplierAssignment, SupplierRemitTo, TierPricing } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -336,6 +336,13 @@ type ProfileRow = {
   phone: string | null;
   status: ApprovalStatus;
   created_at: string;
+  business_details?: BuyerBusinessDetails | null;
+};
+
+type SupplierProfileRow = {
+  profile_id: string;
+  pickup_location?: PickupLocation | null;
+  remit_to?: SupplierRemitTo | null;
 };
 
 type BusinessDocumentRow = {
@@ -379,16 +386,19 @@ export async function loadAdminApplications(): Promise<Application[] | undefined
 
   if (error || !profiles) return undefined;
 
-  const [{ data: documents }, { data: routeProfiles }] = await Promise.all([
+  const [{ data: documents }, { data: routeProfiles }, { data: supplierProfiles }] = await Promise.all([
     supabase.from("business_documents").select("*"),
-    supabase.from("route_seller_profiles").select("*")
+    supabase.from("route_seller_profiles").select("*"),
+    supabase.from("supplier_profiles").select("profile_id, pickup_location, remit_to")
   ]);
 
   const documentRows = (documents as BusinessDocumentRow[] | null) ?? [];
   const routeRows = (routeProfiles as RouteProfileRow[] | null) ?? [];
+  const supplierRows = (supplierProfiles as SupplierProfileRow[] | null) ?? [];
 
   return (profiles as ProfileRow[]).map((profile) => {
     const routeRow = routeRows.find((row) => row.profile_id === profile.id);
+    const supplierRow = supplierRows.find((row) => row.profile_id === profile.id);
     return {
       id: profile.id,
       type: profile.role as Application["type"],
@@ -416,6 +426,9 @@ export async function loadAdminApplications(): Promise<Application[] | undefined
               productLane: routeRow.product_lane
             }
           : undefined,
+      businessDetails: profile.business_details ?? undefined,
+      pickupLocation: supplierRow?.pickup_location ?? undefined,
+      remitTo: supplierRow?.remit_to ?? undefined,
       submittedAt: (profile.created_at ?? "").slice(0, 10)
     };
   });

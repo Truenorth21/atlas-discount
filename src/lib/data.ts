@@ -178,7 +178,7 @@ export const documentRequirements = {
   buyer: [
     "Resale certificate",
     "Business license or state registration",
-    "Storefront, marketplace, or buying entity proof"
+    "Proof you sell at retail"
   ],
   supplier: [
     "Completed W-9",
@@ -193,6 +193,21 @@ export const documentRequirements = {
     "Proof of auto insurance",
     "Vehicle registration"
   ]
+};
+
+/** Plain-language explanation of what to upload for each document requirement. */
+export const documentHints: Record<string, string> = {
+  "Resale certificate": "Your state resale / sales-tax exemption certificate.",
+  "Business license or state registration": "Your business license, LLC/DBA filing, or state registration.",
+  "Proof you sell at retail":
+    "Show you're an active reseller — any one of: a photo of your storefront, a link or screenshot of your online shop (Shopify, Amazon, eBay, Etsy…), or business docs for your buying entity.",
+  "Completed W-9": "IRS Form W-9 so Atlas can issue your 1099. Download a blank W-9 from irs.gov if you need one.",
+  "Certificate of insurance": "Current certificate of liability insurance (COI).",
+  "Product liability or compliance documents, if applicable": "Only if your products require it (e.g. FDA, UL, COA, safety data sheets).",
+  "Government ID": "A current driver's license, state ID, or passport.",
+  "Business license or independent contractor profile": "Your business license or independent-contractor registration.",
+  "Proof of auto insurance": "Current auto insurance card or declarations page.",
+  "Vehicle registration": "Current registration for the vehicle you'll run your route in."
 };
 
 export const sampleProducts: Product[] = [

@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { CheckCircle2, FileUp, UploadCloud } from "lucide-react";
 import { registerUser } from "@/app/register/actions";
-import { documentRequirements, routeSellerProductLanes, routeSellerPrograms, routeSellerTerritories } from "@/lib/data";
+import { documentHints, documentRequirements, routeSellerProductLanes, routeSellerPrograms, routeSellerTerritories } from "@/lib/data";
 import { requiresExpirationDate } from "@/lib/documents";
 import { useI18n } from "@/lib/i18n";
 import { isSupabaseConfigured } from "@/lib/supabase/browser";
@@ -321,7 +321,10 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                     />
                     <div>
                       <p className="text-sm font-bold text-atlas-navy">{document.label}</p>
-                      <p className="text-xs text-slate-600">
+                      {documentHints[document.label] && (
+                        <p className="mt-0.5 text-xs text-slate-500">{documentHints[document.label]}</p>
+                      )}
+                      <p className="mt-0.5 text-xs text-slate-600">
                         {document.fileName ? `${t("uploaded")}: ${document.fileName}` : t("waitingForUpload")}
                       </p>
                       {document.expiresAt && (
