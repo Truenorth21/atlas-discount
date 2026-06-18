@@ -9,6 +9,7 @@ import { SingleProductForm } from "@/app/admin/admin-client";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { saveSupplierPayment } from "@/app/register/actions";
+import { DashboardHero } from "@/components/dashboard-hero";
 import { getDocumentAlerts } from "@/lib/documents";
 import { defaultFulfillmentTierId, fulfillmentTiers } from "@/lib/data";
 import { useI18n } from "@/lib/i18n";
@@ -69,7 +70,17 @@ export default function SupplierDashboardPage() {
   return (
     <>
       <Nav />
-      <main className="atlas-container grid gap-6 py-8 lg:grid-cols-[390px_1fr]">
+      <main className="atlas-container py-8">
+        <DashboardHero
+          title={t("supplierDashboard")}
+          subtitle={t("supplierDashboardBody")}
+          action={
+            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-6 py-2.5 text-sm font-black text-atlas-navy transition hover:bg-sky-50" href="/sell">
+              See advertising rates
+            </Link>
+          }
+        />
+        <div className="mt-6 grid gap-6 lg:grid-cols-[390px_1fr]">
         <aside className="grid h-fit gap-5">
           <div className="panel p-5">
             <p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Grow your sales</p>
@@ -157,8 +168,8 @@ export default function SupplierDashboardPage() {
         />
         <section className="panel overflow-hidden">
           <div className="border-b border-slate-200 p-5">
-            <h1 className="text-3xl font-black text-atlas-navy">{t("supplierDashboard")}</h1>
-            <p className="mt-1 text-slate-600">{t("supplierDashboardBody")}</p>
+            <h2 className="text-xl font-black text-atlas-navy">Your products</h2>
+            <p className="mt-1 text-sm text-slate-600">Inventory, status, and details for items you&apos;ve listed.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1160px] text-left text-sm">
@@ -202,6 +213,7 @@ export default function SupplierDashboardPage() {
             </table>
           </div>
         </section>
+        </div>
         </div>
       </main>
     </>

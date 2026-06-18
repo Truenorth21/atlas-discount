@@ -25,6 +25,7 @@ import {
 } from "@/lib/pricing";
 import { adPlacements, atlasHubs, defaultFulfillmentTierId, fulfillmentTiers, fulfillmentTypes, productCategories } from "@/lib/data";
 import { buildPalletSheetHtml, planOrderPallets } from "@/lib/pallets";
+import { DashboardHero } from "@/components/dashboard-hero";
 import type { AccountPricing, Application, AtlasHub, CartLine, CustomerTier, DocumentStatus, OrderRequest, PlacementBooking, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
 
 const documentRejectionReasons = [
@@ -78,10 +79,10 @@ export function AdminClient() {
     <>
       <Nav />
       <main className="atlas-container grid gap-6 py-8">
-        <div>
-          <h1 className="text-3xl font-black text-atlas-navy">Admin dashboard</h1>
-          <p className="mt-1 text-slate-600">Approve users, verify documents, review products, and manage quote/order requests.</p>
-        </div>
+        <DashboardHero
+          title="Admin dashboard"
+          subtitle="Approve users, verify documents, review products, and manage quote/order requests."
+        />
         <section className="grid gap-4 md:grid-cols-5">
           <Metric icon={<UsersRound />} label="Users pending" value={userPendingCount} />
           <Metric icon={<FileCheck2 />} label="Docs to review" value={uploadedDocumentCount} />
