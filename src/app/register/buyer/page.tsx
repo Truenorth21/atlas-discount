@@ -11,8 +11,10 @@ export default async function BuyerRegistrationPage({
   return (
     <>
       <Nav />
-      <main className="atlas-container py-10">
-        <RegistrationForm type="buyer" error={params.error} />
+      <main className="bg-gradient-to-b from-atlas-light to-white py-10">
+        <div className="atlas-container">
+          <RegistrationForm type="buyer" error={params.error} />
+        </div>
       </main>
     </>
   );

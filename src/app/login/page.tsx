@@ -13,7 +13,7 @@ export default async function LoginPage({
   return (
     <>
       <Nav />
-      <main className="atlas-container grid min-h-[calc(100vh-65px)] place-items-center py-10">
+      <main className="grid min-h-[calc(100vh-65px)] place-items-center bg-gradient-to-b from-atlas-light to-white px-4 py-10">
         <LoginForm error={params.error} isConfigured={isSupabaseConfigured} next={next} />
       </main>
     </>

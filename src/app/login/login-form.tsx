@@ -18,7 +18,7 @@ export function LoginForm({
 
   return (
     <form action={signIn} className="panel w-full max-w-md p-6">
-      <div className="flex h-12 w-12 items-center justify-center rounded-md bg-atlas-navy text-white">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-atlas-navy to-atlas-blue text-white shadow-panel">
         <LockKeyhole size={22} />
       </div>
       <h1 className="mt-5 text-3xl font-black text-atlas-navy">{t("loginTitle")}</h1>

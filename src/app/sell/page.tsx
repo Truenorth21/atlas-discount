@@ -55,14 +55,15 @@ export default function SellPage() {
     <>
       <Nav />
       <main>
-        <section className="border-b border-slate-200 bg-white py-16 lg:py-20">
-          <div className="atlas-container max-w-3xl">
-            <AtlasMark size={44} className="mb-6" />
-            <p className="text-sm font-black uppercase tracking-wide text-atlas-blue">{t("sellEyebrow")}</p>
-            <h1 className="mt-3 text-4xl font-black text-atlas-navy sm:text-5xl">{t("sellTitle")}</h1>
-            <p className="mt-5 text-lg leading-8 text-slate-600">{t("sellBody")}</p>
+        <section className="relative overflow-hidden bg-atlas-navy text-white">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_-10%,rgba(10,99,176,0.65),transparent_55%),radial-gradient(circle_at_95%_25%,rgba(10,99,176,0.4),transparent_45%)]" />
+          <div className="atlas-container relative max-w-3xl py-16 lg:py-24">
+            <AtlasMark size={44} tone="light" className="mb-6" />
+            <p className="text-sm font-black uppercase tracking-wide text-sky-200">{t("sellEyebrow")}</p>
+            <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">{t("sellTitle")}</h1>
+            <p className="mt-5 text-lg leading-8 text-sky-100/90">{t("sellBody")}</p>
             <Link
-              className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-atlas-blue px-8 py-3 text-base font-bold text-white transition hover:bg-atlas-navy"
+              className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-8 py-3 text-base font-black text-atlas-navy transition hover:bg-sky-50"
               href="/register/supplier"
             >
               {t("sellCtaPrimary")}
