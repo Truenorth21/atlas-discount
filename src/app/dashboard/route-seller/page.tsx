@@ -7,6 +7,7 @@ import { Nav } from "@/components/nav";
 import { ProductImage } from "@/components/product-image";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
+import { DashboardHero } from "@/components/dashboard-hero";
 import { getDocumentAlerts } from "@/lib/documents";
 import { useI18n } from "@/lib/i18n";
 
@@ -33,16 +34,16 @@ export default function RouteSellerDashboardPage() {
     <>
       <Nav />
       <main className="atlas-container grid gap-6 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-black text-atlas-navy">{t("routeSellerDashboard")}</h1>
-            <p className="mt-1 text-slate-600">{t("routeSellerDashboardBody")}</p>
-          </div>
-          <Link className="btn-primary" href="/catalog">
-            <PackageSearch size={16} />
-            {t("browseCatalog")}
-          </Link>
-        </div>
+        <DashboardHero
+          title={t("routeSellerDashboard")}
+          subtitle={t("routeSellerDashboardBody")}
+          action={
+            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-6 py-2.5 text-sm font-black text-atlas-navy transition hover:bg-sky-50" href="/catalog">
+              <PackageSearch size={16} />
+              {t("browseCatalog")}
+            </Link>
+          }
+        />
         <section className="grid gap-4 md:grid-cols-4">
           <Metric icon={<MapPinned />} label={t("territory")} value={routeSeller.territory} />
           <Metric icon={<Route />} label={t("assignedHub")} value={routeSeller.assignedHub} />

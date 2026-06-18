@@ -30,6 +30,7 @@ import { AtlasMark } from "@/components/atlas-logo";
 import { useAtlasStore } from "@/components/local-store";
 import { Nav } from "@/components/nav";
 import { ProductImage } from "@/components/product-image";
+import { Reveal } from "@/components/reveal";
 import type { Product } from "@/lib/types";
 import { productCategories } from "@/lib/data";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
@@ -129,7 +130,6 @@ export default function HomePage() {
     <>
       <Nav />
       <main className="bg-atlas-light">
-        {/* Hero + live ordering portal */}
         {/* Modern gradient hero banner */}
         <section className="relative overflow-hidden bg-atlas-navy text-white">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_-10%,rgba(10,99,176,0.65),transparent_55%),radial-gradient(circle_at_95%_25%,rgba(10,99,176,0.4),transparent_45%)]" />
@@ -183,6 +183,7 @@ export default function HomePage() {
         </section>
 
         {/* Shop by category — gradient tiles */}
+        <Reveal>
         <section className="atlas-container py-12">
           <div className="flex items-end justify-between gap-3">
             <div>
@@ -215,9 +216,11 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+        </Reveal>
 
         {/* Featured products — full-width shoppable grid */}
         {featured.length > 0 && (
+          <Reveal>
           <section className="border-y border-slate-200 bg-white py-12">
             <div className="atlas-container">
               <div className="flex items-end justify-between gap-3">
@@ -247,6 +250,7 @@ export default function HomePage() {
               </Link>
             </div>
           </section>
+          </Reveal>
         )}
 
         {/* How Atlas moves goods */}
@@ -263,6 +267,7 @@ export default function HomePage() {
 
 
         {/* Why Atlas */}
+        <Reveal>
         <section className="atlas-container py-14">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {featureCards.map(({ icon: Icon, titleKey, bodyKey }) => (
@@ -332,6 +337,7 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        </Reveal>
       </main>
       <Footer />
     </>

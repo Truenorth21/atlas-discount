@@ -5,6 +5,7 @@ import { RotateCcw, ShoppingBasket } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
+import { DashboardHero } from "@/components/dashboard-hero";
 import { getDocumentAlerts } from "@/lib/documents";
 import { useI18n } from "@/lib/i18n";
 
@@ -21,16 +22,16 @@ export default function RetailerDashboardPage() {
     <>
       <Nav />
       <main className="atlas-container grid gap-6 py-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-black text-atlas-navy">{t("retailerDashboard")}</h1>
-            <p className="mt-1 text-slate-600">{t("retailerDashboardBody")}</p>
-          </div>
-          <Link className="btn-primary" href="/catalog">
-            <ShoppingBasket size={16} />
-            {t("shopCatalog")}
-          </Link>
-        </div>
+        <DashboardHero
+          title={t("retailerDashboard")}
+          subtitle={t("retailerDashboardBody")}
+          action={
+            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-6 py-2.5 text-sm font-black text-atlas-navy transition hover:bg-sky-50" href="/catalog">
+              <ShoppingBasket size={16} />
+              {t("shopCatalog")}
+            </Link>
+          }
+        />
         {documentAlerts.length > 0 && (
           <section className="panel p-5">
             <h2 className="text-xl font-black text-atlas-navy">{t("documentAlerts")}</h2>

@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { ArrowLeftRight, CheckCircle2, Heart, MessageCircle, Minus, Plus, Search, ShoppingCart, Snowflake, Sparkles, Tag, Trash2, Warehouse, X } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
+import { DashboardHero } from "@/components/dashboard-hero";
 import { atlasHubs, fulfillmentTypes, productCategories, productCollections } from "@/lib/data";
 
 // Short chip labels for the full category names.
@@ -255,12 +256,14 @@ export default function CatalogClient({
             </div>
           </section>
         )}
-        <section className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-black text-atlas-navy">{t("shopWholesale")}</h1>
-          <Link className="btn-secondary w-fit" href="/dashboard/retailer">
-            {t("viewDashboard")}
-          </Link>
-        </section>
+        <DashboardHero
+          title={t("shopWholesale")}
+          action={
+            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/30 bg-white/5 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-white/15" href="/dashboard/retailer">
+              {t("viewDashboard")}
+            </Link>
+          }
+        />
         {weeklyDeals.length > 0 && (
           <section className="panel p-5">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
