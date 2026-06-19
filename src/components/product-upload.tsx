@@ -2,9 +2,10 @@
 
 import { ChangeEvent, useState } from "react";
 import readXlsxFile from "read-excel-file/browser";
-import { AlertTriangle, Download, UploadCloud } from "lucide-react";
+import { AlertTriangle, Download, ImagePlus, UploadCloud } from "lucide-react";
 import { atlasHubs, productFields } from "@/lib/data";
 import type { AtlasHub, Product } from "@/lib/types";
+import { uploadProductImage } from "@/lib/supabase/upload";
 import { useAtlasStore } from "./local-store";
 
 function normalize(row: Record<string, unknown>, index: number): Product {
@@ -89,6 +90,20 @@ export function ProductUpload({
   const { addProducts } = useAtlasStore();
   const [message, setMessage] = useState("No upload yet.");
   const [preview, setPreview] = useState<Array<{ product: Product; errors: string[] }>>([]);
+  const [imageUploadingId, setImageUploadingId] = useState<string | null>(null);
+
+  async function onRowImage(productId: string, file: File) {
+    setImageUploadingId(productId);
+    const { url, error } = await uploadProductImage(file);
+    if (url) {
+      setPreview((current) =>
+        current.map((row) => (row.product.id === productId ? { ...row, product: { ...row.product, imageUrl: url } } : row))
+      );
+    } else if (error) {
+      setMessage(error);
+    }
+    setImageUploadingId(null);
+  }
 
   function downloadTemplate() {
     const blob = new Blob([`${productFields.join(",")}\n`], { type: "text/csv;charset=utf-8" });
@@ -173,6 +188,7 @@ export function ProductUpload({
             <table className="w-full min-w-[680px] text-left text-sm">
               <thead className="bg-atlas-light text-xs uppercase text-slate-500">
                 <tr>
+                  <th className="px-3 py-2">Image</th>
                   <th className="px-3 py-2">SKU</th>
                   <th className="px-3 py-2">Brand</th>
                   <th className="px-3 py-2">Hub</th>
@@ -183,6 +199,28 @@ export function ProductUpload({
               <tbody className="divide-y divide-slate-200">
                 {preview.map(({ product, errors }) => (
                   <tr key={product.id}>
+                    <td className="px-3 py-2">
+                      <label className="flex cursor-pointer items-center gap-2" title="Upload product image">
+                        {product.imageUrl && !product.imageUrl.startsWith("/product-images/") ? (
+                          <img src={product.imageUrl} alt="" className="h-9 w-9 rounded-md border border-slate-200 object-cover" />
+                        ) : (
+                          <span className="flex h-9 w-9 items-center justify-center rounded-md border border-dashed border-slate-300 text-slate-300">
+                            <ImagePlus size={15} />
+                          </span>
+                        )}
+                        <span className="text-xs font-semibold text-atlas-blue">{imageUploadingId === product.id ? "…" : "Upload"}</span>
+                        <input
+                          className="sr-only"
+                          type="file"
+                          accept="image/*"
+                          disabled={imageUploadingId !== null}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void onRowImage(product.id, file);
+                          }}
+                        />
+                      </label>
+                    </td>
                     <td className="px-3 py-2 font-bold">{product.sku}</td>
                     <td className="px-3 py-2">{product.brand}</td>
                     <td className="px-3 py-2">{product.preferredHub}</td>

@@ -7,7 +7,7 @@ import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
-import { createClient as createBrowserClient } from "@/lib/supabase/browser";
+import { uploadProductImage } from "@/lib/supabase/upload";
 import { getDocumentAlerts, getExpirationState } from "@/lib/documents";
 import {
   allocateFulfillmentByCases,
@@ -932,23 +932,14 @@ export function SingleProductForm({
   const copyOptions = [...products].sort((a, b) => `${a.brand} ${a.productName}`.localeCompare(`${b.brand} ${b.productName}`));
 
   async function uploadImage(file: File) {
-    const supabase = createBrowserClient();
-    if (!supabase) {
-      setMessage("Image upload needs Supabase configured. Paste an image URL instead.");
-      return;
-    }
     setUploading(true);
     setMessage("");
-    const safeName = file.name.replace(/[^a-zA-Z0-9.\-]/g, "_");
-    const path = `${Date.now()}-${safeName}`;
-    const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true, cacheControl: "3600" });
+    const { url, error } = await uploadProductImage(file);
     if (error) {
-      setUploading(false);
-      setMessage(`Image upload failed: ${error.message}`);
-      return;
+      setMessage(error.startsWith("Image upload needs") ? error : `Image upload failed: ${error}`);
+    } else if (url) {
+      setForm((current) => ({ ...current, imageUrl: url }));
     }
-    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
-    setForm((current) => ({ ...current, imageUrl: data.publicUrl }));
     setUploading(false);
   }
 

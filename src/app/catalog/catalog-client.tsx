@@ -51,7 +51,7 @@ export default function CatalogClient({
   const [receivingHub, setReceivingHub] = useState<ReceivingHub>("Miami hub");
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>("Pickup");
   const [submittedQuoteId, setSubmittedQuoteId] = useState<string | null>(null);
-  const [expandedImage, setExpandedImage] = useState<{ src: string; label: string } | null>(null);
+  const [expandedImage, setExpandedImage] = useState<Product | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   // Admins can preview the buyer catalog: they see pricing and can switch the buyer tier.
   const isAdminPreview = userRole === "admin";
@@ -448,7 +448,7 @@ export default function CatalogClient({
                     userId={userId}
                     isFavorite={store.favorites.includes(product.id)}
                     onToggleFav={() => toggleFavorite(product.id)}
-                    onExpand={() => setExpandedImage({ src: product.imageUrl, label: `${product.brand} ${product.description}` })}
+                    onExpand={() => setExpandedImage(product)}
                     onAdd={(qty) => guardAdd(product, qty)}
                   />
                 ))}
@@ -754,19 +754,52 @@ export default function CatalogClient({
           </aside>
         </div>
       )}
-      {expandedImage && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-atlas-navy/70 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-2xl rounded-lg bg-white p-4 shadow-panel">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-black text-atlas-navy">{expandedImage.label}</h2>
-              <button className="btn-secondary px-3" type="button" onClick={() => setExpandedImage(null)}>
-                {t("close")}
-              </button>
+      {expandedImage && (() => {
+        const qp = canSeePricing
+          ? buyerCasePrice({ settings: store.pricingSettings, product: expandedImage, tierId: buyerTierId, accountId: userId })
+          : 0;
+        return (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-atlas-navy/70 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setExpandedImage(null)}
+          >
+            <div className="grid w-full max-w-3xl gap-5 rounded-2xl bg-white p-5 shadow-panel sm:grid-cols-2" onClick={(event) => event.stopPropagation()}>
+              <div className="aspect-square overflow-hidden rounded-xl bg-atlas-light">
+                <ProductImage product={expandedImage} className="h-full w-full" iconSize={72} />
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="badge bg-slate-100 text-[10px] text-slate-600">{expandedImage.subcategory || expandedImage.category}</span>
+                  <button className="btn-secondary px-3" type="button" onClick={() => setExpandedImage(null)}>
+                    {t("close")}
+                  </button>
+                </div>
+                <h2 className="mt-2 text-2xl font-black text-atlas-navy">{expandedImage.brand}</h2>
+                <p className="text-sm text-slate-600">{expandedImage.productName || expandedImage.description}</p>
+                <p className="mt-2 text-sm font-semibold text-slate-500">
+                  {expandedImage.casePack} {t("perCaseUnits")}{expandedImage.unitSize ? ` · ${expandedImage.unitSize}` : ""} · {expandedImage.preferredHub}
+                </p>
+                <p className="mt-3">
+                  <span className="text-2xl font-black text-atlas-navy">
+                    {!canSeePricing ? t("locked") : qp > 0 ? formatMoney(qp) : t("pricePending")}
+                  </span>
+                  {canSeePricing && qp > 0 && <span className="text-xs font-semibold text-slate-500"> / {t("caseLabel")}</span>}
+                </p>
+                {expandedImage.productName && expandedImage.description && (
+                  <p className="mt-3 line-clamp-6 text-xs leading-5 text-slate-500">{expandedImage.description}</p>
+                )}
+                <div className="mt-auto pt-4">
+                  <button className="btn-primary w-full" type="button" onClick={() => { guardAdd(expandedImage, 1); setExpandedImage(null); }}>
+                    {t("quickAdd")}
+                  </button>
+                </div>
+              </div>
             </div>
-            <img alt={expandedImage.label} className="mx-auto mt-4 max-h-[58vh] w-full max-w-xl rounded-md object-contain" src={expandedImage.src} />
           </div>
-        </div>
-      )}
+        );
+      })()}
     </>
   );
 }
