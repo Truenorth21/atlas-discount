@@ -1,12 +1,13 @@
 "use client";
 
-import { BarChart3, Check, FileCheck2, Megaphone, PackageCheck, Settings, Trash2, UsersRound, X } from "lucide-react";
+import { BarChart3, Check, FileCheck2, ImagePlus, Megaphone, PackageCheck, Settings, Trash2, UsersRound, X } from "lucide-react";
 import { useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
+import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import { getDocumentAlerts, getExpirationState } from "@/lib/documents";
 import {
   allocateFulfillmentByCases,
@@ -926,8 +927,30 @@ export function SingleProductForm({
   const [hasInner, setHasInner] = useState(false);
   const [message, setMessage] = useState("");
   const [copyFromId, setCopyFromId] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const copyOptions = [...products].sort((a, b) => `${a.brand} ${a.productName}`.localeCompare(`${b.brand} ${b.productName}`));
+
+  async function uploadImage(file: File) {
+    const supabase = createBrowserClient();
+    if (!supabase) {
+      setMessage("Image upload needs Supabase configured. Paste an image URL instead.");
+      return;
+    }
+    setUploading(true);
+    setMessage("");
+    const safeName = file.name.replace(/[^a-zA-Z0-9.\-]/g, "_");
+    const path = `${Date.now()}-${safeName}`;
+    const { error } = await supabase.storage.from("product-images").upload(path, file, { upsert: true, cacheControl: "3600" });
+    if (error) {
+      setUploading(false);
+      setMessage(`Image upload failed: ${error.message}`);
+      return;
+    }
+    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    setForm((current) => ({ ...current, imageUrl: data.publicUrl }));
+    setUploading(false);
+  }
 
   function copyFrom(id: string) {
     setCopyFromId(id);
@@ -1091,7 +1114,30 @@ export function SingleProductForm({
         {!lockSupplierName && <AdminProductInput label="Supplier name" value={form.supplierName} onChange={updateField("supplierName")} />}
         <AdminProductInput label="Product name *" value={form.productName} onChange={updateField("productName")} />
         <AdminProductInput label="Unit size (e.g. 16oz)" value={form.unitSize} onChange={updateField("unitSize")} />
-        <AdminProductInput label="Image URL" value={form.imageUrl} onChange={updateField("imageUrl")} />
+        <label className="grid gap-1">
+          <span className="text-sm font-bold text-slate-700">Product image</span>
+          <div className="flex items-center gap-2">
+            {form.imageUrl ? (
+              <img src={form.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-md border border-slate-200 object-cover" />
+            ) : (
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-300 text-slate-300"><ImagePlus size={16} /></span>
+            )}
+            <input className="input flex-1" value={form.imageUrl} onChange={updateField("imageUrl")} placeholder="Paste image URL or upload →" />
+            <label className="btn-secondary shrink-0 cursor-pointer whitespace-nowrap">
+              {uploading ? "Uploading…" : "Upload"}
+              <input
+                className="sr-only"
+                type="file"
+                accept="image/*"
+                disabled={uploading}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void uploadImage(file);
+                }}
+              />
+            </label>
+          </div>
+        </label>
         <label className="grid gap-1">
           <span className="text-sm font-bold text-slate-700">Category *</span>
           <select className="input" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value, subcategory: "" }))}>
