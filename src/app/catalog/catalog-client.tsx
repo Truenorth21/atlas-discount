@@ -521,9 +521,12 @@ export default function CatalogClient({
               store.cart.map((line) => (
                 <div key={line.product.id} className="rounded-md border border-slate-200 p-3 text-sm">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-bold">{line.product.brand}</p>
-                      {line.product.productName && <p className="text-xs text-slate-500">{line.product.productName}</p>}
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      <ProductImage product={line.product} className="h-10 w-10 shrink-0 rounded-md border border-slate-200" iconSize={18} />
+                      <div className="min-w-0">
+                        <p className="font-bold">{line.product.brand}</p>
+                        {line.product.productName && <p className="text-xs text-slate-500">{line.product.productName}</p>}
+                      </div>
                     </div>
                     <button
                       className="rounded-md p-1 text-slate-500 hover:bg-red-50 hover:text-atlas-red"

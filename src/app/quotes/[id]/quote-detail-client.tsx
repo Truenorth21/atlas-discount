@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { Nav } from "@/components/nav";
+import { ProductImage } from "@/components/product-image";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { calculateLinePricing, calculateQuoteFinancials, formatMoney } from "@/lib/pricing";
@@ -141,7 +142,12 @@ export function QuoteDetailClient({ id }: { id: string }) {
                   return (
                     <tr key={`${order.id}-${line.product.id}`}>
                       <td className="px-5 py-4 font-bold">{line.product.sku}</td>
-                      <td className="px-5 py-4">{line.product.brand} — {line.product.description}</td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2.5">
+                          <ProductImage product={line.product} className="h-9 w-9 shrink-0 rounded-md border border-slate-200" iconSize={16} />
+                          <span>{line.product.brand} — {line.product.description}</span>
+                        </div>
+                      </td>
                       <td className="px-5 py-4">{line.product.supplierName}</td>
                       <td className="px-5 py-4">{line.product.preferredHub}</td>
                       <td className="px-5 py-4">

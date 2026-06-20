@@ -5,6 +5,7 @@ import { useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
+import { ProductImage } from "@/components/product-image";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { uploadProductImage } from "@/lib/supabase/upload";
@@ -512,6 +513,7 @@ function ManageProductRow({
     <div className="rounded-md border border-slate-200 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-sm font-bold text-atlas-navy">
+          <ProductImage product={product} className="h-9 w-9 shrink-0 rounded-md border border-slate-200" iconSize={16} />
           <span>{product.sku}</span>
           {product.status === "pending" && <span className="badge bg-amber-50 text-amber-800">Pending</span>}
           {product.status === "approved" && <span className="badge bg-emerald-50 text-emerald-700">Live</span>}
@@ -763,10 +765,12 @@ function ProductApprovalsList({
           {pendingProducts.map((product) => (
             <article key={product.id} className="p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <StatusBadge status={product.status} />
-                  <h3 className="mt-3 text-lg font-black">{product.brand} • {product.sku}</h3>
-                  <p className="text-sm text-slate-600">{product.description}</p>
+                <div className="flex min-w-0 gap-4">
+                  <ProductImage product={product} className="h-16 w-16 shrink-0 rounded-lg border border-slate-200" iconSize={26} />
+                  <div className="min-w-0">
+                    <StatusBadge status={product.status} />
+                    <h3 className="mt-3 text-lg font-black">{product.brand} • {product.sku}</h3>
+                    <p className="text-sm text-slate-600">{product.description}</p>
                   <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                     <div><dt className="font-bold">Supplier cost</dt><dd>{formatMoney(product.supplierCost)}</dd></div>
                     <div><dt className="font-bold">Case sell price</dt><dd>{formatMoney(atlasCaseSellPrice(product.supplierCost, pricingSettings))} / loose case</dd></div>
@@ -780,6 +784,7 @@ function ProductApprovalsList({
                     <div><dt className="font-bold">Location</dt><dd>{product.location}</dd></div>
                     <div><dt className="font-bold">Atlas hub</dt><dd>{product.preferredHub ?? "Orlando hub"}</dd></div>
                   </dl>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button className="btn-secondary px-3" type="button" onClick={() => updateProductStatus(product.id, "approved")} aria-label="Approve product">
