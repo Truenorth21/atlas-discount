@@ -145,7 +145,7 @@ export default function RouteSellerDashboardPage() {
                   <ProductImage product={product} className="h-12 w-12 shrink-0 rounded-md border border-slate-200" iconSize={20} />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-black text-atlas-navy">{product.brand}</p>
-                    <p className="truncate text-xs text-slate-600">{product.preferredHub}</p>
+                    <p className="truncate text-xs text-slate-600">{product.preferredHub === "Supplier direct" ? t("dropShip") : product.preferredHub}</p>
                   </div>
                 </div>
                 <button className="btn-primary mt-3 w-full" type="button" onClick={() => addAndConfirm(product)}>
@@ -227,7 +227,7 @@ export default function RouteSellerDashboardPage() {
                 <ProductImage product={product} className="h-24 w-24 rounded-md" iconSize={34} />
                 <h3 className="mt-3 font-black text-atlas-navy">{product.brand}</h3>
                 <p className="mt-1 text-sm text-slate-600">{product.description}</p>
-                <p className="mt-2 text-sm font-bold text-atlas-blue">{t("moqShort")} {product.moq} {t("cases")} • {product.preferredHub}</p>
+                <p className="mt-2 text-sm font-bold text-atlas-blue">{t("moqShort")} {product.moq} {t("cases")} • {product.preferredHub === "Supplier direct" ? t("dropShip") : product.preferredHub}</p>
               </div>
             ))}
           </div>

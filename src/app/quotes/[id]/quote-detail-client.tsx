@@ -164,7 +164,7 @@ export function QuoteDetailClient({ id, isAdmin = false }: { id: string; isAdmin
                         </div>
                       </td>
                       <td className="px-5 py-4">{line.product.supplierName}</td>
-                      <td className="px-5 py-4">{line.product.preferredHub}</td>
+                      <td className="px-5 py-4">{line.product.preferredHub === "Supplier direct" ? t("dropShip") : line.product.preferredHub}</td>
                       <td className="px-5 py-4">
                         <p>{t("dimProduct")}: {line.product.productDimensions || t("notProvided")}</p>
                         <p>{t("dimCase")}: {line.product.caseDimensions || t("notProvided")}</p>

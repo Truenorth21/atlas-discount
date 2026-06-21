@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeftRight, CheckCircle2, Heart, MessageCircle, Minus, Plus, Search, ShoppingCart, Snowflake, Sparkles, Tag, Trash2, Warehouse, X } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { DashboardHero } from "@/components/dashboard-hero";
-import { atlasHubs, fulfillmentTypes, productCategories, productCollections, whatsappLink } from "@/lib/data";
+import { atlasHubs, fulfillmentTypes, productCategories, productCollections, readHomeHub, whatsappLink, writeHomeHub } from "@/lib/data";
 
 // Short chip labels for the full category names.
 const categoryChipLabels: Record<string, string> = {
@@ -49,6 +49,16 @@ export default function CatalogClient({
   const [hub, setHub] = useState("All hubs");
   const [buyerRegion, setBuyerRegion] = useState("South Florida");
   const [receivingHub, setReceivingHub] = useState<ReceivingHub>("Miami hub");
+  // The receiving hub IS the home hub picked in the top bar — one source of truth.
+  useEffect(() => {
+    setReceivingHub(readHomeHub());
+    const onHubChange = (event: Event) => {
+      const next = (event as CustomEvent<ReceivingHub>).detail;
+      if (next === "Miami hub" || next === "Orlando hub") setReceivingHub(next);
+    };
+    window.addEventListener("atlas-home-hub", onHubChange);
+    return () => window.removeEventListener("atlas-home-hub", onHubChange);
+  }, []);
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>("Pickup");
   const [submittedQuoteId, setSubmittedQuoteId] = useState<string | null>(null);
   const [expandedImage, setExpandedImage] = useState<Product | null>(null);
@@ -62,6 +72,9 @@ export default function CatalogClient({
   const buyerTierId = accountEntry?.tierId ?? (userRole === "route_seller" ? "retailer" : store.currentTierId);
   // Buyer context drives explicit per-tier pricing; only applied once the buyer can see pricing.
   const pricingCtx: PricingContext | undefined = canSeePricing ? { tierId: buyerTierId, accountId: userId } : undefined;
+
+  // Display label for the hub a product lives at: drop-ship items skip the hubs.
+  const hubText = (hub?: string | null) => (hub === "Supplier direct" ? t("dropShip") : hub ?? "Orlando hub");
 
   function guardAdd(product: Product, quantity = 1) {
     if (!isAuthenticated) {
@@ -539,7 +552,7 @@ export default function CatalogClient({
                   </div>
                   <p className="text-slate-600">{line.quantity} {t("cases")} • {line.product.sku}</p>
                   <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-atlas-blue">
-                    {line.product.preferredHub ?? "Orlando hub"}
+                    {hubText(line.product.preferredHub)}
                     {fulfillmentType !== "Supplier direct" &&
                       (line.product.preferredHub === "Miami hub" || line.product.preferredHub === "Orlando hub") &&
                       line.product.preferredHub !== receivingHub && (
@@ -645,6 +658,20 @@ export default function CatalogClient({
               />
             </div>
           </div>
+          <div className="mt-4 rounded-md border border-slate-200 bg-atlas-light p-3 text-xs">
+            <p className="flex items-center gap-2 font-black text-atlas-navy">
+              <Warehouse size={15} className="text-atlas-blue" />
+              {t("deliveryExplainerTitle")}
+            </p>
+            <ul className="mt-2 grid gap-1.5 text-slate-600">
+              {[t("deliveryHub1"), t("deliveryHub2"), t("deliveryHub3")].map((line) => (
+                <li key={line} className="flex gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-atlas-blue" />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
           <div className="mt-4 grid gap-2">
             <span className="label">{t("receiveOrderAt")}</span>
             <div className="grid grid-cols-2 gap-2">
@@ -657,7 +684,7 @@ export default function CatalogClient({
                       : "border-slate-200 bg-white text-slate-700 hover:border-atlas-blue"
                   }`}
                   type="button"
-                  onClick={() => setReceivingHub(hubOption)}
+                  onClick={() => { setReceivingHub(hubOption); writeHomeHub(hubOption); }}
                 >
                   <Warehouse size={16} className={receivingHub === hubOption ? "text-atlas-blue" : "text-slate-400"} />
                   {hubOption}
@@ -686,7 +713,7 @@ export default function CatalogClient({
                   type="button"
                   onClick={() => setFulfillmentType(item)}
                 >
-                  <span className="font-black">{item}</span>
+                  <span className="font-black">{item === "Supplier direct" ? t("dropShipFrom") : item}</span>
                   <span className="mt-1 block text-xs font-semibold">{fulfillmentGuidance[item]}</span>
                 </button>
               ))}
@@ -782,7 +809,7 @@ export default function CatalogClient({
                 <h2 className="mt-2 text-2xl font-black text-atlas-navy">{expandedImage.brand}</h2>
                 <p className="text-sm text-slate-600">{expandedImage.productName || expandedImage.description}</p>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  {expandedImage.casePack} {t("perCaseUnits")}{expandedImage.unitSize ? ` · ${expandedImage.unitSize}` : ""} · {expandedImage.preferredHub}
+                  {expandedImage.casePack} {t("perCaseUnits")}{expandedImage.unitSize ? ` · ${expandedImage.unitSize}` : ""} · {hubText(expandedImage.preferredHub)}
                 </p>
                 <p className="mt-3">
                   <span className="text-2xl font-black text-atlas-navy">
@@ -915,7 +942,7 @@ function StoreProductCard({
         <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{product.productName || product.description}</p>
         <p className="mt-1 text-xs font-semibold text-slate-500">
           {product.casePack} {t("perCaseUnits")}
-          {product.unitSize ? ` · ${product.unitSize}` : ""} · {product.preferredHub ?? "Orlando hub"}
+          {product.unitSize ? ` · ${product.unitSize}` : ""} · {product.preferredHub === "Supplier direct" ? t("dropShip") : product.preferredHub ?? "Orlando hub"}
         </p>
 
         <div className="mt-2">
@@ -992,7 +1019,7 @@ function DealCard({ product, addToCart }: { product: Product; addToCart: (produc
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-atlas-navy">{product.brand}</p>
           <p className="line-clamp-2 text-xs font-semibold text-slate-600">{product.productName || product.description}</p>
-          <p className="mt-1 text-xs font-bold text-atlas-blue">{product.preferredHub ?? "Supplier direct"}</p>
+          <p className="mt-1 text-xs font-bold text-atlas-blue">{product.preferredHub === "Supplier direct" ? t("dropShip") : product.preferredHub ?? t("dropShip")}</p>
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-2">

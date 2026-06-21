@@ -2,6 +2,32 @@ import type { Application, AtlasHub, FulfillmentType, OrderRequest, PricingSetti
 
 export const atlasHubs: AtlasHub[] = ["Miami hub", "Orlando hub", "Supplier direct"];
 
+// A buyer's "home hub" is the single Atlas hub they pick up at / receive delivery
+// from. It is the ONE source of truth shared by the top-bar picker and the cart's
+// "receive order at" toggle, so the two never disagree. Supplier-direct (drop ship)
+// is a shipping method, not a home hub, so it is deliberately not an option here.
+export type HomeHub = "Miami hub" | "Orlando hub";
+export const HOME_HUB_KEY = "atlas-home-hub";
+export const homeHubOptions: { id: string; hub: HomeHub; region: string }[] = [
+  { id: "miami", hub: "Miami hub", region: "South Florida" },
+  { id: "orlando", hub: "Orlando hub", region: "Central Florida" }
+];
+
+export function readHomeHub(): HomeHub {
+  if (typeof window === "undefined") return "Miami hub";
+  // Accept the new key, then fall back to the legacy "atlas-location" id.
+  const stored = window.localStorage.getItem(HOME_HUB_KEY);
+  if (stored === "Orlando hub" || stored === "Miami hub") return stored;
+  return window.localStorage.getItem("atlas-location") === "orlando" ? "Orlando hub" : "Miami hub";
+}
+
+export function writeHomeHub(hub: HomeHub): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(HOME_HUB_KEY, hub);
+  // Let every mounted component (nav + cart) update live, same tab.
+  window.dispatchEvent(new CustomEvent("atlas-home-hub", { detail: hub }));
+}
+
 // Single source of truth for support/contact. Replace `whatsapp` with the real
 // Atlas WhatsApp business number in E.164 digits (country code + number, no "+",
 // spaces, or dashes). Until then this is a fictional 555 number so the link never

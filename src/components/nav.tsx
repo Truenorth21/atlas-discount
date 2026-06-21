@@ -5,7 +5,7 @@ import { ChevronDown, Eye, LayoutDashboard, LifeBuoy, LogIn, MapPin, ShieldCheck
 import { AtlasMark } from "./atlas-logo";
 import { useEffect, useState } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/browser";
-import { productCategories, whatsappLink } from "@/lib/data";
+import { productCategories, readHomeHub, whatsappLink, writeHomeHub } from "@/lib/data";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 import { SignOutButton } from "./sign-out-button";
 
@@ -37,15 +37,13 @@ const atlasLocations: Array<{
     companyKey: "orlandoCompany",
     addressKey: "orlandoAddress",
     noteKey: "orlandoNote"
-  },
-  {
-    id: "supplier-direct",
-    nameKey: "supplierDirect",
-    companyKey: "supplierDirectCompany",
-    addressKey: "supplierDirectAddress",
-    noteKey: "supplierDirectNote"
   }
 ];
+
+// The picker id maps to the canonical home hub used by the cart.
+function hubForLocationId(id: string): "Miami hub" | "Orlando hub" {
+  return id === "orlando" ? "Orlando hub" : "Miami hub";
+}
 
 export function Nav() {
   const { t, language, setLanguage } = useI18n();
@@ -60,11 +58,19 @@ export function Nav() {
     let mounted = true;
     const supabase = createClient();
 
-    const savedLocation = window.localStorage.getItem("atlas-location");
-    const location = atlasLocations.find((item) => item.id === savedLocation);
-    if (location) setSelectedLocation(location);
+    // Sync the picker to the shared home hub (also set from the cart).
+    const applyHomeHub = () => {
+      const hub = readHomeHub();
+      const match = atlasLocations.find((item) => hubForLocationId(item.id) === hub);
+      if (match) setSelectedLocation(match);
+    };
+    applyHomeHub();
+    const onHubChange = () => applyHomeHub();
+    window.addEventListener("atlas-home-hub", onHubChange);
 
-    if (!isSupabaseConfigured || !supabase) return;
+    if (!isSupabaseConfigured || !supabase) {
+      return () => window.removeEventListener("atlas-home-hub", onHubChange);
+    }
 
     // The authoritative role comes from the user's profile row; fall back to
     // auth metadata. This keeps the Admin link reliably gated to real admins.
@@ -92,6 +98,7 @@ export function Nav() {
     return () => {
       mounted = false;
       listener.subscription.unsubscribe();
+      window.removeEventListener("atlas-home-hub", onHubChange);
     };
   }, []);
 
@@ -330,7 +337,7 @@ export function Nav() {
                     type="button"
                     onClick={() => {
                       setSelectedLocation(location);
-                      window.localStorage.setItem("atlas-location", location.id);
+                      writeHomeHub(hubForLocationId(location.id));
                     }}
                   >
                     <span className="flex items-center justify-between gap-3">
