@@ -1,19 +1,26 @@
 "use client";
 
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { BadgeCheck, FileText, MapPinned, PackageSearch, Repeat2, Route, ShoppingCart, Sparkles, TrendingUp, Trophy } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage } from "@/components/product-image";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { DashboardHero } from "@/components/dashboard-hero";
+import { CartToast } from "@/components/cart-toast";
 import { getDocumentAlerts } from "@/lib/documents";
 import { useI18n } from "@/lib/i18n";
+import type { Product } from "@/lib/types";
 
 export default function RouteSellerDashboardPage() {
   const { t } = useI18n();
   const { store, addToCart } = useAtlasStore();
+  const [added, setAdded] = useState<string | null>(null);
+  function addAndConfirm(product: Product) {
+    addToCart(product);
+    setAdded(product.brand);
+  }
   const routeSeller = store.routeSellers[0];
   const commissionPct = store.pricingSettings.routeSellerCommissionPercent ?? 10;
   const estMonthlyCommission = Math.round((routeSeller.monthlySales * commissionPct) / 100);
@@ -141,7 +148,7 @@ export default function RouteSellerDashboardPage() {
                     <p className="truncate text-xs text-slate-600">{product.preferredHub}</p>
                   </div>
                 </div>
-                <button className="btn-primary mt-3 w-full" type="button" onClick={() => addToCart(product)}>
+                <button className="btn-primary mt-3 w-full" type="button" onClick={() => addAndConfirm(product)}>
                   <Repeat2 size={15} />
                   {t("addToCartLabel")}
                 </button>
@@ -226,6 +233,7 @@ export default function RouteSellerDashboardPage() {
           </div>
         </section>
       </main>
+      <CartToast brand={added} onClose={() => setAdded(null)} />
     </>
   );
 }

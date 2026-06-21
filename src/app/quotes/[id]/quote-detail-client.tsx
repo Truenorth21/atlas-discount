@@ -10,7 +10,7 @@ import { calculateLinePricing, calculateQuoteFinancials, formatMoney } from "@/l
 import { planOrderPallets } from "@/lib/pallets";
 import { useI18n } from "@/lib/i18n";
 
-export function QuoteDetailClient({ id }: { id: string }) {
+export function QuoteDetailClient({ id, isAdmin = false }: { id: string; isAdmin?: boolean }) {
   const { t } = useI18n();
   const { store } = useAtlasStore();
   const order = store.orders.find((item) => item.id === id);
@@ -55,27 +55,42 @@ export function QuoteDetailClient({ id }: { id: string }) {
           <Metric label={t("buyer")} value={order.buyer} />
           <Metric label={t("region")} value={order.buyerRegion ?? t("routingReview")} />
           <Metric label={t("casesHeader")} value={String(order.totalCases)} />
-          <Metric label={t("estimatedProfit")} value={formatMoney(financials.estimatedProfit)} />
+          <Metric label={isAdmin ? t("estimatedProfit") : t("buyerQuoteTotal")} value={formatMoney(isAdmin ? financials.estimatedProfit : financials.buyerTotal)} />
         </section>
-        <section className="panel p-5">
-          <h2 className="text-xl font-black text-atlas-navy">{t("adminQuoteEconomics")}</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <FinancialCard label={t("buyerSellValue")} value={formatMoney(financials.productRevenue)} />
-            <FinancialCard label={t("supplierCost")} value={formatMoney(financials.supplierCost)} />
-            <FinancialCard label={t("productMargin")} value={formatMoney(financials.productMargin)} />
-            <FinancialCard label={t("supplierDirectCasesLabel")} value={String(financials.supplierDirectCases)} />
-            <FinancialCard label={t("fullPalletCases")} value={String(financials.palletCases)} />
-            <FinancialCard label={t("looseCasesLabel")} value={String(financials.looseCases)} />
-            <FinancialCard label={t("fulfillmentCharged")} value={formatMoney(financials.fulfillmentFee)} />
-            <FinancialCard label={t("orderDiscount")} value={formatMoney(financials.orderDiscount)} />
-            <FinancialCard label={t("buyerQuoteTotal")} value={formatMoney(financials.buyerTotal)} emphasis />
-            <FinancialCard label={t("estimatedFulfillmentCost")} value={formatMoney(financials.fulfillmentCost)} />
-            <FinancialCard label={t("routeSellerCommission")} value={formatMoney(financials.routeSellerCommission)} />
-            <FinancialCard label={t("estimatedAtlasProfit")} value={formatMoney(financials.estimatedProfit)} />
-            <FinancialCard label={t("profitMargin")} value={`${financials.marginPercent.toFixed(1)}%`} />
-            <FinancialCard label={t("suggestedFulfillment")} value={financials.recommendedFulfillmentType} />
-          </div>
-        </section>
+        {isAdmin ? (
+          <section className="panel p-5">
+            <h2 className="text-xl font-black text-atlas-navy">{t("adminQuoteEconomics")}</h2>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <FinancialCard label={t("buyerSellValue")} value={formatMoney(financials.productRevenue)} />
+              <FinancialCard label={t("supplierCost")} value={formatMoney(financials.supplierCost)} />
+              <FinancialCard label={t("productMargin")} value={formatMoney(financials.productMargin)} />
+              <FinancialCard label={t("supplierDirectCasesLabel")} value={String(financials.supplierDirectCases)} />
+              <FinancialCard label={t("fullPalletCases")} value={String(financials.palletCases)} />
+              <FinancialCard label={t("looseCasesLabel")} value={String(financials.looseCases)} />
+              <FinancialCard label={t("fulfillmentCharged")} value={formatMoney(financials.fulfillmentFee)} />
+              <FinancialCard label={t("orderDiscount")} value={formatMoney(financials.orderDiscount)} />
+              <FinancialCard label={t("buyerQuoteTotal")} value={formatMoney(financials.buyerTotal)} emphasis />
+              <FinancialCard label={t("estimatedFulfillmentCost")} value={formatMoney(financials.fulfillmentCost)} />
+              <FinancialCard label={t("routeSellerCommission")} value={formatMoney(financials.routeSellerCommission)} />
+              <FinancialCard label={t("estimatedAtlasProfit")} value={formatMoney(financials.estimatedProfit)} />
+              <FinancialCard label={t("profitMargin")} value={`${financials.marginPercent.toFixed(1)}%`} />
+              <FinancialCard label={t("suggestedFulfillment")} value={financials.recommendedFulfillmentType} />
+            </div>
+          </section>
+        ) : (
+          // Buyer-safe summary: never expose Atlas cost, margin, profit, or commission.
+          <section className="panel p-5">
+            <h2 className="text-xl font-black text-atlas-navy">{t("orderSummary")}</h2>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <FinancialCard label={t("buyerSellValue")} value={formatMoney(financials.productRevenue)} />
+              <FinancialCard label={t("fulfillmentCharged")} value={formatMoney(financials.fulfillmentFee)} />
+              <FinancialCard label={t("orderDiscount")} value={formatMoney(financials.orderDiscount)} />
+              <FinancialCard label={t("fullPalletCases")} value={String(financials.palletCases)} />
+              <FinancialCard label={t("looseCasesLabel")} value={String(financials.looseCases)} />
+              <FinancialCard label={t("buyerQuoteTotal")} value={formatMoney(financials.buyerTotal)} emphasis />
+            </div>
+          </section>
+        )}
         <section className="panel p-5">
           <h2 className="flex items-center gap-2 text-xl font-black text-atlas-navy">
             <MapPin className="text-atlas-blue" />

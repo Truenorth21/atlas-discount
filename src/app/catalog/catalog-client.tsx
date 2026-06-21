@@ -7,7 +7,7 @@ import { ArrowLeftRight, CheckCircle2, Heart, MessageCircle, Minus, Plus, Search
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { DashboardHero } from "@/components/dashboard-hero";
-import { atlasHubs, fulfillmentTypes, productCategories, productCollections } from "@/lib/data";
+import { atlasHubs, fulfillmentTypes, productCategories, productCollections, whatsappLink } from "@/lib/data";
 
 // Short chip labels for the full category names.
 const categoryChipLabels: Record<string, string> = {
@@ -461,7 +461,7 @@ export default function CatalogClient({
 
       {/* Floating support (WhatsApp) button */}
       <a
-        href="https://wa.me/"
+        href={whatsappLink(t("supportPrefill"))}
         target="_blank"
         rel="noreferrer"
         className="fixed bottom-5 left-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-white shadow-panel transition hover:bg-emerald-600"
@@ -790,6 +790,28 @@ export default function CatalogClient({
                   </span>
                   {canSeePricing && qp > 0 && <span className="text-xs font-semibold text-slate-500"> / {t("caseLabel")}</span>}
                 </p>
+                {/* Key wholesale facts a buyer needs before committing: minimum, stock, lead time. */}
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                  <div>
+                    <dt className="font-semibold uppercase tracking-wide text-slate-400">{t("directMoq")}</dt>
+                    <dd className="font-bold text-atlas-navy">
+                      {expandedImage.moq} {t("cases")}
+                      {expandedImage.minOrderValue ? ` / ${formatMoney(expandedImage.minOrderValue)}` : ""}
+                    </dd>
+                  </div>
+                  {expandedImage.inventoryAvailable > 0 && (
+                    <div>
+                      <dt className="font-semibold uppercase tracking-wide text-slate-400">{t("inStockLabel")}</dt>
+                      <dd className="font-bold text-emerald-700">{expandedImage.inventoryAvailable} {t("cases")}</dd>
+                    </div>
+                  )}
+                  {expandedImage.leadTime && (
+                    <div>
+                      <dt className="font-semibold uppercase tracking-wide text-slate-400">{t("leadTimeLabel")}</dt>
+                      <dd className="font-bold text-atlas-navy">{expandedImage.leadTime}</dd>
+                    </div>
+                  )}
+                </dl>
                 {expandedImage.productName && expandedImage.description && (
                   <p className="mt-3 line-clamp-6 text-xs leading-5 text-slate-500">{expandedImage.description}</p>
                 )}
@@ -915,6 +937,7 @@ function StoreProductCard({
           <p className="text-[11px] text-slate-400">
             {t("directMoq")} {product.moq} {t("cases")}
             {product.minOrderValue ? ` / ${formatMoney(product.minOrderValue)}` : ""}
+            {product.leadTime ? ` · ${t("leadTimeLabel")} ${product.leadTime}` : ""}
           </p>
         </div>
 

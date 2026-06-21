@@ -5,6 +5,7 @@ import { ChevronDown, Eye, LayoutDashboard, LifeBuoy, LogIn, MapPin, ShieldCheck
 import { AtlasMark } from "./atlas-logo";
 import { useEffect, useState } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/browser";
+import { productCategories, whatsappLink } from "@/lib/data";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 import { SignOutButton } from "./sign-out-button";
 
@@ -52,6 +53,7 @@ export function Nav() {
   const [signedIn, setSignedIn] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<(typeof atlasLocations)[number]>(atlasLocations[0]);
 
   useEffect(() => {
@@ -162,10 +164,48 @@ export function Nav() {
         {/* Primary shopping menu */}
         <nav className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-atlas-navy">
           <Link className="hover:text-atlas-blue" href="/catalog">{t("navDeals")}</Link>
-          <Link className="hover:text-atlas-blue" href="/catalog">{t("navCategories")}</Link>
+          <div className="relative">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 hover:text-atlas-blue"
+              onClick={() => setCategoriesOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={categoriesOpen}
+            >
+              {t("navCategories")}
+              <ChevronDown size={14} />
+            </button>
+            {categoriesOpen && (
+              <>
+                <button className="fixed inset-0 z-40 cursor-default" tabIndex={-1} aria-hidden onClick={() => setCategoriesOpen(false)} />
+                <div className="absolute left-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-panel" role="menu">
+                  <Link
+                    className="block px-4 py-2.5 text-sm font-bold text-atlas-navy hover:bg-atlas-light"
+                    href="/catalog"
+                    role="menuitem"
+                    onClick={() => setCategoriesOpen(false)}
+                  >
+                    {t("allProducts")}
+                  </Link>
+                  <div className="my-1 border-t border-slate-100" />
+                  {Object.keys(productCategories).map((name) => (
+                    <Link
+                      key={name}
+                      className="block px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-atlas-light hover:text-atlas-blue"
+                      href={`/catalog?category=${encodeURIComponent(name)}`}
+                      role="menuitem"
+                      onClick={() => setCategoriesOpen(false)}
+                    >
+                      {name}
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           <Link className="hover:text-atlas-blue" href={signedIn ? dashboardHref : "/login?next=/catalog"}>{t("navReorder")}</Link>
           <Link className="hover:text-atlas-blue" href="/sell">{t("navSuppliers")}</Link>
-          <a className="inline-flex items-center gap-1.5 text-atlas-blue hover:text-atlas-navy" href="https://wa.me/">
+          <a className="inline-flex items-center gap-1.5 text-atlas-blue hover:text-atlas-navy" href={whatsappLink(t("supportPrefill"))} target="_blank" rel="noreferrer">
             <LifeBuoy size={15} />
             {t("navSupport")}
           </a>

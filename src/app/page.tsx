@@ -358,7 +358,8 @@ function HomeProductCard({ product }: { product: Product }) {
   const { t } = useI18n();
   return (
     <Link
-      href="/catalog"
+      // Deep-link into the catalog filtered to this exact item (search matches SKU).
+      href={`/catalog?q=${encodeURIComponent(product.sku || product.brand)}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-atlas-blue hover:shadow-panel"
     >
       <div className="aspect-square w-full overflow-hidden bg-atlas-light">

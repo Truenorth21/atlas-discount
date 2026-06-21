@@ -1,17 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { RotateCcw, ShoppingBasket } from "lucide-react";
+import { ArrowRight, RotateCcw, ShoppingBasket } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { DashboardHero } from "@/components/dashboard-hero";
+import { CartToast } from "@/components/cart-toast";
 import { getDocumentAlerts } from "@/lib/documents";
+import { formatMoney } from "@/lib/pricing";
 import { useI18n } from "@/lib/i18n";
+import type { Product } from "@/lib/types";
 
 export default function RetailerDashboardPage() {
   const { t } = useI18n();
   const { store, addToCart } = useAtlasStore();
+  const [added, setAdded] = useState<string | null>(null);
+  const favoriteProducts = store.products.filter((product) => store.favorites.includes(product.id));
+  function addAndConfirm(product: Product) {
+    addToCart(product);
+    setAdded(product.brand);
+  }
   const buyAgain = store.products.filter((product) => product.status === "approved").slice(0, 3);
   const documentAlerts = getDocumentAlerts(store.applications, "buyer");
   const buyerApplication = store.applications.find((application) => application.type === "buyer");
@@ -92,7 +102,7 @@ export default function RetailerDashboardPage() {
                         </Link>
                       </td>
                       <td className="px-5 py-4">{order.totalCases}</td>
-                      <td className="px-5 py-4">${order.estimatedValue.toFixed(2)}</td>
+                      <td className="px-5 py-4">{formatMoney(order.estimatedValue)}</td>
                       <td className="px-5 py-4">{order.fulfillmentType}</td>
                       <td className="px-5 py-4">{order.hubRouting ?? t("atlasRoutingReview")}</td>
                       <td className="px-5 py-4"><StatusBadge status={order.status} /></td>
@@ -107,15 +117,31 @@ export default function RetailerDashboardPage() {
               <h2 className="text-xl font-black">{t("savedList")}</h2>
               <p className="mt-2 text-sm text-slate-600">{t("savedListBody")}</p>
               <div className="mt-4 grid gap-2 text-sm">
-                <span className="rounded-md bg-atlas-light p-3 font-semibold">{t("savedListItem1")}</span>
-                <span className="rounded-md bg-atlas-light p-3 font-semibold">{t("savedListItem2")}</span>
+                {favoriteProducts.length === 0 ? (
+                  <Link href="/catalog" className="flex items-center justify-between rounded-md bg-atlas-light p-3 font-semibold text-atlas-blue hover:bg-sky-50">
+                    {t("savedListEmpty")}
+                    <ArrowRight size={16} />
+                  </Link>
+                ) : (
+                  favoriteProducts.map((product) => (
+                    <button
+                      key={product.id}
+                      className="flex items-center justify-between rounded-md bg-atlas-light p-3 text-left font-semibold text-atlas-navy transition hover:bg-sky-50"
+                      type="button"
+                      onClick={() => addAndConfirm(product)}
+                    >
+                      <span className="min-w-0 truncate">{product.brand}</span>
+                      <ShoppingBasket size={16} className="shrink-0 text-atlas-blue" />
+                    </button>
+                  ))
+                )}
               </div>
             </div>
             <div className="panel p-5">
               <h2 className="text-xl font-black">{t("buyAgain")}</h2>
               <div className="mt-4 grid gap-3">
                 {buyAgain.map((product) => (
-                  <button key={product.id} className="btn-secondary justify-between" type="button" onClick={() => addToCart(product)}>
+                  <button key={product.id} className="btn-secondary justify-between" type="button" onClick={() => addAndConfirm(product)}>
                     {product.brand}
                     <RotateCcw size={16} />
                   </button>
@@ -125,6 +151,7 @@ export default function RetailerDashboardPage() {
           </aside>
         </section>
       </main>
+      <CartToast brand={added} onClose={() => setAdded(null)} />
     </>
   );
 }

@@ -2,6 +2,24 @@ import type { Application, AtlasHub, FulfillmentType, OrderRequest, PricingSetti
 
 export const atlasHubs: AtlasHub[] = ["Miami hub", "Orlando hub", "Supplier direct"];
 
+// Single source of truth for support/contact. Replace `whatsapp` with the real
+// Atlas WhatsApp business number in E.164 digits (country code + number, no "+",
+// spaces, or dashes). Until then this is a fictional 555 number so the link never
+// silently points to a stranger.
+export const atlasContact = {
+  whatsapp: "13055550100",
+  supportEmail: "support@atlasdiscount.com"
+};
+
+/** Builds a wa.me link with an optional prefilled message. Falls back to the
+ *  support email if no WhatsApp number is configured, so the button is never dead. */
+export function whatsappLink(message?: string): string {
+  const digits = atlasContact.whatsapp.replace(/\D/g, "");
+  if (!digits) return `mailto:${atlasContact.supportEmail}`;
+  const text = message ? `?text=${encodeURIComponent(message)}` : "";
+  return `https://wa.me/${digits}${text}`;
+}
+
 export const fulfillmentTypes: FulfillmentType[] = [
   "Supplier direct",
   "Atlas consolidation hub",
