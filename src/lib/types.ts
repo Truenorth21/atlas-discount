@@ -322,6 +322,15 @@ export type PricingSettings = {
   freeDeliveryThreshold?: number;
   /** Max stacked weight per pallet (lb) used by the order load planner. */
   maxPalletWeightLb?: number;
+  /** Max stacked height per pallet (in, including the pallet deck) — caps how many
+   *  layers of tall cases can stack, lowering effective cases-per-pallet. */
+  maxPalletHeightIn?: number;
+  /** Pallet deck height (in) subtracted from max height before stacking cases. */
+  palletBaseHeightIn?: number;
+  /** Atlas's actual local-delivery cost per pallet (used to verify the delivery fee). */
+  perPalletDeliveryCost?: number;
+  /** Atlas's actual LTL/freight cost per pallet (used to verify the freight fee). */
+  perPalletFreightCost?: number;
   /** Per-supplier plan + fulfillment tier assignments. */
   supplierAssignments?: SupplierAssignment[];
   /** Sold advertising/promotion placements Atlas schedules + tracks for revenue. */

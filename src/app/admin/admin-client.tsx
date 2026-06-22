@@ -1792,7 +1792,7 @@ function QuoteBuilderCard({
           </dl>
         </div>
       </div>
-      <PalletPlanPanel order={order} lines={order.lineItems ?? []} maxPalletWeightLb={pricingSettings.maxPalletWeightLb} />
+      <PalletPlanPanel order={order} lines={order.lineItems ?? []} settings={pricingSettings} financials={financials} />
       <div className="mt-4 rounded-lg border border-slate-200 p-4">
         <h4 className="font-black text-atlas-navy">Adjust this quotation</h4>
         <p className="mt-1 text-sm text-slate-600">
@@ -2601,10 +2601,24 @@ function printPalletSheet(order: OrderRequest, plan: ReturnType<typeof planOrder
   win.document.close();
 }
 
-function PalletPlanPanel({ order, lines, maxPalletWeightLb }: { order: OrderRequest; lines: CartLine[]; maxPalletWeightLb?: number }) {
+function PalletPlanPanel({
+  order,
+  lines,
+  settings,
+  financials
+}: {
+  order: OrderRequest;
+  lines: CartLine[];
+  settings: PricingSettings;
+  financials: ReturnType<typeof calculateQuoteFinancials>;
+}) {
   const [open, setOpen] = useState(false);
   if (lines.length === 0) return null;
-  const plan = planOrderPallets(lines, { maxPalletWeightLb });
+  const plan = planOrderPallets(lines, {
+    maxPalletWeightLb: settings.maxPalletWeightLb,
+    maxPalletHeightIn: settings.maxPalletHeightIn,
+    palletBaseHeightIn: settings.palletBaseHeightIn
+  });
 
   return (
     <div className="mt-4 rounded-lg border border-slate-200 p-4">
@@ -2613,7 +2627,7 @@ function PalletPlanPanel({ order, lines, maxPalletWeightLb }: { order: OrderRequ
           <h4 className="font-black text-atlas-navy">Pallet load plan</h4>
           <p className="mt-1 text-sm text-slate-600">
             How this order packs onto pallets for the hub — full pallets first, then mixed pallets for the leftovers. Max{" "}
-            {plan.maxPalletWeightLb.toLocaleString()} lb per pallet.
+            {plan.maxPalletWeightLb.toLocaleString()} lb and {plan.maxPalletHeightIn}″ tall per pallet.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -2626,16 +2640,19 @@ function PalletPlanPanel({ order, lines, maxPalletWeightLb }: { order: OrderRequ
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <PalletStat label="Pallets" value={String(plan.totalPallets)} sub={`${plan.fullPallets} full · ${plan.mixedPallets} mixed`} />
         <PalletStat label="Cases palletized" value={String(plan.totalCases)} />
         <PalletStat label="Total weight" value={`${plan.totalWeightLb.toLocaleString()} lb`} />
+        <PalletStat label="Tallest pallet" value={plan.tallestPalletIn > 0 ? `${plan.tallestPalletIn}″` : "—"} sub={`max ${plan.maxPalletHeightIn}″`} />
         <PalletStat
           label="Off-pallet"
           value={String(plan.supplierDirect.reduce((s, i) => s + i.cases, 0))}
-          sub="supplier-direct cases"
+          sub="drop-ship cases"
         />
       </div>
+
+      <DeliveryCostCheck order={order} plan={plan} settings={settings} financials={financials} />
 
       {plan.needsConfig.length > 0 && (
         <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
@@ -2664,7 +2681,12 @@ function PalletPlanPanel({ order, lines, maxPalletWeightLb }: { order: OrderRequ
                 ))}
               </ul>
               <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-slate-500">
-                <span>{pallet.cases} cases · {pallet.fillPct}% full</span>
+                <span>
+                  {pallet.cases} cases · {pallet.fillPct}% full
+                  {pallet.heightIn > 0 && (
+                    <span className={pallet.overheight ? "font-bold text-atlas-red" : ""}> · ~{pallet.heightIn}″{pallet.overheight ? " over" : ""}</span>
+                  )}
+                </span>
                 <span className={pallet.overweight ? "font-bold text-atlas-red" : ""}>
                   {pallet.weightLb.toLocaleString()} lb{pallet.overweight ? " · over max" : ""}
                 </span>
@@ -2673,6 +2695,65 @@ function PalletPlanPanel({ order, lines, maxPalletWeightLb }: { order: OrderRequ
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Verifies the delivery/freight fee charged to the buyer against what the pallets
+// actually cost Atlas to move (pallet count × per-pallet cost). Delivered orders only.
+function DeliveryCostCheck({
+  order,
+  plan,
+  settings,
+  financials
+}: {
+  order: OrderRequest;
+  plan: ReturnType<typeof planOrderPallets>;
+  settings: PricingSettings;
+  financials: ReturnType<typeof calculateQuoteFinancials>;
+}) {
+  const isLocal = order.fulfillmentType === "Local delivery";
+  const isFreight = order.fulfillmentType === "Freight quote needed";
+  if (!isLocal && !isFreight) return null;
+
+  const perPallet = isFreight ? settings.perPalletFreightCost ?? 0 : settings.perPalletDeliveryCost ?? 0;
+  const charged = isFreight ? settings.freightCoordinationFee : settings.localDeliveryFee;
+  const flatBooked = isFreight ? settings.freightCostEstimate : settings.localDeliveryCost;
+  const pallets = plan.totalPallets;
+  const actual = pallets * perPallet;
+  const net = charged - actual;
+  const dropShipCases = plan.supplierDirect.reduce((s, i) => s + i.cases, 0);
+  const short = net < 0;
+
+  return (
+    <div className={`mt-4 rounded-lg border p-4 ${short ? "border-atlas-red/40 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="font-black text-atlas-navy">Delivery cost check — {isFreight ? "freight" : "local delivery"}</h4>
+        <span className={`badge ${short ? "bg-atlas-red text-white" : "bg-emerald-600 text-white"}`}>
+          {short ? "Underwater" : "Covered"}
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-slate-600">
+        What we charge for delivery vs. what the {pallets} {pallets === 1 ? "pallet" : "pallets"} actually cost to move
+        ({pallets} × {formatMoney(perPallet)}/pallet).
+      </p>
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <PalletStat label="Delivery charged" value={formatMoney(charged)} />
+        <PalletStat label="Actual pallet cost" value={formatMoney(actual)} sub={`${pallets} × ${formatMoney(perPallet)}`} />
+        <PalletStat label={short ? "Shortfall" : "Recovered"} value={formatMoney(net)} />
+        <PalletStat label="Flat estimate (booked)" value={formatMoney(flatBooked)} sub={Math.abs(flatBooked - actual) > 0.01 ? `vs ${formatMoney(actual)} actual` : "matches"} />
+      </div>
+      {short && (
+        <p className="mt-3 text-sm font-semibold text-atlas-red">
+          Delivery is priced below cost by {formatMoney(-net)}. Raise the {isFreight ? "freight coordination" : "local delivery"} fee, add a per-pallet surcharge, or move this to a freight quote.
+        </p>
+      )}
+      {dropShipCases > 0 && (
+        <p className="mt-2 text-xs text-slate-500">
+          {dropShipCases} drop-ship {dropShipCases === 1 ? "case ships" : "cases ship"} from the supplier and aren&apos;t part of this pallet delivery cost.
+        </p>
+      )}
+      <p className="mt-2 text-[11px] text-slate-400">Profit shown above uses the flat estimate ({formatMoney(financials.fulfillmentCost)} total fulfillment cost); this check is the pallet-based reality.</p>
     </div>
   );
 }
@@ -2774,6 +2855,8 @@ function PricingSettingsPanel({
         body="Used by the order load planner to decide how many pallets an order needs and how cases stack. A pallet never loads heavier than this."
       >
         <NumberField label="Max pallet weight" value={settings.maxPalletWeightLb ?? 2200} onChange={updateNumber("maxPalletWeightLb")} hint="Maximum stacked weight per pallet. Standard GMA loads run ~2,000–2,500 lb." suffix="lb" />
+        <NumberField label="Max pallet height" value={settings.maxPalletHeightIn ?? 60} onChange={updateNumber("maxPalletHeightIn")} hint="Max stacked height incl. the pallet. Tall cases stack fewer layers, so fewer cases per pallet. Single-stack DCs often cap ~60″." suffix="in" />
+        <NumberField label="Pallet deck height" value={settings.palletBaseHeightIn ?? 6} onChange={updateNumber("palletBaseHeightIn")} hint="Height of the empty pallet, subtracted before stacking cases. Standard GMA pallet ≈ 6″." suffix="in" />
       </PricingGroup>
 
       <PricingGroup
@@ -2801,9 +2884,11 @@ function PricingSettingsPanel({
       >
         <NumberField label="Local delivery — charge" value={settings.localDeliveryFee} onChange={updateNumber("localDeliveryFee")} hint="What the buyer pays for local delivery (per order)." prefix="$" />
         <NumberField label="Free delivery over" value={settings.freeDeliveryThreshold ?? 0} onChange={updateNumber("freeDeliveryThreshold")} hint="Product subtotal at/above which local delivery is free. 0 = off." prefix="$" />
-        <NumberField label="Local delivery — Atlas cost" value={settings.localDeliveryCost} onChange={updateNumber("localDeliveryCost")} hint="Atlas's own cost to deliver locally." prefix="$" />
+        <NumberField label="Local delivery — Atlas cost" value={settings.localDeliveryCost} onChange={updateNumber("localDeliveryCost")} hint="Atlas's own flat cost to deliver locally (per order)." prefix="$" />
+        <NumberField label="Local delivery — cost per pallet" value={settings.perPalletDeliveryCost ?? 35} onChange={updateNumber("perPalletDeliveryCost")} hint="Actual cost to move one pallet on a local delivery. Used to verify the delivery fee covers the real pallet count." prefix="$" />
         <NumberField label="Freight coordination — charge" value={settings.freightCoordinationFee} onChange={updateNumber("freightCoordinationFee")} hint="What the buyer pays when Atlas arranges freight." prefix="$" />
-        <NumberField label="Freight — Atlas cost estimate" value={settings.freightCostEstimate} onChange={updateNumber("freightCostEstimate")} hint="Estimated freight cost to Atlas." prefix="$" />
+        <NumberField label="Freight — Atlas cost estimate" value={settings.freightCostEstimate} onChange={updateNumber("freightCostEstimate")} hint="Estimated flat freight cost to Atlas." prefix="$" />
+        <NumberField label="Freight — cost per pallet" value={settings.perPalletFreightCost ?? 120} onChange={updateNumber("perPalletFreightCost")} hint="Actual LTL/freight cost per pallet. Used to verify the freight fee covers the real pallet count." prefix="$" />
         <NumberField label="Freight kicks in above" value={settings.freightCaseThreshold} onChange={updateNumber("freightCaseThreshold")} hint="Orders larger than this many cases go to freight review." suffix="cases" />
         <NumberField label="Sales Rep commission" value={settings.routeSellerCommissionPercent} onChange={updateNumber("routeSellerCommissionPercent")} hint="The seller earns this % of the total sale on their orders." suffix="%" />
       </PricingGroup>

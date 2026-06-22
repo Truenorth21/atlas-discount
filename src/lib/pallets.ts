@@ -3,6 +3,10 @@ import { productPalletSize } from "./pricing";
 
 /** Default max stacked weight for a single pallet load (lb) — standard GMA pallet ballpark. */
 export const DEFAULT_MAX_PALLET_WEIGHT_LB = 2200;
+/** Default max stacked height for a single pallet (in) — common single-stack DC limit. */
+export const DEFAULT_MAX_PALLET_HEIGHT_IN = 60;
+/** Default pallet deck height (in) subtracted before stacking cases. */
+export const DEFAULT_PALLET_BASE_HEIGHT_IN = 6;
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -17,6 +21,18 @@ export function caseWeightLb(product: Product): number {
   return /oz/i.test(raw) ? value / 16 : value;
 }
 
+/** Master-case height in inches from the structured spec (0 when unknown). */
+export function caseHeightIn(product: Product): number {
+  const h = product.spec?.caseDims?.height;
+  return h && h > 0 ? h : 0;
+}
+
+/** Cases that fit on one pallet floor/layer (the "Ti"), 0 when unknown. */
+export function casesPerFloor(product: Product): number {
+  const f = product.spec?.palletCasesPerFloor;
+  return f && f > 0 ? f : 0;
+}
+
 export type PalletItem = { sku: string; productName: string; cases: number; weightLb: number };
 
 export type PlannedPallet = {
@@ -25,10 +41,14 @@ export type PlannedPallet = {
   items: PalletItem[];
   cases: number;
   weightLb: number;
+  /** Estimated stacked height (in, incl. deck) — tallest column on the pallet. 0 when case heights are unknown. */
+  heightIn: number;
   /** Footprint/stack utilization 0–100, using each product's cases-per-pallet (which bakes in its Ti×Hi). */
   fillPct: number;
   /** True when a single case already exceeds the max pallet weight (placed alone, flagged). */
   overweight?: boolean;
+  /** True when the stack exceeds the max pallet height (e.g. one case taller than the limit). */
+  overheight?: boolean;
 };
 
 export type PalletPlan = {
@@ -38,11 +58,15 @@ export type PalletPlan = {
   mixedPallets: number;
   totalCases: number;
   totalWeightLb: number;
+  /** Tallest planned pallet (in), for a quick max-height read. 0 when heights are unknown. */
+  tallestPalletIn: number;
   /** Supplier-direct lines ship from the supplier and are not palletized at the hub. */
   supplierDirect: PalletItem[];
   /** Lines missing a cases-per-pallet config — can't be planned until set. */
   needsConfig: PalletItem[];
   maxPalletWeightLb: number;
+  maxPalletHeightIn: number;
+  palletBaseHeightIn: number;
 };
 
 type WorkingPallet = { items: PalletItem[]; fill: number; weight: number; cases: number; overweight: boolean };
@@ -56,15 +80,39 @@ type WorkingPallet = { items: PalletItem[]; fill: number; weight: number; cases:
  * 1/casesPerPallet(P) of a pallet's footprint; a pallet closes when footprint
  * reaches 100% or the next case would exceed the max weight.
  */
-export function planOrderPallets(lines: CartLine[], opts: { maxPalletWeightLb?: number } = {}): PalletPlan {
+export function planOrderPallets(
+  lines: CartLine[],
+  opts: { maxPalletWeightLb?: number; maxPalletHeightIn?: number; palletBaseHeightIn?: number } = {}
+): PalletPlan {
   const maxWeight = opts.maxPalletWeightLb && opts.maxPalletWeightLb > 0 ? opts.maxPalletWeightLb : DEFAULT_MAX_PALLET_WEIGHT_LB;
+  const maxHeight = opts.maxPalletHeightIn && opts.maxPalletHeightIn > 0 ? opts.maxPalletHeightIn : DEFAULT_MAX_PALLET_HEIGHT_IN;
+  const base = opts.palletBaseHeightIn && opts.palletBaseHeightIn > 0 ? opts.palletBaseHeightIn : DEFAULT_PALLET_BASE_HEIGHT_IN;
+  const usableHeight = Math.max(0, maxHeight - base);
   const pallets: PlannedPallet[] = [];
   const supplierDirect: PalletItem[] = [];
   const needsConfig: PalletItem[] = [];
   const remainders: Array<{ sku: string; productName: string; cases: number; cpp: number; caseWeight: number }> = [];
+  // Per-SKU case height + cases-per-floor, used to estimate pallet stack height.
+  const dims = new Map<string, { h: number; floor: number }>();
 
   const name = (p: Product) => p.brand || p.productName || p.sku;
   const itemOf = (p: Product, cases: number, cw: number): PalletItem => ({ sku: p.sku, productName: name(p), cases, weightLb: round1(cases * cw) });
+
+  // Estimated stack height of a set of items = the tallest single-SKU column on the
+  // pallet (cases stack in floors of `floor` cases each). 0 when no item has dims.
+  const heightOf = (items: PalletItem[]): { heightIn: number; over: boolean } => {
+    let tallest = 0;
+    let known = false;
+    for (const it of items) {
+      const d = dims.get(it.sku);
+      if (!d || d.h <= 0 || d.floor <= 0) continue;
+      known = true;
+      const layers = Math.ceil(it.cases / d.floor);
+      const colHeight = base + layers * d.h;
+      if (colHeight > tallest) tallest = colHeight;
+    }
+    return { heightIn: known ? round1(tallest) : 0, over: known && tallest > maxHeight + 1e-6 };
+  };
 
   for (const line of lines) {
     const p = line.product;
@@ -75,23 +123,36 @@ export function planOrderPallets(lines: CartLine[], opts: { maxPalletWeightLb?: 
       supplierDirect.push(itemOf(p, qty, cw));
       continue;
     }
-    const cpp = productPalletSize(p);
-    if (!cpp || cpp <= 0) {
+    const configuredCpp = productPalletSize(p);
+    if (!configuredCpp || configuredCpp <= 0) {
       needsConfig.push(itemOf(p, qty, cw));
       continue;
     }
-    // Weight-aware full-pallet capacity: never stack heavier than the max.
+    const ch = caseHeightIn(p);
+    const floor = casesPerFloor(p);
+    dims.set(p.sku, { h: ch, floor });
+    // Height-aware cases-per-pallet: tall cases fit fewer layers, so fewer cases.
+    let cpp = configuredCpp;
+    if (ch > 0 && floor > 0 && usableHeight > 0) {
+      const maxLayers = Math.floor(usableHeight / ch);
+      cpp = maxLayers >= 1 ? Math.min(cpp, floor * maxLayers) : floor; // <1 layer = a case taller than the limit
+    }
+    // Capacity is the tighter of the height-adjusted footprint and the weight ceiling.
     const cap = cw > 0 ? Math.max(1, Math.min(cpp, Math.floor(maxWeight / cw))) : cpp;
     const full = Math.floor(qty / cap);
     for (let i = 0; i < full; i++) {
+      const items = [itemOf(p, cap, cw)];
+      const h = heightOf(items);
       pallets.push({
         index: 0,
         kind: "full",
-        items: [itemOf(p, cap, cw)],
+        items,
         cases: cap,
         weightLb: round1(cap * cw),
+        heightIn: h.heightIn,
         fillPct: Math.min(100, Math.round((cap / cpp) * 100)),
-        overweight: cw > 0 && cw > maxWeight
+        overweight: cw > 0 && cw > maxWeight,
+        overheight: h.over || (ch > 0 && ch > usableHeight)
       });
     }
     const rem = qty - full * cap;
@@ -145,14 +206,17 @@ export function planOrderPallets(lines: CartLine[], opts: { maxPalletWeightLb?: 
   if (cur && cur.cases > 0) closed.push(cur);
 
   for (const wp of closed) {
+    const h = heightOf(wp.items);
     pallets.push({
       index: 0,
       kind: "mixed",
       items: wp.items,
       cases: wp.cases,
       weightLb: round1(wp.weight),
+      heightIn: h.heightIn,
       fillPct: Math.min(100, Math.round(wp.fill * 100)),
-      overweight: wp.overweight
+      overweight: wp.overweight,
+      overheight: h.over
     });
   }
 
@@ -167,9 +231,12 @@ export function planOrderPallets(lines: CartLine[], opts: { maxPalletWeightLb?: 
     mixedPallets,
     totalCases: pallets.reduce((s, p) => s + p.cases, 0),
     totalWeightLb: round1(pallets.reduce((s, p) => s + p.weightLb, 0)),
+    tallestPalletIn: pallets.reduce((s, p) => Math.max(s, p.heightIn), 0),
     supplierDirect,
     needsConfig,
-    maxPalletWeightLb: maxWeight
+    maxPalletWeightLb: maxWeight,
+    maxPalletHeightIn: maxHeight,
+    palletBaseHeightIn: base
   };
 }
 
@@ -203,8 +270,8 @@ export function buildPalletSheetHtml(order: OrderRequest, plan: PalletPlan): str
         </tbody>
       </table>
       <footer>
-        <span>${p.cases} cases · ${p.fillPct}% full</span>
-        <span class="${p.overweight ? "warn" : ""}">${p.weightLb.toLocaleString()} lb${p.overweight ? " · OVER MAX" : ""} (max ${plan.maxPalletWeightLb.toLocaleString()} lb)</span>
+        <span>${p.cases} cases · ${p.fillPct}% full${p.heightIn > 0 ? ` · <span class="${p.overheight ? "warn" : ""}">~${p.heightIn}″ H${p.overheight ? " · OVER MAX" : ""}</span>` : ""}</span>
+        <span class="${p.overweight ? "warn" : ""}">${p.weightLb.toLocaleString()} lb${p.overweight ? " · OVER MAX" : ""} (max ${plan.maxPalletWeightLb.toLocaleString()} lb · ${plan.maxPalletHeightIn}″ H)</span>
       </footer>
       ${
         p.index === plan.totalPallets && (plan.supplierDirect.length > 0 || plan.needsConfig.length > 0)

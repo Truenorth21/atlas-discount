@@ -34,7 +34,11 @@ export function QuoteDetailClient({ id, isAdmin = false }: { id: string; isAdmin
   }
 
   const financials = calculateQuoteFinancials(order, store.pricingSettings, adjustment);
-  const palletPlan = planOrderPallets(order.lineItems ?? [], { maxPalletWeightLb: store.pricingSettings.maxPalletWeightLb });
+  const palletPlan = planOrderPallets(order.lineItems ?? [], {
+    maxPalletWeightLb: store.pricingSettings.maxPalletWeightLb,
+    maxPalletHeightIn: store.pricingSettings.maxPalletHeightIn,
+    palletBaseHeightIn: store.pricingSettings.palletBaseHeightIn
+  });
 
   return (
     <>
@@ -119,13 +123,17 @@ export function QuoteDetailClient({ id, isAdmin = false }: { id: string; isAdmin
           <section className="panel p-5">
             <h2 className="text-xl font-black text-atlas-navy">{t("palletLoad")}</h2>
             <p className="mt-1 text-sm text-slate-600">{t("palletLoadBody")}</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <FinancialCard label={t("estimatedPallets")} value={String(palletPlan.totalPallets)} emphasis />
               <FinancialCard label={t("fullMixedPallets")} value={`${palletPlan.fullPallets} / ${palletPlan.mixedPallets}`} />
               <FinancialCard label={t("estimatedPalletWeight")} value={`${palletPlan.totalWeightLb.toLocaleString()} lb`} />
+              <FinancialCard label={t("estimatedPalletHeight")} value={palletPlan.tallestPalletIn > 0 ? `${palletPlan.tallestPalletIn}″` : "—"} />
             </div>
+            {palletPlan.mixedPallets > 0 && (
+              <p className="mt-3 text-xs text-slate-600">{t("mixedPalletNote")}</p>
+            )}
             {palletPlan.supplierDirect.length > 0 && (
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-slate-500">
                 {t("palletSupplierDirectNote")} {palletPlan.supplierDirect.reduce((sum, item) => sum + item.cases, 0)}
               </p>
             )}
