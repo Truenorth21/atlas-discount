@@ -20,7 +20,7 @@ const categoryChipLabels: Record<string, string> = {
 };
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
-import { allocateFulfillmentByCases, buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel, tierMarginPct } from "@/lib/pricing";
+import { buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel, tierMarginPct } from "@/lib/pricing";
 import type { PricingContext } from "@/lib/pricing";
 import type { FulfillmentType, OrderRequest, Product } from "@/lib/types";
 
@@ -159,7 +159,6 @@ export default function CatalogClient({
     qualifiesFreeDelivery && fulfillmentType === "Local delivery"
       ? calculateQuoteFinancials(draftOrder, store.pricingSettings, { orderId: "DRAFT", freeDelivery: true }, pricingCtx)
       : baseFinancials;
-  const fulfillmentAllocations = allocateFulfillmentByCases(draftOrder, quoteFinancials.fulfillmentFee);
   const estimatedQuoteTotal = quoteFinancials.buyerTotal;
   const hasSupplierDirectItems = store.cart.some((line) => line.product.preferredHub === "Supplier direct");
   const hubPickupAutoPriced = fulfillmentType === "Pickup" && !hasSupplierDirectItems;
@@ -564,30 +563,27 @@ export default function CatalogClient({
                   </p>
                   {(() => {
                     const linePricing = calculateLinePricing(line, store.pricingSettings, undefined, pricingCtx);
-                    const allocation = fulfillmentAllocations.find((item) => item.productId === line.product.id)?.allocation ?? 0;
+                    // Buyers want one number: their blended price per case and the line total.
+                    // The pallet-vs-loose mechanics stay on the admin side.
+                    const perCase = line.quantity > 0 ? linePricing.revenue / line.quantity : 0;
                     const casesToPallet =
                       linePricing.palletSize > 0 && linePricing.looseCases > 0
                         ? linePricing.palletSize - (line.quantity % linePricing.palletSize)
                         : 0;
                     return (
-                      <div className="mt-2 rounded-md bg-atlas-light p-2 text-xs text-slate-700">
-                        {linePricing.pricingModel === "Supplier direct fulfillment fee" ? (
-                          <p>{linePricing.supplierDirectCases} {t("supplierDirectCases")} at {formatMoney(linePricing.casePrice)}</p>
-                        ) : (
-                          <>
-                            <p>{linePricing.palletCases} {t("palletPricedCases")} at {formatMoney(linePricing.palletPrice)}</p>
-                            <p>{linePricing.looseCases} {t("looseCases")} at {formatMoney(linePricing.casePrice)}</p>
-                            {casesToPallet > 0 && (
-                              <p className="mt-1 font-semibold text-emerald-700">
-                                +{casesToPallet} {t("toPalletRate")} ({linePricing.palletSize} {t("perPallet")})
-                              </p>
-                            )}
-                          </>
+                      <>
+                        <div className="mt-2 flex items-center justify-between rounded-md bg-atlas-light p-2 text-xs">
+                          <span className="font-semibold text-slate-600">
+                            {line.quantity} × {formatMoney(perCase)}/{t("caseLabel")}
+                          </span>
+                          <span className="text-sm font-black text-atlas-navy">{formatMoney(linePricing.revenue)}</span>
+                        </div>
+                        {casesToPallet > 0 && (
+                          <p className="mt-1 text-[11px] font-semibold text-emerald-700">
+                            {t("addMore")} {casesToPallet} {t("forPalletPricing")}
+                          </p>
                         )}
-                        {quoteFinancials.fulfillmentFee > 0 && (
-                          <p className="mt-1 font-semibold text-atlas-blue">{t("fulfillmentShare")}: {formatMoney(allocation)}</p>
-                        )}
-                      </div>
+                      </>
                     );
                   })()}
                   <div className="mt-3 grid gap-2">
@@ -738,24 +734,28 @@ export default function CatalogClient({
               )}
             </div>
           )}
-          <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-4 font-bold">
+          <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-4 text-sm font-bold text-slate-600">
             <span>{t("productSubtotal")}</span>
-            <span>{formatMoney(quoteFinancials.productRevenue)}</span>
+            <span className="text-atlas-navy">{formatMoney(quoteFinancials.productRevenue)}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between text-sm font-bold">
-            <span>{fulfillmentType === "Local delivery" ? t("estimatedDeliveryFulfillment") : t("estimatedFulfillment")}</span>
-            <span>{formatMoney(quoteFinancials.fulfillmentFee)}</span>
+          <div className="mt-2 flex items-center justify-between text-sm font-bold text-slate-600">
+            <span>{t("deliveryAndHandling")}</span>
+            <span className="text-atlas-navy">
+              {quoteFinancials.fulfillmentFee > 0 ? formatMoney(quoteFinancials.fulfillmentFee) : t("freeLabel")}
+            </span>
           </div>
-          {quoteFinancials.transferFee > 0 && (
-            <div className="mt-1 flex items-center justify-between text-xs font-semibold text-slate-500">
-              <span>↳ {t("crossDockTransfer")} ({quoteFinancials.transferCases} {t("cases")}, {t("includedInFulfillment")})</span>
-              <span>{formatMoney(quoteFinancials.transferFee)}</span>
-            </div>
-          )}
-          <div className="mt-2 flex items-center justify-between text-lg font-black text-atlas-navy">
-            <span>{hubPickupAutoPriced ? t("pickupTotal") : t("estimatedQuoteTotal")}</span>
+          <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 text-xl font-black text-atlas-navy">
+            <span>{hubPickupAutoPriced ? t("yourTotal") : t("yourEstimatedTotal")}</span>
             <span>{formatMoney(estimatedQuoteTotal)}</span>
           </div>
+          {totalCases > 0 && estimatedQuoteTotal > 0 && (
+            <p className="mt-1 text-right text-xs font-semibold text-slate-500">
+              ≈ {formatMoney(estimatedQuoteTotal / totalCases)} {hubPickupAutoPriced ? t("perCaseAtPickup") : t("perCaseDelivered")}
+            </p>
+          )}
+          {!hubPickupAutoPriced && (
+            <p className="mt-2 text-xs text-slate-500">{t("priceConfirmedNote")}</p>
+          )}
           {store.cart.length > 0 && (
             <div className="mt-4 rounded-md border border-slate-200 p-3 text-sm">
               <div className="flex items-center justify-between gap-3">
