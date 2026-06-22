@@ -2741,7 +2741,7 @@ function DeliveryCostCheck({
         <PalletStat label="Delivery charged" value={formatMoney(charged)} />
         <PalletStat label="Actual pallet cost" value={formatMoney(actual)} sub={`${pallets} × ${formatMoney(perPallet)}`} />
         <PalletStat label={short ? "Shortfall" : "Recovered"} value={formatMoney(net)} />
-        <PalletStat label="Flat estimate (booked)" value={formatMoney(flatBooked)} sub={Math.abs(flatBooked - actual) > 0.01 ? `vs ${formatMoney(actual)} actual` : "matches"} />
+        <PalletStat label="Flat estimate (fallback)" value={formatMoney(flatBooked)} sub={Math.abs(flatBooked - actual) > 0.01 ? `vs ${formatMoney(actual)} actual` : "matches"} />
       </div>
       {short && (
         <p className="mt-3 text-sm font-semibold text-atlas-red">
@@ -2753,7 +2753,7 @@ function DeliveryCostCheck({
           {dropShipCases} drop-ship {dropShipCases === 1 ? "case ships" : "cases ship"} from the supplier and aren&apos;t part of this pallet delivery cost.
         </p>
       )}
-      <p className="mt-2 text-[11px] text-slate-400">Profit shown above uses the flat estimate ({formatMoney(financials.fulfillmentCost)} total fulfillment cost); this check is the pallet-based reality.</p>
+      <p className="mt-2 text-[11px] text-slate-400">Estimated profit above now uses this pallet-based cost ({formatMoney(financials.fulfillmentCost)} total fulfillment cost). The flat estimate is only a fallback when no pallets can be planned.</p>
     </div>
   );
 }

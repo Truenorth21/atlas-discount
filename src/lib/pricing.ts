@@ -1,4 +1,9 @@
 import type { CartLine, CustomerTier, FulfillmentType, OrderRequest, PricingSettings, Product, QuoteAdjustment, QuoteFinancials, QuoteLineOverride } from "./types";
+import { planOrderPallets, productPalletSize } from "./pallets";
+
+// Pallet-size helpers live in pallets.ts (so the planner has no dependency on this
+// module); re-exported here for the many call sites that import them from pricing.
+export { casesPerPallet, productPalletSize } from "./pallets";
 
 export const REFERENCE_TIER_ID = "retailer";
 
@@ -269,19 +274,6 @@ export function standardCasePrice(product: Product, settings: PricingSettings) {
   return tierCasePrice(product, settings, REFERENCE_TIER_ID) ?? 0;
 }
 
-export function casesPerPallet(palletConfiguration: string) {
-  const match = palletConfiguration.match(/(\d+)\s*cases?/i);
-  return match ? Number(match[1]) : 0;
-}
-
-/** Pallet size: a direct cases-per-pallet override wins, then Ti×Hi spec, then the legacy text field. */
-export function productPalletSize(product: Product) {
-  const direct = product.spec?.casesPerPallet ?? 0;
-  if (direct > 0) return direct;
-  const fromSpec = (product.spec?.palletCasesPerFloor ?? 0) * (product.spec?.palletLayers ?? 0);
-  return fromSpec > 0 ? fromSpec : casesPerPallet(product.palletConfiguration);
-}
-
 /** Human-readable pallet configuration ("16/floor × 10 high = 160 cases") from spec, else the raw field. */
 export function palletConfigLabel(product: Product) {
   const direct = product.spec?.casesPerPallet ?? 0;
@@ -530,9 +522,27 @@ export function calculateQuoteFinancials(
   let fulfillmentFee = hubFee;
   let fulfillmentCost = hubCost;
 
+  // Atlas's real cost to move a delivered/freight order scales with pallet count, not
+  // a flat number. Plan the pallets once and use pallets × per-pallet cost as the cost
+  // basis (falling back to the flat estimate when there are no hub pallets to plan).
+  const needsPalletCost =
+    effectiveOrder.fulfillmentType === "Local delivery" ||
+    effectiveOrder.fulfillmentType === "Freight quote needed" ||
+    recommended.type === "Freight quote needed";
+  const palletCount = needsPalletCost
+    ? planOrderPallets(order.lineItems ?? [], {
+        maxPalletWeightLb: settings.maxPalletWeightLb,
+        maxPalletHeightIn: settings.maxPalletHeightIn,
+        palletBaseHeightIn: settings.palletBaseHeightIn
+      }).totalPallets
+    : 0;
+
   if (effectiveOrder.fulfillmentType === "Local delivery") {
     fulfillmentFee += adjustment?.freeDelivery ? 0 : effectiveSettings.localDeliveryFee;
-    fulfillmentCost += effectiveSettings.localDeliveryCost;
+    fulfillmentCost +=
+      palletCount > 0 && settings.perPalletDeliveryCost
+        ? palletCount * settings.perPalletDeliveryCost
+        : effectiveSettings.localDeliveryCost;
   }
 
   if (effectiveOrder.fulfillmentType === "Pickup") {
@@ -541,7 +551,10 @@ export function calculateQuoteFinancials(
 
   if (effectiveOrder.fulfillmentType === "Freight quote needed" || recommended.type === "Freight quote needed") {
     fulfillmentFee += adjustment?.freeDelivery ? 0 : effectiveSettings.freightCoordinationFee;
-    fulfillmentCost += effectiveSettings.freightCostEstimate;
+    fulfillmentCost +=
+      palletCount > 0 && settings.perPalletFreightCost
+        ? palletCount * settings.perPalletFreightCost
+        : effectiveSettings.freightCostEstimate;
   }
 
   // Miami ↔ Orlando cross-dock: lines stored at the other hub move to the buyer's

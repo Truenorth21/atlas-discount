@@ -1,5 +1,17 @@
 import type { CartLine, OrderRequest, Product } from "./types";
-import { productPalletSize } from "./pricing";
+
+export function casesPerPallet(palletConfiguration: string) {
+  const match = palletConfiguration.match(/(\d+)\s*cases?/i);
+  return match ? Number(match[1]) : 0;
+}
+
+/** Pallet size: a direct cases-per-pallet override wins, then Ti×Hi spec, then the legacy text field. */
+export function productPalletSize(product: Product) {
+  const direct = product.spec?.casesPerPallet ?? 0;
+  if (direct > 0) return direct;
+  const fromSpec = (product.spec?.palletCasesPerFloor ?? 0) * (product.spec?.palletLayers ?? 0);
+  return fromSpec > 0 ? fromSpec : casesPerPallet(product.palletConfiguration);
+}
 
 /** Default max stacked weight for a single pallet load (lb) — standard GMA pallet ballpark. */
 export const DEFAULT_MAX_PALLET_WEIGHT_LB = 2200;
