@@ -327,6 +327,9 @@ export type PricingSettings = {
   maxPalletHeightIn?: number;
   /** Pallet deck height (in) subtracted from max height before stacking cases. */
   palletBaseHeightIn?: number;
+  /** Pallet footprint (in) used to auto-compute cases-per-floor from case dimensions. */
+  palletLengthIn?: number;
+  palletWidthIn?: number;
   /** Atlas's actual local-delivery cost per pallet (used to verify the delivery fee). */
   perPalletDeliveryCost?: number;
   /** Atlas's actual LTL/freight cost per pallet (used to verify the freight fee). */

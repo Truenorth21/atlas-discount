@@ -26,7 +26,7 @@ import {
   standardCasePrice
 } from "@/lib/pricing";
 import { adPlacements, atlasHubs, defaultFulfillmentTierId, fulfillmentTiers, fulfillmentTypes, productCategories } from "@/lib/data";
-import { buildPalletSheetHtml, planOrderPallets } from "@/lib/pallets";
+import { buildPalletSheetHtml, cppFromDims, planOrderPallets } from "@/lib/pallets";
 import { DashboardHero } from "@/components/dashboard-hero";
 import type { AccountPricing, Application, AtlasHub, CartLine, CustomerTier, DocumentStatus, OrderRequest, PlacementBooking, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
 
@@ -976,6 +976,12 @@ export function SingleProductForm({
   const casesPerFloor = toNum(form.palletCasesPerFloor) ?? 0;
   const palletLayers = toNum(form.palletLayers) ?? 0;
   const totalCases = casesPerFloor * palletLayers;
+  // Auto cases-per-pallet derived from the case dimensions + weight (used when Ti/Hi
+  // aren't entered). Mirrors the planner so the admin sees the same number.
+  const autoCasesPerPallet = cppFromDims(
+    { spec: { caseDims: { length: toNum(form.caseL), width: toNum(form.caseW), height: toNum(form.caseH), weight: toNum(form.caseWeight), weightUnit: form.caseWeightUnit as "lb" | "oz" } } } as Product,
+    {}
+  );
   const caseWeightRaw = toNum(form.caseWeight);
   const caseWeightLb = caseWeightRaw === undefined ? undefined : form.caseWeightUnit === "oz" ? caseWeightRaw / 16 : caseWeightRaw;
   const palletProductWeight = caseWeightLb !== undefined ? caseWeightLb * totalCases : undefined;
@@ -994,7 +1000,17 @@ export function SingleProductForm({
 
   function addProduct() {
     if (!form.sku || !form.brand || !form.productName || !form.category) {
-      setMessage("Please fill in at least SKU, brand, product name, and category. Other fields are optional.");
+      setMessage("Please fill in at least SKU, brand, product name, and category.");
+      return;
+    }
+    // Case dimensions + weight are required — they drive pallet planning and freight.
+    const missingCaseDims =
+      !((toNum(form.caseL) ?? 0) > 0) ||
+      !((toNum(form.caseW) ?? 0) > 0) ||
+      !((toNum(form.caseH) ?? 0) > 0) ||
+      !((toNum(form.caseWeight) ?? 0) > 0);
+    if (missingCaseDims) {
+      setMessage("Case dimensions (L × W × H) and case weight are required — they let Atlas plan pallets and freight automatically.");
       return;
     }
 
@@ -1185,19 +1201,28 @@ export function SingleProductForm({
 
         <ProductSectionHeading>Master case</ProductSectionHeading>
         <AdminProductInput label="Case pack (units)" type="number" value={form.casePack} onChange={updateField("casePack")} />
-        <DimRow label="Case dimensions" l={form.caseL} w={form.caseW} h={form.caseH} onL={updateField("caseL")} onW={updateField("caseW")} onH={updateField("caseH")} />
-        <WeightInput label="Case weight" value={form.caseWeight} unit={form.caseWeightUnit} onValue={updateField("caseWeight")} onUnit={updateField("caseWeightUnit")} />
+        <DimRow label="Case dimensions (required)" l={form.caseL} w={form.caseW} h={form.caseH} onL={updateField("caseL")} onW={updateField("caseW")} onH={updateField("caseH")} />
+        <WeightInput label="Case weight (required)" value={form.caseWeight} unit={form.caseWeightUnit} onValue={updateField("caseWeight")} onUnit={updateField("caseWeightUnit")} />
 
-        <ProductSectionHeading>Pallet configuration</ProductSectionHeading>
+        <ProductSectionHeading>Pallet configuration (optional)</ProductSectionHeading>
         <AdminProductInput label="Cases per floor (Ti)" type="number" value={form.palletCasesPerFloor} onChange={updateField("palletCasesPerFloor")} />
         <AdminProductInput label="Layers high (Hi)" type="number" value={form.palletLayers} onChange={updateField("palletLayers")} />
         <AdminProductInput label="Standard pallet weight (lb)" type="number" value={form.palletStandardWeight} onChange={updateField("palletStandardWeight")} />
-        {totalCases > 0 && (
+        {totalCases > 0 ? (
           <div className="rounded-md bg-sky-50 p-3 text-sm text-atlas-navy md:col-span-3">
             <span className="font-black">{casesPerFloor} per floor × {palletLayers} layers = {totalCases} cases.</span>
             {palletTotalWeight !== undefined && (
               <> Est. pallet weight ≈ <span className="font-black">{Math.round(palletTotalWeight)} lb</span> ({Math.round(palletProductWeight ?? 0)} lb product + {palletStandard} lb pallet).</>
             )}
+          </div>
+        ) : autoCasesPerPallet > 0 ? (
+          <div className="rounded-md bg-emerald-50 p-3 text-sm text-atlas-navy md:col-span-3">
+            <span className="font-black">Auto from case size: ≈ {autoCasesPerPallet} cases/pallet.</span>{" "}
+            Atlas computes this from the case dimensions on a {`48×40`}″ pallet. Enter Ti/Hi above only to override.
+          </div>
+        ) : (
+          <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800 md:col-span-3">
+            Add case dimensions above and Atlas will auto-compute cases-per-pallet — or enter Ti/Hi to set it manually.
           </div>
         )}
 
@@ -2640,7 +2665,9 @@ function PalletPlanPanel({
   const plan = planOrderPallets(lines, {
     maxPalletWeightLb: settings.maxPalletWeightLb,
     maxPalletHeightIn: settings.maxPalletHeightIn,
-    palletBaseHeightIn: settings.palletBaseHeightIn
+    palletBaseHeightIn: settings.palletBaseHeightIn,
+    palletLengthIn: settings.palletLengthIn,
+    palletWidthIn: settings.palletWidthIn
   });
 
   return (
@@ -2880,6 +2907,8 @@ function PricingSettingsPanel({
         <NumberField label="Max pallet weight" value={settings.maxPalletWeightLb ?? 2200} onChange={updateNumber("maxPalletWeightLb")} hint="Maximum stacked weight per pallet. Standard GMA loads run ~2,000–2,500 lb." suffix="lb" />
         <NumberField label="Max pallet height" value={settings.maxPalletHeightIn ?? 60} onChange={updateNumber("maxPalletHeightIn")} hint="Max stacked height incl. the pallet. Tall cases stack fewer layers, so fewer cases per pallet. Single-stack DCs often cap ~60″." suffix="in" />
         <NumberField label="Pallet deck height" value={settings.palletBaseHeightIn ?? 6} onChange={updateNumber("palletBaseHeightIn")} hint="Height of the empty pallet, subtracted before stacking cases. Standard GMA pallet ≈ 6″." suffix="in" />
+        <NumberField label="Pallet length" value={settings.palletLengthIn ?? 48} onChange={updateNumber("palletLengthIn")} hint="Pallet footprint length. Used to auto-compute cases-per-floor from case size. GMA = 48″." suffix="in" />
+        <NumberField label="Pallet width" value={settings.palletWidthIn ?? 40} onChange={updateNumber("palletWidthIn")} hint="Pallet footprint width. Used to auto-compute cases-per-floor from case size. GMA = 40″." suffix="in" />
       </PricingGroup>
 
       <PricingGroup

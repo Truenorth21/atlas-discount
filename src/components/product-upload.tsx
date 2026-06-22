@@ -64,6 +64,7 @@ function validate(product: Product) {
   if (!product.unitSize) errors.push("Missing unit size");
   if (!product.productDimensions) errors.push("Missing product dimensions");
   if (!product.caseDimensions) errors.push("Missing case dimensions");
+  if (!product.caseWeight) errors.push("Missing case weight");
   if (!product.palletConfiguration) errors.push("Missing pallet configuration");
   if (product.casePack <= 0) errors.push("Case pack must be greater than 0");
   if (product.supplierCost <= 0) errors.push("Supplier cost must be greater than 0");

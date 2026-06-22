@@ -112,6 +112,8 @@ export const defaultPricingSettings: PricingSettings = {
   maxPalletWeightLb: 2200,
   maxPalletHeightIn: 60,
   palletBaseHeightIn: 6,
+  palletLengthIn: 48,
+  palletWidthIn: 40,
   perPalletDeliveryCost: 35,
   perPalletFreightCost: 120,
   minimumCaseMarginPerCase: 3,

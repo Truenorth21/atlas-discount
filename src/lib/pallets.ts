@@ -19,6 +19,54 @@ export const DEFAULT_MAX_PALLET_WEIGHT_LB = 2200;
 export const DEFAULT_MAX_PALLET_HEIGHT_IN = 60;
 /** Default pallet deck height (in) subtracted before stacking cases. */
 export const DEFAULT_PALLET_BASE_HEIGHT_IN = 6;
+/** Default GMA pallet footprint (in). */
+export const DEFAULT_PALLET_LENGTH_IN = 48;
+export const DEFAULT_PALLET_WIDTH_IN = 40;
+
+/** Cases that fit on one pallet floor from the case footprint (better of two
+ *  orientations). 0 when case length/width are unknown. */
+export function caseFootprintCasesPerFloor(
+  product: Product,
+  palletLengthIn = DEFAULT_PALLET_LENGTH_IN,
+  palletWidthIn = DEFAULT_PALLET_WIDTH_IN
+): number {
+  const d = product.spec?.caseDims;
+  const length = d?.length ?? 0;
+  const width = d?.width ?? 0;
+  if (length <= 0 || width <= 0) return 0;
+  const fitA = Math.floor(palletLengthIn / length) * Math.floor(palletWidthIn / width);
+  const fitB = Math.floor(palletLengthIn / width) * Math.floor(palletWidthIn / length);
+  return Math.max(fitA, fitB);
+}
+
+/** Cases-per-pallet computed purely from case dimensions + weight + pallet limits.
+ *  Used as the fallback when a product has no explicit pallet config. 0 when the
+ *  case length/width/height are unknown (can't be derived). */
+export function cppFromDims(
+  product: Product,
+  opts: {
+    palletLengthIn?: number;
+    palletWidthIn?: number;
+    maxPalletHeightIn?: number;
+    palletBaseHeightIn?: number;
+    maxPalletWeightLb?: number;
+  } = {}
+): number {
+  const palletL = opts.palletLengthIn && opts.palletLengthIn > 0 ? opts.palletLengthIn : DEFAULT_PALLET_LENGTH_IN;
+  const palletW = opts.palletWidthIn && opts.palletWidthIn > 0 ? opts.palletWidthIn : DEFAULT_PALLET_WIDTH_IN;
+  const maxHeight = opts.maxPalletHeightIn && opts.maxPalletHeightIn > 0 ? opts.maxPalletHeightIn : DEFAULT_MAX_PALLET_HEIGHT_IN;
+  const base = opts.palletBaseHeightIn && opts.palletBaseHeightIn > 0 ? opts.palletBaseHeightIn : DEFAULT_PALLET_BASE_HEIGHT_IN;
+  const maxWeight = opts.maxPalletWeightLb && opts.maxPalletWeightLb > 0 ? opts.maxPalletWeightLb : DEFAULT_MAX_PALLET_WEIGHT_LB;
+  const floor = caseFootprintCasesPerFloor(product, palletL, palletW);
+  const ch = caseHeightIn(product);
+  if (floor <= 0 || ch <= 0) return 0;
+  const usable = Math.max(0, maxHeight - base);
+  const layers = Math.max(1, Math.floor(usable / ch));
+  let cpp = floor * layers;
+  const cw = caseWeightLb(product);
+  if (cw > 0) cpp = Math.min(cpp, Math.floor(maxWeight / cw));
+  return Math.max(0, cpp);
+}
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -94,11 +142,13 @@ type WorkingPallet = { items: PalletItem[]; fill: number; weight: number; cases:
  */
 export function planOrderPallets(
   lines: CartLine[],
-  opts: { maxPalletWeightLb?: number; maxPalletHeightIn?: number; palletBaseHeightIn?: number } = {}
+  opts: { maxPalletWeightLb?: number; maxPalletHeightIn?: number; palletBaseHeightIn?: number; palletLengthIn?: number; palletWidthIn?: number } = {}
 ): PalletPlan {
   const maxWeight = opts.maxPalletWeightLb && opts.maxPalletWeightLb > 0 ? opts.maxPalletWeightLb : DEFAULT_MAX_PALLET_WEIGHT_LB;
   const maxHeight = opts.maxPalletHeightIn && opts.maxPalletHeightIn > 0 ? opts.maxPalletHeightIn : DEFAULT_MAX_PALLET_HEIGHT_IN;
   const base = opts.palletBaseHeightIn && opts.palletBaseHeightIn > 0 ? opts.palletBaseHeightIn : DEFAULT_PALLET_BASE_HEIGHT_IN;
+  const palletL = opts.palletLengthIn && opts.palletLengthIn > 0 ? opts.palletLengthIn : DEFAULT_PALLET_LENGTH_IN;
+  const palletW = opts.palletWidthIn && opts.palletWidthIn > 0 ? opts.palletWidthIn : DEFAULT_PALLET_WIDTH_IN;
   const usableHeight = Math.max(0, maxHeight - base);
   const pallets: PlannedPallet[] = [];
   const supplierDirect: PalletItem[] = [];
@@ -135,19 +185,32 @@ export function planOrderPallets(
       supplierDirect.push(itemOf(p, qty, cw));
       continue;
     }
-    const configuredCpp = productPalletSize(p);
-    if (!configuredCpp || configuredCpp <= 0) {
-      needsConfig.push(itemOf(p, qty, cw));
-      continue;
-    }
     const ch = caseHeightIn(p);
-    const floor = casesPerFloor(p);
+    // Cases per floor: explicit Ti if set, else computed from the case footprint.
+    const floor = casesPerFloor(p) || caseFootprintCasesPerFloor(p, palletL, palletW);
     dims.set(p.sku, { h: ch, floor });
-    // Height-aware cases-per-pallet: tall cases fit fewer layers, so fewer cases.
-    let cpp = configuredCpp;
-    if (ch > 0 && floor > 0 && usableHeight > 0) {
-      const maxLayers = Math.floor(usableHeight / ch);
-      cpp = maxLayers >= 1 ? Math.min(cpp, floor * maxLayers) : floor; // <1 layer = a case taller than the limit
+    const configuredCpp = productPalletSize(p);
+    let cpp: number;
+    if (configuredCpp > 0) {
+      // Height-aware: tall cases fit fewer layers, so fewer cases.
+      cpp = configuredCpp;
+      if (ch > 0 && floor > 0 && usableHeight > 0) {
+        const maxLayers = Math.floor(usableHeight / ch);
+        cpp = maxLayers >= 1 ? Math.min(cpp, floor * maxLayers) : floor; // <1 layer = a case taller than the limit
+      }
+    } else {
+      // No explicit pallet config — derive it from the case dimensions + weight.
+      cpp = cppFromDims(p, {
+        palletLengthIn: palletL,
+        palletWidthIn: palletW,
+        maxPalletHeightIn: maxHeight,
+        palletBaseHeightIn: base,
+        maxPalletWeightLb: maxWeight
+      });
+      if (cpp <= 0) {
+        needsConfig.push(itemOf(p, qty, cw));
+        continue;
+      }
     }
     // Capacity is the tighter of the height-adjusted footprint and the weight ceiling.
     const cap = cw > 0 ? Math.max(1, Math.min(cpp, Math.floor(maxWeight / cw))) : cpp;

@@ -37,7 +37,9 @@ export function QuoteDetailClient({ id, isAdmin = false }: { id: string; isAdmin
   const palletPlan = planOrderPallets(order.lineItems ?? [], {
     maxPalletWeightLb: store.pricingSettings.maxPalletWeightLb,
     maxPalletHeightIn: store.pricingSettings.maxPalletHeightIn,
-    palletBaseHeightIn: store.pricingSettings.palletBaseHeightIn
+    palletBaseHeightIn: store.pricingSettings.palletBaseHeightIn,
+    palletLengthIn: store.pricingSettings.palletLengthIn,
+    palletWidthIn: store.pricingSettings.palletWidthIn
   });
 
   return (

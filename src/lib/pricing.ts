@@ -533,7 +533,9 @@ export function calculateQuoteFinancials(
     ? planOrderPallets(order.lineItems ?? [], {
         maxPalletWeightLb: settings.maxPalletWeightLb,
         maxPalletHeightIn: settings.maxPalletHeightIn,
-        palletBaseHeightIn: settings.palletBaseHeightIn
+        palletBaseHeightIn: settings.palletBaseHeightIn,
+        palletLengthIn: settings.palletLengthIn,
+        palletWidthIn: settings.palletWidthIn
       }).totalPallets
     : 0;
 
