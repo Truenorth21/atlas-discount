@@ -577,8 +577,10 @@ export default function CatalogClient({
                     // Buyers want one number: their blended price per case and the line total.
                     // The pallet-vs-loose mechanics stay on the admin side.
                     const perCase = line.quantity > 0 ? linePricing.revenue / line.quantity : 0;
+                    // Only nudge toward a full pallet when it actually costs less per case.
+                    const palletSaves = linePricing.palletPrice > 0 && linePricing.palletPrice < linePricing.casePrice - 0.001;
                     const casesToPallet =
-                      linePricing.palletSize > 0 && linePricing.looseCases > 0
+                      palletSaves && linePricing.palletSize > 0 && linePricing.looseCases > 0
                         ? linePricing.palletSize - (line.quantity % linePricing.palletSize)
                         : 0;
                     return (
@@ -591,7 +593,7 @@ export default function CatalogClient({
                         </div>
                         {casesToPallet > 0 && (
                           <p className="mt-1 text-[11px] font-semibold text-emerald-700">
-                            {t("addMore")} {casesToPallet} {t("forPalletPricing")}
+                            {t("addMore")} {casesToPallet} {t("cases")} → {t("palletPriceLabel")} {formatMoney(linePricing.palletPrice)}/{t("caseLabel")}
                           </p>
                         )}
                       </>
