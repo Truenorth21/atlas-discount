@@ -7,7 +7,7 @@ import { ArrowLeftRight, CheckCircle2, Heart, MessageCircle, Minus, Plus, Search
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { DashboardHero } from "@/components/dashboard-hero";
-import { atlasHubs, fulfillmentTypes, productCategories, productCollections, readHomeHub, whatsappLink, writeHomeHub } from "@/lib/data";
+import { atlasHubs, fulfillmentTypes, isSingleHub, productCategories, productCollections, readHomeHub, whatsappLink, writeHomeHub } from "@/lib/data";
 
 // Short chip labels for the full category names.
 const categoryChipLabels: Record<string, string> = {
@@ -553,23 +553,25 @@ export default function CatalogClient({
                     </button>
                   </div>
                   <p className="text-slate-600">{line.quantity} {t("cases")} • {line.product.sku}</p>
-                  <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-atlas-blue">
-                    {hubText(line.product.preferredHub)}
-                    {line.product.preferredHub === "Supplier direct" && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-bold text-violet-700">
-                        <Truck size={11} />
-                        {t("shipsFromSupplier")}
-                      </span>
-                    )}
-                    {fulfillmentType !== "Supplier direct" &&
-                      (line.product.preferredHub === "Miami hub" || line.product.preferredHub === "Orlando hub") &&
-                      line.product.preferredHub !== receivingHub && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-                          <ArrowLeftRight size={11} />
-                          {t("transfersFrom")} {line.product.preferredHub}
+                  {!isSingleHub && (
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-atlas-blue">
+                      {hubText(line.product.preferredHub)}
+                      {line.product.preferredHub === "Supplier direct" && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-bold text-violet-700">
+                          <Truck size={11} />
+                          {t("shipsFromSupplier")}
                         </span>
                       )}
-                  </p>
+                      {fulfillmentType !== "Supplier direct" &&
+                        (line.product.preferredHub === "Miami hub" || line.product.preferredHub === "Orlando hub") &&
+                        line.product.preferredHub !== receivingHub && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                            <ArrowLeftRight size={11} />
+                            {t("transfersFrom")} {line.product.preferredHub}
+                          </span>
+                        )}
+                    </p>
+                  )}
                   {(() => {
                     const linePricing = calculateLinePricing(line, store.pricingSettings, undefined, pricingCtx);
                     // Buyers want one number: their blended price per case and the line total.
@@ -633,17 +635,19 @@ export default function CatalogClient({
               ))
             )}
           </div>
-          {hasSupplierDirectItems && store.cart.length > 0 && (
+          {!isSingleHub && hasSupplierDirectItems && store.cart.length > 0 && (
             <div className="mt-4 flex items-start gap-2 rounded-md border border-violet-200 bg-violet-50 p-3 text-xs text-violet-800">
               <Truck size={15} className="mt-0.5 shrink-0" />
               <span>{allDropShip ? t("cartDropShipAll") : t("cartDropShipMixed")}</span>
             </div>
           )}
-          <div className="mt-4 rounded-md bg-atlas-light p-3 text-sm">
-            <p className="font-black text-atlas-navy">{t("hubRoute")}</p>
-            <p className="mt-1 text-slate-600">{hubRouting}</p>
-            <p className="mt-2 text-xs font-semibold text-atlas-blue">{t("buyerRegion")}: {buyerRegion}</p>
-          </div>
+          {!isSingleHub && (
+            <div className="mt-4 rounded-md bg-atlas-light p-3 text-sm">
+              <p className="font-black text-atlas-navy">{t("hubRoute")}</p>
+              <p className="mt-1 text-slate-600">{hubRouting}</p>
+              <p className="mt-2 text-xs font-semibold text-atlas-blue">{t("buyerRegion")}: {buyerRegion}</p>
+            </div>
+          )}
           <div className={`mt-4 rounded-md border p-3 text-sm ${hubPickupAutoPriced ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
             <p className="font-black">{checkoutMode}</p>
             <p className="mt-1">
@@ -669,21 +673,23 @@ export default function CatalogClient({
               />
             </div>
           </div>
-          <div className="mt-4 rounded-md border border-slate-200 bg-atlas-light p-3 text-xs">
-            <p className="flex items-center gap-2 font-black text-atlas-navy">
-              <Warehouse size={15} className="text-atlas-blue" />
-              {t("deliveryExplainerTitle")}
-            </p>
-            <ul className="mt-2 grid gap-1.5 text-slate-600">
-              {[t("deliveryHub1"), t("deliveryHub2"), t("deliveryHub3")].map((line) => (
-                <li key={line} className="flex gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-atlas-blue" />
-                  {line}
-                </li>
-              ))}
-            </ul>
-          </div>
-          {!allDropShip && (
+          {!isSingleHub && (
+            <div className="mt-4 rounded-md border border-slate-200 bg-atlas-light p-3 text-xs">
+              <p className="flex items-center gap-2 font-black text-atlas-navy">
+                <Warehouse size={15} className="text-atlas-blue" />
+                {t("deliveryExplainerTitle")}
+              </p>
+              <ul className="mt-2 grid gap-1.5 text-slate-600">
+                {[t("deliveryHub1"), t("deliveryHub2"), t("deliveryHub3")].map((line) => (
+                  <li key={line} className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-atlas-blue" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!isSingleHub && !allDropShip && (
           <div className="mt-4 grid gap-2">
             <span className="label">{t("receiveOrderAt")}</span>
             <div className="grid grid-cols-2 gap-2">
@@ -712,7 +718,29 @@ export default function CatalogClient({
             )}
           </div>
           )}
-          {!allDropShip && (
+          {isSingleHub ? (
+            // NEPA-style: the only logistics choice a buyer makes is pickup vs ship.
+            <div className="mt-4 grid gap-2">
+              <span className="label">{t("howToGetIt")}</span>
+              <div className="grid grid-cols-2 gap-2">
+                {([["Pickup", t("pickupAtHub")], ["Local delivery", t("shipToMe")]] as const).map(([ft, label]) => (
+                  <button
+                    key={ft}
+                    className={`rounded-md border p-3 text-center text-sm font-black transition ${
+                      fulfillmentType === ft
+                        ? "border-atlas-blue bg-sky-50 text-atlas-navy"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-atlas-blue"
+                    }`}
+                    type="button"
+                    onClick={() => setFulfillmentType(ft as FulfillmentType)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">{fulfillmentType === "Pickup" ? t("pickupHint") : t("shipHint")}</p>
+            </div>
+          ) : !allDropShip ? (
           <div className="mt-4 grid gap-2">
             <span className="label">{t("chooseFulfillment")}</span>
             <div className="grid gap-2">
@@ -733,7 +761,7 @@ export default function CatalogClient({
               ))}
             </div>
           </div>
-          )}
+          ) : null}
           {store.cart.length > 0 && freeDeliveryThreshold > 0 && (
             <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs">
               {qualifiesFreeDelivery ? (
@@ -758,7 +786,7 @@ export default function CatalogClient({
             <span className="text-atlas-navy">{formatMoney(quoteFinancials.productRevenue)}</span>
           </div>
           <div className="mt-2 flex items-center justify-between text-sm font-bold text-slate-600">
-            <span>{t("deliveryAndHandling")}</span>
+            <span>{fulfillmentType === "Pickup" ? t("handlingLabel") : t("deliveryAndHandling")}</span>
             <span className="text-atlas-navy">
               {quoteFinancials.fulfillmentFee > 0 ? formatMoney(quoteFinancials.fulfillmentFee) : t("freeLabel")}
             </span>
@@ -822,7 +850,7 @@ export default function CatalogClient({
                 <div className="flex items-start justify-between gap-3">
                   <span className="flex flex-wrap items-center gap-1.5">
                     <span className="badge bg-slate-100 text-[10px] text-slate-600">{expandedImage.subcategory || expandedImage.category}</span>
-                    {expandedImage.preferredHub === "Supplier direct" && (
+                    {!isSingleHub && expandedImage.preferredHub === "Supplier direct" && (
                       <span className="badge bg-violet-50 text-[10px] text-violet-700"><Truck size={10} />{t("dropShip")}</span>
                     )}
                   </span>
@@ -833,9 +861,10 @@ export default function CatalogClient({
                 <h2 className="mt-2 text-2xl font-black text-atlas-navy">{expandedImage.brand}</h2>
                 <p className="text-sm text-slate-600">{expandedImage.productName || expandedImage.description}</p>
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  {expandedImage.casePack} {t("perCaseUnits")}{expandedImage.unitSize ? ` · ${expandedImage.unitSize}` : ""} · {hubText(expandedImage.preferredHub)}
+                  {expandedImage.casePack} {t("perCaseUnits")}{expandedImage.unitSize ? ` · ${expandedImage.unitSize}` : ""}
+                  {!isSingleHub ? ` · ${hubText(expandedImage.preferredHub)}` : ""}
                 </p>
-                {expandedImage.preferredHub === "Supplier direct" && (
+                {!isSingleHub && expandedImage.preferredHub === "Supplier direct" && (
                   <p className="mt-1 flex items-start gap-1.5 text-xs font-semibold text-violet-700">
                     <Truck size={13} className="mt-0.5 shrink-0" />
                     {t("dropShipNote")}
@@ -958,7 +987,7 @@ function StoreProductCard({
       <div className="flex flex-1 flex-col p-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="badge bg-slate-100 text-[10px] text-slate-600">{product.subcategory || product.category}</span>
-          {product.preferredHub === "Supplier direct" && (
+          {!isSingleHub && product.preferredHub === "Supplier direct" && (
             <span className="badge bg-violet-50 text-[10px] text-violet-700"><Truck size={10} />{t("dropShip")}</span>
           )}
           {isNew && <span className="badge bg-emerald-50 text-[10px] text-emerald-700">{t("newBadge")}</span>}
@@ -975,7 +1004,8 @@ function StoreProductCard({
         <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{product.productName || product.description}</p>
         <p className="mt-1 text-xs font-semibold text-slate-500">
           {product.casePack} {t("perCaseUnits")}
-          {product.unitSize ? ` · ${product.unitSize}` : ""} · {product.preferredHub === "Supplier direct" ? t("dropShip") : product.preferredHub ?? "Orlando hub"}
+          {product.unitSize ? ` · ${product.unitSize}` : ""}
+          {!isSingleHub ? ` · ${product.preferredHub === "Supplier direct" ? t("dropShip") : product.preferredHub ?? "Orlando hub"}` : ""}
         </p>
 
         <div className="mt-2">
@@ -1052,7 +1082,9 @@ function DealCard({ product, addToCart }: { product: Product; addToCart: (produc
         <div className="min-w-0">
           <p className="truncate text-sm font-black text-atlas-navy">{product.brand}</p>
           <p className="line-clamp-2 text-xs font-semibold text-slate-600">{product.productName || product.description}</p>
-          <p className="mt-1 text-xs font-bold text-atlas-blue">{product.preferredHub === "Supplier direct" ? t("dropShip") : product.preferredHub ?? t("dropShip")}</p>
+          {!isSingleHub && (
+            <p className="mt-1 text-xs font-bold text-atlas-blue">{product.preferredHub === "Supplier direct" ? t("dropShip") : product.preferredHub ?? t("dropShip")}</p>
+          )}
         </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-2">

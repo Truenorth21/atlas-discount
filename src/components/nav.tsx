@@ -5,7 +5,7 @@ import { ChevronDown, Eye, LayoutDashboard, LifeBuoy, LogIn, MapPin, ShieldCheck
 import { AtlasMark } from "./atlas-logo";
 import { useEffect, useState } from "react";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/browser";
-import { productCategories, readHomeHub, whatsappLink, writeHomeHub } from "@/lib/data";
+import { isSingleHub, primaryHub, productCategories, readHomeHub, whatsappLink, writeHomeHub } from "@/lib/data";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 import { SignOutButton } from "./sign-out-button";
 
@@ -123,16 +123,24 @@ export function Nav() {
             <span className="font-black text-yellow-300 underline-offset-2 group-hover:underline">{t("promoBarCta")} →</span>
           </Link>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-sm font-bold text-white transition hover:bg-white/20"
-              type="button"
-              onClick={() => setLocationOpen(true)}
-              aria-label={t("locationButtonLabel")}
-            >
-              <MapPin size={16} className="text-sky-300" />
-              {t(selectedLocation.nameKey)}
-              <ChevronDown size={15} />
-            </button>
+            {isSingleHub ? (
+              // Single hub: no picker — buyers don't choose a hub. Static origin label.
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-sm font-bold text-white">
+                <MapPin size={16} className="text-sky-300" />
+                {t("shipsFrom")} {primaryHub}
+              </span>
+            ) : (
+              <button
+                className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-sm font-bold text-white transition hover:bg-white/20"
+                type="button"
+                onClick={() => setLocationOpen(true)}
+                aria-label={t("locationButtonLabel")}
+              >
+                <MapPin size={16} className="text-sky-300" />
+                {t(selectedLocation.nameKey)}
+                <ChevronDown size={15} />
+              </button>
+            )}
             <div className="inline-flex items-center gap-1.5 text-sm font-semibold" role="group" aria-label="Language">
               <button
                 className={`transition ${language === "en" ? "font-bold text-white" : "text-white/50 hover:text-white"}`}

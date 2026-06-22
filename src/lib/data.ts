@@ -7,6 +7,14 @@ export const atlasHubs: AtlasHub[] = ["Miami hub", "Orlando hub", "Supplier dire
 // "receive order at" toggle, so the two never disagree. Supplier-direct (drop ship)
 // is a shipping method, not a home hub, so it is deliberately not an option here.
 export type HomeHub = "Miami hub" | "Orlando hub";
+
+// Hubs Atlas currently operates. Single-hub (Miami) for now — the buyer never sees
+// hub choices, cross-dock, or "receive at" UI. Add "Orlando hub" here to switch the
+// two-hub network features back on without other code changes.
+export const activeHubs: HomeHub[] = ["Miami hub"];
+export const isSingleHub = activeHubs.length === 1;
+export const primaryHub: HomeHub = activeHubs[0];
+
 export const HOME_HUB_KEY = "atlas-home-hub";
 export const homeHubOptions: { id: string; hub: HomeHub; region: string }[] = [
   { id: "miami", hub: "Miami hub", region: "South Florida" },
