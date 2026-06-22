@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeftRight, CheckCircle2, Heart, MessageCircle, Minus, Plus, Search, ShoppingCart, Snowflake, Sparkles, Tag, Trash2, Truck, Warehouse, X } from "lucide-react";
+import { ArrowLeftRight, Boxes, CheckCircle2, Heart, MessageCircle, Minus, Plus, Search, ShoppingCart, Snowflake, Sparkles, Tag, Trash2, Truck, Warehouse, X } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage, isPlaceholderImage } from "@/components/product-image";
 import { DashboardHero } from "@/components/dashboard-hero";
@@ -22,6 +22,7 @@ import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
 import { buyerCasePrice, calculateLinePricing, calculateQuoteFinancials, formatMoney, palletConfigLabel, standardCasePrice, tierLabel, tierMarginPct } from "@/lib/pricing";
 import type { PricingContext } from "@/lib/pricing";
+import { caseWeightLb, planOrderPallets, resolvedCasesPerPallet } from "@/lib/pallets";
 import type { FulfillmentType, OrderRequest, Product } from "@/lib/types";
 
 type ReceivingHub = "Miami hub" | "Orlando hub";
@@ -126,6 +127,17 @@ export default function CatalogClient({
 
   const lastOrder = store.orders.find((order) => (order.lineItems?.length ?? 0) > 0);
   const totalCases = store.cart.reduce((sum, line) => sum + line.quantity, 0);
+  // Buyer-facing pallet + weight read. Cases-per-pallet comes from each product's
+  // config or its case dimensions; weight from case weights.
+  const palletOpts = {
+    maxPalletWeightLb: store.pricingSettings.maxPalletWeightLb,
+    maxPalletHeightIn: store.pricingSettings.maxPalletHeightIn,
+    palletBaseHeightIn: store.pricingSettings.palletBaseHeightIn,
+    palletLengthIn: store.pricingSettings.palletLengthIn,
+    palletWidthIn: store.pricingSettings.palletWidthIn
+  };
+  const cartPalletPlan = planOrderPallets(store.cart, palletOpts);
+  const cartTotalWeightLb = Math.round(store.cart.reduce((sum, line) => sum + caseWeightLb(line.product) * line.quantity, 0));
   const hubSummary = Array.from(
     store.cart.reduce((summary, line) => {
       const hubName = line.product.preferredHub ?? "Supplier direct";
@@ -632,6 +644,19 @@ export default function CatalogClient({
                       {t("directMoq")} {line.product.moq} {t("cases")}
                       {line.product.inventoryAvailable > 0 ? ` • ${t("available")} ${line.product.inventoryAvailable}` : ""}
                     </p>
+                    {(() => {
+                      const cpp = resolvedCasesPerPallet(line.product, palletOpts);
+                      if (cpp <= 0) return null;
+                      const fullPallets = Math.floor(line.quantity / cpp);
+                      const toNext = cpp - (line.quantity % cpp);
+                      return (
+                        <p className="text-xs font-semibold text-atlas-blue">
+                          {cpp} {t("cases")} = 1 {t("palletWord")}
+                          {fullPallets > 0 && ` • ${fullPallets} ${fullPallets === 1 ? t("palletWord") : t("palletsWord")}`}
+                          {line.quantity % cpp !== 0 && ` • +${toNext} ${t("toFullPallet")}`}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </div>
               ))
@@ -804,6 +829,31 @@ export default function CatalogClient({
           )}
           {!hubPickupAutoPriced && (
             <p className="mt-2 text-xs text-slate-500">{t("priceConfirmedNote")}</p>
+          )}
+          {store.cart.length > 0 && (cartPalletPlan.totalPallets > 0 || cartTotalWeightLb > 0) && (
+            <div className="mt-4 rounded-md border border-slate-200 bg-atlas-light p-3 text-sm">
+              <p className="flex items-center gap-2 font-black text-atlas-navy">
+                <Boxes size={16} className="text-atlas-blue" />
+                {t("palletWeightTitle")}
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                {cartPalletPlan.totalPallets > 0 && (
+                  <div>
+                    <span className="block font-semibold uppercase tracking-wide text-slate-400">{t("estPalletsLabel")}</span>
+                    <span className="text-sm font-black text-atlas-navy">{cartPalletPlan.totalPallets}</span>
+                  </div>
+                )}
+                {cartTotalWeightLb > 0 && (
+                  <div>
+                    <span className="block font-semibold uppercase tracking-wide text-slate-400">{t("totalWeightLabel")}</span>
+                    <span className="text-sm font-black text-atlas-navy">≈ {cartTotalWeightLb.toLocaleString()} lb</span>
+                  </div>
+                )}
+              </div>
+              {cartPalletPlan.needsConfig.length > 0 && (
+                <p className="mt-2 text-[11px] font-semibold text-amber-700">{t("palletPendingNote")}</p>
+              )}
+            </div>
           )}
           {store.cart.length > 0 && (
             <div className="mt-4 rounded-md border border-slate-200 p-3 text-sm">

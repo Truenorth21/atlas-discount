@@ -39,6 +39,16 @@ export function caseFootprintCasesPerFloor(
   return Math.max(fitA, fitB);
 }
 
+/** The cases-per-pallet Atlas will use: explicit config (Ti×Hi / override / legacy)
+ *  wins, else computed from the case dimensions. 0 when neither is available. */
+export function resolvedCasesPerPallet(
+  product: Product,
+  opts: { palletLengthIn?: number; palletWidthIn?: number; maxPalletHeightIn?: number; palletBaseHeightIn?: number; maxPalletWeightLb?: number } = {}
+): number {
+  const explicit = productPalletSize(product);
+  return explicit > 0 ? explicit : cppFromDims(product, opts);
+}
+
 /** Cases-per-pallet computed purely from case dimensions + weight + pallet limits.
  *  Used as the fallback when a product has no explicit pallet config. 0 when the
  *  case length/width/height are unknown (can't be derived). */
