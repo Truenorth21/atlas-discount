@@ -810,7 +810,7 @@ const blankProductForm = {
   innerPack: "", innerL: "", innerW: "", innerH: "", innerWeight: "", innerWeightUnit: "lb",
   casePack: "1", caseL: "", caseW: "", caseH: "", caseWeight: "", caseWeightUnit: "lb",
   palletCasesPerFloor: "", palletLayers: "", palletStandardWeight: "40",
-  shippingWarehouse: "Orlando hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
+  stocking: "hub", shippingWarehouse: "Orlando hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
   supplierCost: "", suggestedRetail: "", moq: "1", minOrderValue: "", leadTime: "", inventoryAvailable: "0",
   priceRetailer: "", priceDistributor: "", repCommissionPct: "",
   palletPriceRetailer: "", palletPriceDistributor: "",
@@ -885,6 +885,7 @@ function formFromProduct(product: Product): typeof blankProductForm {
     palletCasesPerFloor: numToStr(spec?.palletCasesPerFloor),
     palletLayers: numToStr(spec?.palletLayers),
     palletStandardWeight: numToStr(spec?.palletStandardWeight) || "40",
+    stocking: product.preferredHub === "Supplier direct" ? "dropship" : "hub",
     shippingWarehouse: spec?.shippingWarehouse ?? (product.preferredHub === "Miami hub" ? "Miami hub" : "Orlando hub"),
     fulfillmentMode: spec?.fulfillmentMode ?? "delivered",
     pickupAddress: spec?.pickupAddress ?? "",
@@ -1014,8 +1015,14 @@ export function SingleProductForm({
       pickupPhone: form.fulfillmentMode === "pickup" ? form.pickupPhone || undefined : undefined
     };
 
-    const location = form.fulfillmentMode === "pickup" && form.pickupAddress ? form.pickupAddress : form.shippingWarehouse;
-    const preferredHub = form.shippingWarehouse as AtlasHub;
+    // Drop-ship products aren't stocked at a hub: they always fulfill supplier-direct.
+    const isDropship = form.stocking === "dropship";
+    const preferredHub: AtlasHub = isDropship ? "Supplier direct" : (form.shippingWarehouse as AtlasHub);
+    const location = isDropship
+      ? form.pickupAddress || "Ships from supplier"
+      : form.fulfillmentMode === "pickup" && form.pickupAddress
+        ? form.pickupAddress
+        : form.shippingWarehouse;
 
     const product: Product = {
       id: `admin-${Date.now()}`,
@@ -1050,9 +1057,11 @@ export function SingleProductForm({
       deliveryRadius: "",
       preferredHub,
       routeRecommendation:
-        preferredHub === "Miami hub"
-          ? "Stage through Miami for South Florida pickup and delivery."
-          : "Stage through Orlando for Central Florida pickup and delivery.",
+        preferredHub === "Supplier direct"
+          ? "Ships directly from the supplier — not stocked at an Atlas hub."
+          : preferredHub === "Miami hub"
+            ? "Stage through Miami for South Florida pickup and delivery."
+            : "Stage through Orlando for Central Florida pickup and delivery.",
       status: defaultStatus,
       supplierName: (lockSupplierName ? defaultSupplierName : form.supplierName) || defaultSupplierName,
       promotion: form.promotion || undefined,
@@ -1061,7 +1070,7 @@ export function SingleProductForm({
 
     addProducts([product]);
     setMessage(`${product.brand} ${product.sku} was ${submittedVerb}.`);
-    setForm((current) => ({ ...blankProductForm, supplierName: current.supplierName, shippingWarehouse: current.shippingWarehouse, fulfillmentMode: current.fulfillmentMode }));
+    setForm((current) => ({ ...blankProductForm, supplierName: current.supplierName, stocking: current.stocking, shippingWarehouse: current.shippingWarehouse, fulfillmentMode: current.fulfillmentMode }));
     setHasInner(false);
     setCopyFromId("");
   }
@@ -1194,15 +1203,29 @@ export function SingleProductForm({
 
         <ProductSectionHeading>Fulfillment</ProductSectionHeading>
         <label className="grid gap-1">
-          <span className="text-sm font-bold text-slate-700">Shipping warehouse</span>
-          <select className="input" value={form.shippingWarehouse} onChange={updateField("shippingWarehouse")}>
-            <option value="Orlando hub">Orlando hub</option>
-            <option value="Miami hub">Miami hub</option>
+          <span className="text-sm font-bold text-slate-700">Where is this stocked?</span>
+          <select className="input" value={form.stocking} onChange={updateField("stocking")}>
+            <option value="hub">Stocked at an Atlas hub</option>
+            <option value="dropship">Drop ship — not in an Atlas warehouse</option>
           </select>
         </label>
+        {form.stocking === "hub" ? (
+          <label className="grid gap-1">
+            <span className="text-sm font-bold text-slate-700">Shipping warehouse</span>
+            <select className="input" value={form.shippingWarehouse} onChange={updateField("shippingWarehouse")}>
+              <option value="Orlando hub">Orlando hub</option>
+              <option value="Miami hub">Miami hub</option>
+            </select>
+          </label>
+        ) : (
+          <div className="grid gap-1 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+            <span className="font-bold">Drop ship</span>
+            Ships directly from the supplier — buyers can&apos;t pick it up at a hub, and it isn&apos;t combined onto a hub pallet.
+          </div>
+        )}
         <label className="grid gap-1">
           <span className="text-sm font-bold text-slate-700">Pickup or delivered</span>
-          <select className="input" value={form.fulfillmentMode} onChange={updateField("fulfillmentMode")}>
+          <select className="input" value={form.fulfillmentMode} onChange={updateField("fulfillmentMode")} disabled={form.stocking === "dropship"}>
             <option value="delivered">Delivered</option>
             <option value="pickup">Pickup</option>
           </select>
