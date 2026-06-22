@@ -2,6 +2,12 @@ import type { Application, AtlasHub, FulfillmentType, OrderRequest, PricingSetti
 
 export const atlasHubs: AtlasHub[] = ["Miami hub", "Orlando hub", "Supplier direct"];
 
+/** Keyword-matched stock photo (LoremFlickr — free, no key, hot-linkable). `lock`
+ *  keeps the same image across loads. Swap for curated/owned art later. */
+export function stockImage(keywords: string, width = 800, height = 600, lock = 1): string {
+  return `https://loremflickr.com/${width}/${height}/${encodeURIComponent(keywords)}?lock=${lock}`;
+}
+
 // A buyer's "home hub" is the single Atlas hub they pick up at / receive delivery
 // from. It is the ONE source of truth shared by the top-bar picker and the cart's
 // "receive order at" toggle, so the two never disagree. Supplier-direct (drop ship)
@@ -277,7 +283,7 @@ export const sampleProducts: Product[] = [
     category: "Janitorial",
     subcategory: "Cleaning Supplies",
     unitSize: "12 tubs per case",
-    imageUrl: "/product-images/disinfecting-wipes.svg",
+    imageUrl: stockImage("cleaning,wipes", 800, 800, 21),
     productDimensions: "6 x 6 x 8 in per tub",
     casePack: 12,
     caseDimensions: "18 x 14 x 12 in",
@@ -308,7 +314,7 @@ export const sampleProducts: Product[] = [
     category: "Grocery",
     subcategory: "Pantry",
     unitSize: "6 jars per case",
-    imageUrl: "/product-images/pasta-sauce.svg",
+    imageUrl: stockImage("pasta,sauce", 800, 800, 22),
     productDimensions: "3 x 3 x 6.5 in per jar",
     casePack: 6,
     caseDimensions: "16 x 11 x 9 in",
@@ -338,7 +344,7 @@ export const sampleProducts: Product[] = [
     category: "Office",
     subcategory: "Paper",
     unitSize: "10 reams per case",
-    imageUrl: "/product-images/copy-paper.svg",
+    imageUrl: stockImage("office,paper", 800, 800, 23),
     productDimensions: "8.5 x 11 in per sheet",
     casePack: 10,
     caseDimensions: "19 x 13 x 11 in",
@@ -368,7 +374,7 @@ export const sampleProducts: Product[] = [
     category: "Health & Beauty",
     subcategory: "Personal Care",
     unitSize: "8 pouches per case",
-    imageUrl: "/product-images/hand-soap.svg",
+    imageUrl: stockImage("hand,soap", 800, 800, 24),
     productDimensions: "5 x 2 x 8 in per pouch",
     casePack: 8,
     caseDimensions: "15 x 12 x 10 in",

@@ -32,22 +32,22 @@ import { Nav } from "@/components/nav";
 import { ProductImage } from "@/components/product-image";
 import { Reveal } from "@/components/reveal";
 import type { Product } from "@/lib/types";
-import { productCategories } from "@/lib/data";
+import { productCategories, stockImage } from "@/lib/data";
 import { type TranslationKey, useI18n } from "@/lib/i18n";
 
 // Real catalog categories (kept in sync with productCategories in lib/data.ts) so
 // every tile deep-links into a filtered catalog.
-const homeCategories = Object.entries(productCategories).map(([name, subcategories]) => {
-  const icons: Record<string, { icon: typeof SprayCan; grad: string }> = {
-    "Janitorial / Cleaning Supplies": { icon: SprayCan, grad: "from-sky-500 to-atlas-blue" },
-    "Grocery / Pantry": { icon: Apple, grad: "from-amber-400 to-orange-500" },
-    "Health & Beauty (HBA)": { icon: HeartPulse, grad: "from-rose-400 to-pink-500" },
-    "Office / Paper": { icon: FileText, grad: "from-violet-400 to-violet-600" },
-    "Foodservice / Disposables": { icon: UtensilsCrossed, grad: "from-emerald-400 to-emerald-600" },
-    "Closeout / Special buys": { icon: BadgePercent, grad: "from-rose-500 to-atlas-red" }
+const homeCategories = Object.entries(productCategories).map(([name, subcategories], index) => {
+  const icons: Record<string, { icon: typeof SprayCan; grad: string; query: string }> = {
+    "Janitorial / Cleaning Supplies": { icon: SprayCan, grad: "from-sky-500 to-atlas-blue", query: "cleaning,supplies" },
+    "Grocery / Pantry": { icon: Apple, grad: "from-amber-400 to-orange-500", query: "grocery,pantry" },
+    "Health & Beauty (HBA)": { icon: HeartPulse, grad: "from-rose-400 to-pink-500", query: "cosmetics,beauty" },
+    "Office / Paper": { icon: FileText, grad: "from-violet-400 to-violet-600", query: "office,paper" },
+    "Foodservice / Disposables": { icon: UtensilsCrossed, grad: "from-emerald-400 to-emerald-600", query: "foodservice,packaging" },
+    "Closeout / Special buys": { icon: BadgePercent, grad: "from-rose-500 to-atlas-red", query: "warehouse,boxes" }
   };
-  const style = icons[name] ?? { icon: Boxes, grad: "from-slate-400 to-slate-600" };
-  return { name, count: String(subcategories.length), icon: style.icon, grad: style.grad };
+  const style = icons[name] ?? { icon: Boxes, grad: "from-slate-400 to-slate-600", query: "wholesale,warehouse" };
+  return { name, count: String(subcategories.length), icon: style.icon, grad: style.grad, image: stockImage(style.query, 600, 360, index + 11) };
 });
 
 const featureCards: { icon: typeof ShieldCheck; titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
@@ -132,6 +132,12 @@ export default function HomePage() {
       <main className="bg-atlas-light">
         {/* Modern gradient hero banner */}
         <section className="relative overflow-hidden bg-atlas-navy text-white">
+          <img
+            src={stockImage("warehouse,logistics", 1600, 900, 7)}
+            alt=""
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-atlas-navy via-atlas-navy/95 to-atlas-navy/70" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_-10%,rgba(10,99,176,0.65),transparent_55%),radial-gradient(circle_at_95%_25%,rgba(10,99,176,0.4),transparent_45%)]" />
           <div className="atlas-container relative py-16 lg:py-24">
             <div className="max-w-3xl">
@@ -196,14 +202,16 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {homeCategories.map(({ name, count, icon: Icon, grad }) => (
+            {homeCategories.map(({ name, count, icon: Icon, grad, image }) => (
               <Link
                 key={name}
                 href={`/catalog?category=${encodeURIComponent(name)}`}
                 className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-panel"
               >
-                <div className={`flex h-28 items-center justify-center bg-gradient-to-br ${grad}`}>
-                  <Icon size={40} className="text-white drop-shadow" />
+                <div className="relative flex h-32 items-center justify-center overflow-hidden">
+                  <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                  <div className={`absolute inset-0 bg-gradient-to-br ${grad} opacity-80 mix-blend-multiply`} />
+                  <Icon size={40} className="relative text-white drop-shadow-lg" />
                 </div>
                 <div className="flex items-center justify-between gap-2 p-4">
                   <div>
