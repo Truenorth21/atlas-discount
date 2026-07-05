@@ -5,16 +5,32 @@
 :root {
   color-scheme: light;
   background: #f3f5f8;
+  --atlas-navy: #10194a;
+  --atlas-blue: #0a63b0;
+  --atlas-red: #dc2626;
+  --atlas-ink: #17203f;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
-  color: #10194a;
-  background: #f3f5f8;
+  color: var(--atlas-ink);
+  background:
+    linear-gradient(180deg, #ffffff 0, #f8fafc 28rem, #f3f5f8 100%);
+  font-feature-settings: "kern" 1, "liga" 1;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  color: #ffffff;
+  background: var(--atlas-blue);
 }
 
 button,
@@ -24,37 +40,81 @@ textarea {
   font: inherit;
 }
 
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(10, 99, 176, 0.28);
+  outline-offset: 2px;
+}
+
 @layer components {
   .atlas-container {
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 
   .panel {
-    @apply rounded-2xl border border-slate-200 bg-white shadow-panel;
+    @apply rounded-lg border border-slate-200/90 bg-white shadow-panel;
   }
 
   .btn-primary {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-atlas-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-atlas-navy focus:outline-none focus:ring-2 focus:ring-atlas-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-atlas-blue px-5 py-2.5 text-sm font-bold text-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-atlas-navy hover:shadow-md focus:outline-none focus:ring-2 focus:ring-atlas-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-secondary {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue focus:outline-none focus:ring-2 focus:ring-atlas-blue focus:ring-offset-2;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-atlas-navy shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-atlas-blue hover:text-atlas-blue hover:shadow-md focus:outline-none focus:ring-2 focus:ring-atlas-blue focus:ring-offset-2;
   }
 
   .btn-danger {
-    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-atlas-red px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-atlas-red focus:ring-offset-2;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-atlas-red px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-atlas-red focus:ring-offset-2;
   }
 
   .field,
   .input {
-    @apply min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-atlas-navy outline-none transition placeholder:text-slate-400 focus:border-atlas-blue focus:ring-2 focus:ring-atlas-blue/20;
+    @apply min-h-11 w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-atlas-navy shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-atlas-blue focus:ring-2 focus:ring-atlas-blue/20;
   }
 
   .label {
-    @apply text-sm font-semibold text-slate-700;
+    @apply text-sm font-bold text-slate-700;
   }
 
   .badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold;
+  }
+
+  .storefront-band {
+    @apply border-y border-slate-200/80 bg-white;
+  }
+
+  .section-kicker {
+    @apply text-xs font-black uppercase text-atlas-blue;
+  }
+
+  .section-title {
+    @apply text-3xl font-black text-atlas-navy sm:text-4xl;
+  }
+
+  .interactive-card {
+    @apply rounded-lg border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-atlas-blue/30 hover:shadow-xl;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
