@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typedRoutes: true,
+  typedRoutes: false,
   distDir: process.env.NEXT_DIST_DIR || ".next"
 };
 
