@@ -44,7 +44,7 @@ export default function HomePage() {
               <button className="rounded bg-atlas-navy px-6 text-sm font-black text-white" type="submit">{t("searchButton")}</button>
             </form>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/catalog" className="inline-flex min-h-12 items-center gap-2 rounded-md bg-yellow-300 px-7 font-black text-atlas-navy shadow-lg transition hover:bg-white"><ShoppingCart size={18} />{t("shopDeals")}</Link>
+              <Link href="/deals" className="inline-flex min-h-12 items-center gap-2 rounded-md bg-yellow-300 px-7 font-black text-atlas-navy shadow-lg transition hover:bg-white"><ShoppingCart size={18} />{t("shopDeals")}</Link>
               <Link href="/register/buyer" className="inline-flex min-h-12 items-center gap-2 rounded-md border-2 border-white bg-white/10 px-7 font-black text-white transition hover:bg-white hover:text-atlas-navy">{t("becomeMember")}<ArrowRight size={18} /></Link>
             </div>
           </div>
@@ -79,7 +79,7 @@ export default function HomePage() {
                 <span className="inline-flex w-fit items-center gap-2 rounded bg-yellow-300 px-3 py-2 text-xs font-black uppercase text-atlas-navy"><BadgePercent size={16} />{t("weeklyPromos")}</span>
                 <h2 className="mt-5 text-4xl font-black leading-tight sm:text-5xl">{t("weeklyDeals")}</h2>
                 <p className="mt-3 max-w-md text-blue-100">{t("weeklyDealsBody")}</p>
-                <Link href="/catalog" className="mt-7 inline-flex min-h-12 w-fit items-center gap-2 rounded-md bg-white px-7 font-black text-atlas-navy">{t("seeWeeklyDeals")}<ArrowRight size={18} /></Link>
+                <Link href="/deals" className="mt-7 inline-flex min-h-12 w-fit items-center gap-2 rounded-md bg-white px-7 font-black text-atlas-navy">{t("seeWeeklyDeals")}<ArrowRight size={18} /></Link>
               </div>
               <div className="grid grid-cols-2 bg-white sm:grid-cols-4">
                 {featured.slice(0, 4).map((product) => <FlyerProduct key={product.id} product={product} />)}
@@ -91,7 +91,7 @@ export default function HomePage() {
       </section>
 
       {featured.length > 0 && <section className="atlas-container py-16">
-        <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-black uppercase text-atlas-blue">{t("featuredThisWeek")}</p><h2 className="mt-2 text-4xl font-black text-atlas-navy">{t("weeklyDeals")}</h2></div><Link href="/catalog" className="hidden items-center gap-2 font-black text-atlas-blue sm:inline-flex">{t("allProducts")}<ArrowRight size={17} /></Link></div>
+        <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-black uppercase text-atlas-blue">{t("featuredThisWeek")}</p><h2 className="mt-2 text-4xl font-black text-atlas-navy">{t("weeklyDeals")}</h2></div><Link href="/deals" className="hidden items-center gap-2 font-black text-atlas-blue sm:inline-flex">{t("seeWeeklyDeals")}<ArrowRight size={17} /></Link></div>
         <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">{featured.map((product) => <ProductCard key={product.id} product={product} />)}</div>
       </section>}
 
