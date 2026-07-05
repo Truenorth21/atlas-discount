@@ -4,13 +4,12 @@
 
 :root {
   color-scheme: light;
-  background: #f6f4ef;
-  --atlas-navy: #111827;
-  --atlas-blue: #d62828;
-  --atlas-red: #d62828;
-  --atlas-ink: #171717;
-  --atlas-warm: #f6f4ef;
-  --atlas-yellow: #ffd43b;
+  background: #f5f8fc;
+  --atlas-navy: #062b5c;
+  --atlas-blue: #0b63ce;
+  --atlas-red: #d81e2f;
+  --atlas-ink: #17233a;
+  --atlas-light: #f5f8fc;
 }
 
 * { box-sizing: border-box; }
@@ -18,19 +17,20 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   color: var(--atlas-ink);
-  background: var(--atlas-warm);
+  background: var(--atlas-light);
   font-feature-settings: "kern" 1, "liga" 1;
   text-rendering: optimizeLegibility;
 }
-::selection { color: #ffffff; background: var(--atlas-red); }
+::selection { color: #ffffff; background: var(--atlas-blue); }
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 3px solid rgba(214, 40, 40, 0.28);
+  outline: 3px solid rgba(11, 99, 206, 0.25);
   outline-offset: 2px;
 }
 main img { image-rendering: auto; }
 main > section { scroll-margin-top: 96px; }
+.atlas-wordmark + span { display: none; }
 
 @layer components {
   .atlas-container { @apply mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10; }
@@ -41,10 +41,10 @@ main > section { scroll-margin-top: 96px; }
   .field, .input { @apply min-h-11 w-full rounded border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-atlas-navy shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-atlas-blue focus:ring-2 focus:ring-atlas-blue/20; }
   .label { @apply text-sm font-bold text-slate-700; }
   .badge { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold; }
-  .storefront-band { @apply border-y border-black/10 bg-white; }
-  .section-kicker { @apply text-xs font-black uppercase text-atlas-blue; }
+  .storefront-band { @apply border-y border-slate-200 bg-white; }
+  .section-kicker { @apply text-xs font-black uppercase text-atlas-red; }
   .section-title { @apply text-3xl font-black text-atlas-navy sm:text-4xl; }
-  .interactive-card { @apply rounded-md border border-black/10 bg-white transition duration-200 hover:border-atlas-blue hover:shadow-xl; }
+  .interactive-card { @apply rounded-md border border-slate-200 bg-white transition duration-200 hover:border-atlas-blue hover:shadow-xl; }
 }
 
 @media (prefers-reduced-motion: reduce) {
