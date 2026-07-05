@@ -28,49 +28,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 2px;
 }
 
-/* Circular-style promotion: real warehouse photography with an editable offer card. */
-main > section:first-child aside {
-  isolation: isolate;
-  min-height: 390px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  background-image:
-    linear-gradient(180deg, rgba(16, 25, 74, 0.04) 0%, rgba(16, 25, 74, 0.12) 42%, rgba(16, 25, 74, 0.96) 100%),
-    url("https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=1200&q=88");
-  background-size: cover;
-  background-position: center;
-  color: #ffffff;
-  border: 5px solid #ffe500;
+/* The circular already promotes the lead products. Do not repeat the same grid
+   directly beneath it; the next merchandising lane will be New Arrivals. */
+main.bg-white > section.bg-atlas-light + section {
+  display: none;
 }
-main > section:first-child aside::before {
-  content: "ATLAS WEEKLY";
-  position: absolute;
-  z-index: -1;
-  left: 18px;
-  top: 18px;
-  padding: 8px 12px;
-  border-radius: 4px;
-  background: #ffe500;
-  color: #10194a;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0;
+
+/* Keep the storefront dense enough for repeat wholesale shopping. */
+main.bg-white > section {
+  scroll-margin-top: 96px;
 }
-main > section:first-child aside p,
-main > section:first-child aside div { color: inherit; }
-main > section:first-child aside > div:last-of-type {
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.96);
-  color: #10194a;
-  padding: 16px;
-  box-shadow: 0 14px 30px rgba(16, 25, 74, 0.22);
+main.bg-white img {
+  image-rendering: auto;
 }
-main > section:first-child aside > a {
-  background: #ffe500;
-  color: #10194a;
-}
-main > section:first-child aside > a:hover { background: #ffffff; }
 
 @layer components {
   .atlas-container { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
@@ -85,10 +55,6 @@ main > section:first-child aside > a:hover { background: #ffffff; }
   .section-kicker { @apply text-xs font-black uppercase text-atlas-blue; }
   .section-title { @apply text-3xl font-black text-atlas-navy sm:text-4xl; }
   .interactive-card { @apply rounded-lg border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-atlas-blue/30 hover:shadow-xl; }
-}
-
-@media (max-width: 1023px) {
-  main > section:first-child aside { min-height: 330px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
