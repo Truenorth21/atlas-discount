@@ -32,6 +32,12 @@ main img { image-rendering: auto; }
 main > section { scroll-margin-top: 96px; }
 .atlas-wordmark + span { display: none; }
 
+/* Storefront-specific polish: the commerce pages use a light marketplace
+   canvas, a navy image wash, and navy foundations instead of black panels. */
+main[class] { background: #f5f8fc !important; }
+main > section:first-child > div.absolute { background: rgba(6, 43, 92, 0.66) !important; }
+footer[class] { background: #062b5c !important; }
+
 @layer components {
   .atlas-container { @apply mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10; }
   .panel { @apply rounded-md border border-slate-200 bg-white shadow-panel; }
