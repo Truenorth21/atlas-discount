@@ -1,42 +1,48 @@
-import { Droplets, FileText, Package, SprayCan, UtensilsCrossed } from "lucide-react";
 import type { Product } from "@/lib/types";
+import { stockImage } from "@/lib/data";
 
-/** Only products with no image at all fall back to the category icon tile.
- *  An explicitly set image (bundled /product-images SVG or external URL) renders. */
+/** Bundled SVGs were early MVP illustrations. Treat them as placeholders so the
+ * storefront uses photography until a supplier uploads the real pack shot. */
 export function isPlaceholderImage(product: Pick<Product, "imageUrl">) {
-  return !product.imageUrl;
+  return !product.imageUrl || product.imageUrl.startsWith("/product-images/") || product.imageUrl.endsWith(".svg");
 }
 
-function categoryStyle(category: string) {
-  const value = (category || "").toLowerCase();
-  if (/clean|janitor|wipe|paper towel/.test(value)) return { Icon: SprayCan, tint: "bg-sky-50 text-atlas-blue" };
-  if (/soap|hba|health|beauty|hygiene|personal/.test(value)) return { Icon: Droplets, tint: "bg-rose-50 text-rose-500" };
-  if (/groc|pantry|food|snack|bever|candy|sauce/.test(value)) return { Icon: UtensilsCrossed, tint: "bg-amber-50 text-amber-600" };
-  if (/paper|office|stationery/.test(value)) return { Icon: FileText, tint: "bg-emerald-50 text-emerald-600" };
-  return { Icon: Package, tint: "bg-slate-100 text-slate-500" };
+function photoQuery(product: Product) {
+  const text = `${product.brand} ${product.productName || ""} ${product.description} ${product.category}`.toLowerCase();
+  if (/hot sauce|sauce/.test(text)) return "hot sauce bottles grocery product";
+  if (/energy drink|beverage|water|juice|soda/.test(text)) return "beverage bottles cans grocery product";
+  if (/cookie|snack|candy/.test(text)) return "packaged cookies snacks grocery product";
+  if (/clean|janitor|wipe|detergent|soap/.test(text)) return "cleaning supplies bottles product";
+  if (/paper|towel|tissue|office/.test(text)) return "paper products wholesale package";
+  if (/health|beauty|hygiene|personal/.test(text)) return "personal care products package";
+  if (/food|grocery|pantry/.test(text)) return "packaged grocery food product";
+  return "wholesale retail product package";
 }
 
-/**
- * Shows a real product photo when one exists, otherwise a clean
- * category-icon tile. Real images dropped into product.imageUrl
- * (e.g. a Supabase storage URL) render automatically.
- */
+function stableLock(product: Product) {
+  const value = `${product.sku}${product.upc}${product.brand}`;
+  return Array.from(value).reduce((sum, character) => sum + character.charCodeAt(0), 0) % 900 + 100;
+}
+
 export function ProductImage({
   product,
   className = "",
-  iconSize = 24
+  iconSize: _iconSize = 24
 }: {
   product: Product;
   className?: string;
   iconSize?: number;
 }) {
-  if (!isPlaceholderImage(product)) {
-    return <img alt={`${product.brand} ${product.description}`} className={`object-cover ${className}`} src={product.imageUrl} />;
-  }
-  const { Icon, tint } = categoryStyle(product.category);
+  const source = isPlaceholderImage(product)
+    ? stockImage(photoQuery(product), 900, 900, stableLock(product))
+    : product.imageUrl;
+
   return (
-    <span className={`flex items-center justify-center ${tint} ${className}`} role="img" aria-label={product.brand}>
-      <Icon size={iconSize} />
-    </span>
+    <img
+      alt={`${product.brand} ${product.productName || product.description}`}
+      className={`bg-white object-contain p-2 ${className}`}
+      src={source}
+      loading="lazy"
+    />
   );
 }
