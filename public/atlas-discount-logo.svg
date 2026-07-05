@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 250" role="img" aria-labelledby="title desc">
   <title id="title">Atlas Discount Wholesale Supply</title>
-  <desc id="desc">Atlas in navy, Discount in red, with Wholesale Supply below.</desc>
+  <desc id="desc">Atlas in navy, Discount in red, with Wholesale Supply centered below.</desc>
   <rect width="760" height="250" fill="white"/>
   <g transform="skewX(-8)">
-    <text x="65" y="120" font-family="Arial Black,Arial,sans-serif" font-size="116" font-weight="900" letter-spacing="-5" fill="#062B5C">ATLAS</text>
-    <text x="80" y="196" font-family="Arial Black,Arial,sans-serif" font-size="68" font-weight="900" letter-spacing="9" fill="#D81E2F">DISCOUNT</text>
+    <text x="395" y="116" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="118" font-weight="900" letter-spacing="-5" fill="#062B5C">ATLAS</text>
+    <text x="397" y="194" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="67" font-weight="900" letter-spacing="9" fill="#D81E2F">DISCOUNT</text>
   </g>
-  <line x1="74" y1="224" x2="176" y2="224" stroke="#26313d" stroke-width="6"/>
-  <text x="205" y="234" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="800" letter-spacing="12" fill="#26313d">WHOLESALE SUPPLY</text>
-  <line x1="664" y1="224" x2="728" y2="224" stroke="#26313d" stroke-width="6"/>
+  <line x1="72" y1="225" x2="158" y2="225" stroke="#26313D" stroke-width="5"/>
+  <text x="380" y="235" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="800" letter-spacing="11" fill="#26313D">WHOLESALE SUPPLY</text>
+  <line x1="602" y1="225" x2="688" y2="225" stroke="#26313D" stroke-width="5"/>
 </svg>
