@@ -6,14 +6,14 @@ const config: Config = {
     extend: {
       colors: {
         atlas: {
-          navy: "#10194A",
-          blue: "#0A63B0",
-          light: "#F3F5F8",
-          red: "#DC2626"
+          navy: "#111827",
+          blue: "#D62828",
+          light: "#F6F4EF",
+          red: "#D62828"
         }
       },
       boxShadow: {
-        panel: "0 12px 30px rgba(16, 25, 74, 0.08)"
+        panel: "0 14px 34px rgba(17, 24, 39, 0.10)"
       }
     }
   },
