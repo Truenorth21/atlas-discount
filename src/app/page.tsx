@@ -1,29 +1,19 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import type { Route as NextRoute } from "next";
 import {
-  Apple,
   ArrowRight,
   BadgePercent,
   Boxes,
   CheckCircle2,
-  Clock,
-  FileText,
-  HeartPulse,
-  Lock,
-  Megaphone,
-  MessageCircle,
-  PackageSearch,
-  Repeat2,
+  Clock3,
+  MapPin,
   Search,
   ShieldCheck,
-  Sparkles,
-  SprayCan,
+  ShoppingCart,
   Tag,
   Truck,
-  UtensilsCrossed,
+  Users,
 } from "lucide-react";
 
 import { AtlasMark } from "@/components/atlas-logo";
@@ -31,360 +21,242 @@ import { useAtlasStore } from "@/components/local-store";
 import { Nav } from "@/components/nav";
 import { ProductImage } from "@/components/product-image";
 import { Reveal } from "@/components/reveal";
-import type { Product } from "@/lib/types";
 import { productCategories, stockImage } from "@/lib/data";
-import { type TranslationKey, useI18n } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
+import type { Product } from "@/lib/types";
 
-// Real catalog categories (kept in sync with productCategories in lib/data.ts) so
-// every tile deep-links into a filtered catalog.
-const homeCategories = Object.entries(productCategories).map(([name, subcategories], index) => {
-  const icons: Record<string, { icon: typeof SprayCan; grad: string; query: string }> = {
-    "Janitorial / Cleaning Supplies": { icon: SprayCan, grad: "from-sky-500 to-atlas-blue", query: "cleaning,supplies" },
-    "Grocery / Pantry": { icon: Apple, grad: "from-amber-400 to-orange-500", query: "grocery,pantry" },
-    "Health & Beauty (HBA)": { icon: HeartPulse, grad: "from-rose-400 to-pink-500", query: "cosmetics,beauty" },
-    "Office / Paper": { icon: FileText, grad: "from-violet-400 to-violet-600", query: "office,paper" },
-    "Foodservice / Disposables": { icon: UtensilsCrossed, grad: "from-emerald-400 to-emerald-600", query: "foodservice,packaging" },
-    "Closeout / Special buys": { icon: BadgePercent, grad: "from-rose-500 to-atlas-red", query: "warehouse,boxes" }
-  };
-  const style = icons[name] ?? { icon: Boxes, grad: "from-slate-400 to-slate-600", query: "wholesale,warehouse" };
-  return { name, count: String(subcategories.length), icon: style.icon, grad: style.grad, image: stockImage(style.query, 600, 360, index + 11) };
-});
-
-const featureCards: { icon: typeof ShieldCheck; titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
-  { icon: ShieldCheck, titleKey: "featVerifiedTitle", bodyKey: "featVerifiedBody" },
-  { icon: Clock, titleKey: "featWeeklyTitle", bodyKey: "featWeeklyBody" },
-  { icon: Repeat2, titleKey: "featBuyAgainTitle", bodyKey: "featBuyAgainBody" },
-  { icon: Truck, titleKey: "featPickupTitle", bodyKey: "featPickupBody" },
-  { icon: MessageCircle, titleKey: "featWhatsappTitle", bodyKey: "featWhatsappBody" },
-  { icon: Boxes, titleKey: "featMixedTitle", bodyKey: "featMixedBody" },
-];
-
-const darkStrip: { titleKey: TranslationKey; bodyKey: TranslationKey }[] = [
-  { titleKey: "stripInventoryTitle", bodyKey: "stripInventoryBody" },
-  { titleKey: "stripCrossDockTitle", bodyKey: "stripCrossDockBody" },
-  { titleKey: "stripMixedTitle", bodyKey: "stripMixedBody" },
-  { titleKey: "stripPaymentTitle", bodyKey: "stripPaymentBody" },
-  { titleKey: "stripFulfillmentTitle", bodyKey: "stripFulfillmentBody" },
-];
-
-const roles: Array<{
-  titleKey: TranslationKey;
-  labelKey: TranslationKey;
-  bodyKey: TranslationKey;
-  points: TranslationKey[];
-  href: NextRoute;
-  ctaKey: TranslationKey;
-  color: string;
-}> = [
-  {
-    titleKey: "member",
-    labelKey: "buyerAccount",
-    bodyKey: "memberBody",
-    points: ["uploadResale", "unlockPricing", "requestFulfillment"],
-    href: "/register/buyer" as NextRoute,
-    ctaKey: "becomeMember",
-    color: "bg-atlas-navy"
-  },
-  {
-    titleKey: "supplierPathTitle",
-    labelKey: "supplierPathLabel",
-    bodyKey: "supplierPathBody",
-    points: ["submitDocs", "uploadSheets", "buyPlacement"],
-    href: "/register/supplier" as NextRoute,
-    ctaKey: "becomeSupplier",
-    color: "bg-atlas-blue"
-  },
-  {
-    titleKey: "selr",
-    labelKey: "salesPartnerLabel",
-    bodyKey: "selrBody",
-    points: ["chooseRoute", "supportReorders", "earnCommission"],
-    href: "/register/route-seller" as NextRoute,
-    ctaKey: "joinSelr",
-    color: "bg-atlas-red"
-  },
-  {
-    titleKey: "fulfillmentPartnerTitle",
-    labelKey: "fulfillmentPartnerLabel",
-    bodyKey: "fulfillmentPartnerBody",
-    points: ["supportCrossDock", "offerDeliveryCapacity", "helpBuildMixedPallets"],
-    href: "/register/supplier" as NextRoute,
-    ctaKey: "becomeFulfillmentPartner",
-    color: "bg-slate-700"
-  }
+const categoryStyles = [
+  "bg-sky-50 text-atlas-blue",
+  "bg-amber-50 text-amber-700",
+  "bg-rose-50 text-rose-700",
+  "bg-violet-50 text-violet-700",
+  "bg-emerald-50 text-emerald-700",
+  "bg-red-50 text-atlas-red",
 ];
 
 export default function HomePage() {
   const { t } = useI18n();
   const { store } = useAtlasStore();
-
-  // The live catalog drives the storefront: homepage-featured products first,
-  // then any other approved product, as real shoppable cards.
   const approvedProducts = store.products.filter((product) => product.status === "approved");
   const featured = [
     ...approvedProducts.filter((product) => product.placements?.homepageFeatured),
-    ...approvedProducts.filter((product) => !product.placements?.homepageFeatured)
+    ...approvedProducts.filter((product) => !product.placements?.homepageFeatured),
   ].slice(0, 8);
 
   return (
     <>
       <Nav />
-      <main className="bg-atlas-light">
-        {/* Modern gradient hero banner */}
-        <section className="relative overflow-hidden bg-atlas-navy text-white">
+      <main className="bg-white">
+        <section className="relative min-h-[560px] overflow-hidden bg-atlas-navy text-white">
           <img
-            src={stockImage("warehouse,logistics", 1600, 900, 7)}
-            alt=""
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25"
+            src={stockImage("wholesale warehouse grocery cases", 1800, 1000, 29)}
+            alt="Wholesale products ready for business buyers"
+            className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-atlas-navy via-atlas-navy/95 to-atlas-navy/70" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_-10%,rgba(10,99,176,0.65),transparent_55%),radial-gradient(circle_at_95%_25%,rgba(10,99,176,0.4),transparent_45%)]" />
-          <div className="atlas-container relative py-16 lg:py-24">
+          <div className="absolute inset-0 bg-atlas-navy/82" />
+          <div className="atlas-container relative grid min-h-[560px] items-center gap-10 py-14 lg:grid-cols-[1fr_420px]">
             <div className="max-w-3xl">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-sky-200">
-                <Tag size={13} />
-                {t("heroEyebrow2")}
-              </span>
-              <h1 className="mt-5 text-5xl font-black leading-[1.02] tracking-tight sm:text-6xl">
-                {t("heroHeadline2")}
-              </h1>
-              <p className="mt-5 max-w-2xl text-lg leading-8 text-sky-100/90">{t("heroBody2")}</p>
+              <p className="text-sm font-black uppercase text-sky-300">{t("heroEyebrow2")}</p>
+              <h1 className="mt-3 text-5xl font-black leading-tight sm:text-6xl">Atlas Discount</h1>
+              <p className="mt-4 max-w-2xl text-xl font-bold text-white">{t("heroHeadline2")}</p>
+              <p className="mt-3 max-w-2xl text-base leading-7 text-slate-200">{t("heroBody2")}</p>
 
-              <form action="/catalog" className="mt-8 flex max-w-2xl items-center gap-2 rounded-full bg-white p-1.5 pl-5 shadow-2xl shadow-atlas-navy/40">
-                <Search size={20} className="shrink-0 text-slate-400" />
+              <form action="/catalog" className="mt-7 flex max-w-2xl items-center bg-white p-1.5 shadow-xl">
+                <Search size={20} className="ml-3 shrink-0 text-slate-400" />
                 <input
                   name="q"
-                  className="h-11 flex-1 border-0 bg-transparent text-base text-atlas-navy placeholder:text-slate-400 focus:outline-none"
+                  className="h-11 min-w-0 flex-1 border-0 bg-transparent px-3 text-base text-atlas-navy placeholder:text-slate-400 focus:outline-none"
                   placeholder={t("portalSearchPlaceholder")}
                   aria-label={t("portalSearchPlaceholder")}
                 />
-                <button type="submit" className="shrink-0 rounded-full bg-atlas-blue px-6 py-2.5 text-sm font-bold text-white transition hover:bg-atlas-navy">
+                <button type="submit" className="min-h-11 bg-atlas-blue px-5 text-sm font-black text-white hover:bg-atlas-navy">
                   {t("searchButton")}
                 </button>
               </form>
 
-              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-sky-100">
-                <span className="inline-flex items-center gap-1.5"><ShieldCheck size={15} className="text-sky-300" />{t("chipVerified")}</span>
-                <span className="inline-flex items-center gap-1.5"><Lock size={15} className="text-sky-300" />{t("chipMembersPricing")}</span>
-                <span className="inline-flex items-center gap-1.5"><Truck size={15} className="text-sky-300" />{t("chipFulfillment")}</span>
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                <Link
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-7 py-3 text-base font-black text-atlas-navy transition hover:bg-sky-50"
-                  href="/catalog"
-                >
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link className="btn-primary min-h-12 px-6" href="/catalog">
+                  <ShoppingCart size={18} />
                   {t("shopDeals")}
+                </Link>
+                <Link className="inline-flex min-h-12 items-center gap-2 border border-white/40 bg-white px-6 py-3 font-black text-atlas-navy hover:bg-sky-50" href="/register/buyer">
+                  {t("becomeMember")}
                   <ArrowRight size={18} />
                 </Link>
-                <Link
-                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/30 bg-white/5 px-7 py-3 text-base font-bold text-white transition hover:bg-white/15"
-                  href="/register/buyer"
-                >
-                  {t("becomeMember")}
-                </Link>
               </div>
             </div>
-          </div>
-        </section>
 
-        {/* Shop by category — gradient tiles */}
-        <Reveal>
-        <section className="atlas-container py-12">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-3xl font-black text-atlas-navy">{t("shopByCategory")}</h2>
-              <p className="mt-1 text-slate-600">{t("shopByCategoryBody")}</p>
-            </div>
-            <Link href="/catalog" className="hidden shrink-0 items-center gap-1 text-sm font-black text-atlas-blue hover:underline sm:flex">
-              {t("viewAll")}
-              <ArrowRight size={15} />
-            </Link>
-          </div>
-          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {homeCategories.map(({ name, count, icon: Icon, grad, image }) => (
-              <Link
-                key={name}
-                href={`/catalog?category=${encodeURIComponent(name)}`}
-                className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-panel"
-              >
-                <div className="relative flex h-32 items-center justify-center overflow-hidden">
-                  <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                  <div className={`absolute inset-0 bg-gradient-to-br ${grad} opacity-80 mix-blend-multiply`} />
-                  <Icon size={40} className="relative text-white drop-shadow-lg" />
-                </div>
-                <div className="flex items-center justify-between gap-2 p-4">
-                  <div>
-                    <h3 className="font-black text-atlas-navy">{name}</h3>
-                    <p className="text-xs text-slate-500">{count ? `${count} ${t("subcategoriesLabel")}` : t("wholesaleCases")}</p>
-                  </div>
-                  <ArrowRight size={18} className="shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-atlas-blue" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-        </Reveal>
-
-        {/* Featured products — full-width shoppable grid */}
-        {featured.length > 0 && (
-          <Reveal>
-          <section className="border-y border-slate-200 bg-white py-12">
-            <div className="atlas-container">
-              <div className="flex items-end justify-between gap-3">
+            <aside className="border border-white/20 bg-white p-6 text-atlas-navy shadow-xl">
+              <p className="text-xs font-black uppercase text-atlas-blue">{t("weeklyPromos")}</p>
+              <div className="mt-3 flex items-start gap-3">
+                <BadgePercent size={34} className="shrink-0 text-atlas-red" />
                 <div>
-                  <p className="flex items-center gap-1.5 text-sm font-black uppercase tracking-wide text-atlas-blue">
-                    <Sparkles size={15} />
-                    {t("featuredThisWeek")}
-                  </p>
-                  <h2 className="mt-1 text-3xl font-black text-atlas-navy">{t("heroEyebrow2")}</h2>
+                  <p className="text-2xl font-black">{t("weeklyDeals")}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">{t("weeklyDealsBody")}</p>
                 </div>
-                <Link href="/catalog" className="hidden shrink-0 items-center gap-1 text-sm font-black text-atlas-blue hover:underline sm:flex">
-                  {t("seeFullCatalog")}
-                  <ArrowRight size={15} />
-                </Link>
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                {featured.map((product) => (
-                  <HomeProductCard key={product.id} product={product} />
-                ))}
-              </div>
-              <Link
-                href="/catalog"
-                className="mt-6 flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white py-3 text-sm font-bold text-atlas-navy transition hover:border-atlas-blue hover:text-atlas-blue sm:hidden"
-              >
-                {t("seeFullCatalog")}
-                <ArrowRight size={16} />
-              </Link>
-            </div>
-          </section>
-          </Reveal>
-        )}
-
-        {/* How Atlas moves goods */}
-        <section className="bg-atlas-navy py-8 text-white">
-          <div className="atlas-container grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-            {darkStrip.map(({ titleKey, bodyKey }) => (
-              <div key={titleKey}>
-                <p className="text-xs font-black uppercase tracking-wide text-sky-300">{t(titleKey)}</p>
-                <p className="mt-2 text-sm leading-6 text-slate-200">{t(bodyKey)}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-
-        {/* Why Atlas */}
-        <Reveal>
-        <section className="atlas-container py-14">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            {featureCards.map(({ icon: Icon, titleKey, bodyKey }) => (
-              <div key={titleKey} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-atlas-navy text-white">
-                  <Icon size={20} />
-                </span>
-                <h3 className="mt-4 font-black text-atlas-navy">{t(titleKey)}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{t(bodyKey)}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Supplier promotions & advertising */}
-        <section className="bg-white py-14">
-          <div className="atlas-container">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="flex items-center gap-2 text-sm font-bold uppercase text-atlas-blue">
-                  <Megaphone size={16} />
-                  {t("promotionsEyebrow")}
-                </p>
-                <h2 className="mt-2 text-3xl font-black text-atlas-navy">{t("promotionsTitle")}</h2>
-                <p className="mt-2 max-w-3xl text-slate-600">{t("promotionsHomeBody")}</p>
-              </div>
-              <Link className="btn-primary rounded-full" href="/catalog">
+              <Link href="/catalog" className="mt-5 inline-flex items-center gap-2 text-sm font-black text-atlas-blue hover:underline">
                 {t("seeWeeklyDeals")}
                 <ArrowRight size={16} />
               </Link>
-            </div>
-            <div className="mt-8 grid gap-6 md:grid-cols-3">
-              <PromoCard icon={<Tag />} title={t("weeklyDeals")} body={t("weeklyDealsBody")} />
-              <PromoCard icon={<PackageSearch />} title={t("sponsoredCategories")} body={t("sponsoredCategoriesBody")} />
-              <PromoCard icon={<Megaphone />} title={t("campaignTracking")} body={t("campaignTrackingBody")} />
-            </div>
+            </aside>
           </div>
         </section>
 
-        {/* Choose your path */}
-        <section className="bg-atlas-light py-14">
-          <div className="atlas-container">
-            <p className="text-sm font-bold uppercase text-atlas-blue">{t("chooseYourPath")}</p>
-            <h2 className="mt-2 text-3xl font-black text-atlas-navy">{t("chooseYourPathBody")}</h2>
-            <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-              {roles.map((role) => (
-                <div key={role.titleKey} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase text-white ${role.color}`}>
-                    {t(role.labelKey)}
+        <section className="border-b border-slate-200 bg-atlas-light">
+          <div className="atlas-container grid gap-px bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">
+            <TrustItem icon={<ShieldCheck />} title={t("featVerifiedTitle")} body={t("featVerifiedBody")} />
+            <TrustItem icon={<Boxes />} title={t("featMixedTitle")} body={t("featMixedBody")} />
+            <TrustItem icon={<Truck />} title={t("featPickupTitle")} body={t("featPickupBody")} />
+            <TrustItem icon={<Clock3 />} title={t("featWeeklyTitle")} body={t("featWeeklyBody")} />
+          </div>
+        </section>
+
+        <Reveal>
+          <section className="atlas-container py-14">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-sm font-black uppercase text-atlas-blue">{t("catalog")}</p>
+                <h2 className="mt-1 text-3xl font-black text-atlas-navy">{t("shopByCategory")}</h2>
+                <p className="mt-1 text-slate-600">{t("shopByCategoryBody")}</p>
+              </div>
+              <Link href="/catalog" className="hidden items-center gap-1 font-black text-atlas-blue hover:underline sm:flex">
+                {t("viewAll")}
+                <ArrowRight size={16} />
+              </Link>
+            </div>
+
+            <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(productCategories).map(([name, subcategories], index) => (
+                <Link
+                  key={name}
+                  href={`/catalog?category=${encodeURIComponent(name)}`}
+                  className="group flex min-h-24 items-center gap-4 border border-slate-200 bg-white p-4 transition hover:border-atlas-blue hover:shadow-panel"
+                >
+                  <span className={`flex h-14 w-14 shrink-0 items-center justify-center ${categoryStyles[index % categoryStyles.length]}`}>
+                    <Boxes size={26} />
                   </span>
-                  <h3 className="mt-3 text-2xl font-black text-atlas-navy">{t(role.titleKey)}</h3>
-                  <p className="mt-2 text-sm text-slate-600">{t(role.bodyKey)}</p>
-                  <ul className="mt-4 grid gap-2 text-sm text-slate-700">
-                    {role.points.map((point) => (
-                      <li key={point} className="flex gap-2">
-                        <CheckCircle2 className="mt-0.5 shrink-0 text-atlas-blue" size={16} />
-                        {t(point)}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link className="btn-secondary mt-5 w-fit rounded-full" href={role.href}>
-                    {t(role.ctaKey)}
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-black text-atlas-navy">{name}</span>
+                    <span className="text-xs font-semibold text-slate-500">{subcategories.length} {t("subcategoriesLabel")}</span>
+                  </span>
+                  <ArrowRight size={18} className="text-slate-300 group-hover:text-atlas-blue" />
+                </Link>
+              ))}
+            </div>
+          </section>
+        </Reveal>
+
+        {featured.length > 0 && (
+          <Reveal>
+            <section className="border-y border-slate-200 bg-atlas-light py-14">
+              <div className="atlas-container">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="flex items-center gap-2 text-sm font-black uppercase text-atlas-blue">
+                      <Tag size={15} />
+                      {t("featuredThisWeek")}
+                    </p>
+                    <h2 className="mt-1 text-3xl font-black text-atlas-navy">{t("weeklyDeals")}</h2>
+                  </div>
+                  <Link href="/catalog" className="hidden items-center gap-1 font-black text-atlas-blue hover:underline sm:flex">
+                    {t("seeFullCatalog")}
                     <ArrowRight size={16} />
                   </Link>
                 </div>
-              ))}
+                <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                  {featured.map((product) => <ProductCard key={product.id} product={product} />)}
+                </div>
+              </div>
+            </section>
+          </Reveal>
+        )}
+
+        <Reveal>
+          <section className="atlas-container py-16">
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-sm font-black uppercase text-atlas-blue">{t("buyerAccount")}</p>
+              <h2 className="mt-2 text-3xl font-black text-atlas-navy">{t("chooseYourPathBody")}</h2>
             </div>
+            <div className="mt-9 grid gap-px bg-slate-200 md:grid-cols-3">
+              <ProcessStep number="01" icon={<ShieldCheck />} title={t("uploadResale")} body={t("featVerifiedBody")} />
+              <ProcessStep number="02" icon={<ShoppingCart />} title={t("unlockPricing")} body={t("memberBody")} />
+              <ProcessStep number="03" icon={<Truck />} title={t("requestFulfillment")} body={t("featPickupBody")} />
+            </div>
+          </section>
+        </Reveal>
+
+        <section className="bg-atlas-navy py-14 text-white">
+          <div className="atlas-container grid items-center gap-8 lg:grid-cols-[1fr_auto]">
+            <div>
+              <p className="text-sm font-black uppercase text-sky-300">{t("salesPartnerLabel")}</p>
+              <h2 className="mt-2 text-3xl font-black">{t("selr")}</h2>
+              <p className="mt-3 max-w-3xl text-slate-200">{t("selrBody")}</p>
+              <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm font-bold text-sky-100">
+                <span className="flex items-center gap-2"><MapPin size={16} />{t("chooseRoute")}</span>
+                <span className="flex items-center gap-2"><Users size={16} />{t("supportReorders")}</span>
+                <span className="flex items-center gap-2"><CheckCircle2 size={16} />{t("earnCommission")}</span>
+              </div>
+            </div>
+            <Link className="inline-flex min-h-12 items-center gap-2 bg-white px-6 py-3 font-black text-atlas-navy hover:bg-sky-50" href="/register/route-seller">
+              {t("joinSelr")}
+              <ArrowRight size={18} />
+            </Link>
           </div>
         </section>
-        </Reveal>
+
+        <section className="atlas-container grid gap-4 py-14 md:grid-cols-3">
+          <PathCard title={t("member")} body={t("memberBody")} href="/register/buyer" cta={t("becomeMember")} />
+          <PathCard title={t("supplierPathTitle")} body={t("supplierPathBody")} href="/register/supplier" cta={t("becomeSupplier")} />
+          <PathCard title={t("selr")} body={t("selrBody")} href="/register/route-seller" cta={t("joinSelr")} />
+        </section>
       </main>
       <Footer />
     </>
   );
 }
 
-function PromoCard({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
+function TrustItem({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-atlas-light p-5">
-      <span className="text-atlas-blue">{icon}</span>
-      <h3 className="mt-3 text-lg font-black text-atlas-navy">{title}</h3>
-      <p className="mt-2 text-sm text-slate-600">{body}</p>
+    <div className="flex gap-3 bg-white p-5">
+      <span className="mt-0.5 text-atlas-blue">{icon}</span>
+      <div><p className="font-black text-atlas-navy">{title}</p><p className="mt-1 text-xs leading-5 text-slate-600">{body}</p></div>
     </div>
   );
 }
 
-function HomeProductCard({ product }: { product: Product }) {
+function ProductCard({ product }: { product: Product }) {
   const { t } = useI18n();
   return (
-    <Link
-      // Deep-link into the catalog filtered to this exact item (search matches SKU).
-      href={`/catalog?q=${encodeURIComponent(product.sku || product.brand)}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-atlas-blue hover:shadow-panel"
-    >
-      <div className="aspect-square w-full overflow-hidden bg-atlas-light">
-        <ProductImage product={product} className="h-full w-full" iconSize={36} />
-      </div>
-      <div className="flex flex-1 flex-col p-3">
-        <span className="w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">
-          {product.subcategory || product.category}
-        </span>
-        <p className="mt-1.5 line-clamp-1 font-black text-atlas-navy">{product.brand}</p>
-        <p className="line-clamp-1 text-xs text-slate-600">{product.productName || product.description}</p>
-        <p className="mt-auto flex items-center gap-1.5 pt-2 text-xs font-bold text-atlas-blue">
-          <Lock size={12} />
-          {t("memberPricing")}
-        </p>
+    <Link href={`/catalog?q=${encodeURIComponent(product.sku || product.brand)}`} className="group flex flex-col border border-slate-200 bg-white transition hover:border-atlas-blue hover:shadow-panel">
+      <div className="aspect-square overflow-hidden bg-white"><ProductImage product={product} className="h-full w-full" iconSize={36} /></div>
+      <div className="flex flex-1 flex-col border-t border-slate-100 p-4">
+        <p className="text-xs font-black uppercase text-atlas-blue">{product.brand}</p>
+        <p className="mt-1 line-clamp-2 text-sm font-bold text-atlas-navy">{product.productName || product.description}</p>
+        <p className="mt-2 text-xs font-semibold text-slate-500">{product.casePack} {t("perCaseUnits")}</p>
+        <p className="mt-auto pt-3 text-sm font-black text-atlas-blue">{t("memberPricing")} →</p>
       </div>
     </Link>
+  );
+}
+
+function ProcessStep({ number, icon, title, body }: { number: string; icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="bg-atlas-light p-7">
+      <div className="flex items-center justify-between"><span className="text-atlas-blue">{icon}</span><span className="text-sm font-black text-slate-400">{number}</span></div>
+      <h3 className="mt-5 text-xl font-black text-atlas-navy">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
+    </div>
+  );
+}
+
+function PathCard({ title, body, href, cta }: { title: string; body: string; href: string; cta: string }) {
+  return (
+    <div className="border border-slate-200 bg-white p-6">
+      <h3 className="text-xl font-black text-atlas-navy">{title}</h3>
+      <p className="mt-2 min-h-20 text-sm leading-6 text-slate-600">{body}</p>
+      <Link href={href} className="mt-5 inline-flex items-center gap-2 font-black text-atlas-blue hover:underline">{cta}<ArrowRight size={16} /></Link>
+    </div>
   );
 }
 
@@ -392,55 +264,12 @@ function Footer() {
   const { t } = useI18n();
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="atlas-container grid gap-8 py-12 md:grid-cols-[1.4fr_1fr_1fr]">
-        <div>
-          <AtlasMark tone="navy" />
-          <p className="mt-4 max-w-xs text-sm leading-6 text-slate-600">{t("brandSubline")}</p>
-        </div>
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">{t("footerShop")}</p>
-          <ul className="mt-3 space-y-2 text-sm text-slate-600">
-            <li>
-              <Link className="hover:text-atlas-blue" href="/catalog">
-                {t("catalog")}
-              </Link>
-            </li>
-            <li>
-              <Link className="hover:text-atlas-blue" href="/sell">
-                {t("sellOnAtlas")}
-              </Link>
-            </li>
-            <li>
-              <Link className="hover:text-atlas-blue" href="/playbooks">
-                {t("routePlaybook")}
-              </Link>
-            </li>
-          </ul>
-        </div>
-        <div>
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">{t("footerJoin")}</p>
-          <ul className="mt-3 space-y-2 text-sm text-slate-600">
-            <li>
-              <Link className="hover:text-atlas-blue" href="/register/buyer">
-                {t("member")}
-              </Link>
-            </li>
-            <li>
-              <Link className="hover:text-atlas-blue" href="/register/supplier">
-                {t("supplierPathTitle")}
-              </Link>
-            </li>
-            <li>
-              <Link className="hover:text-atlas-blue" href="/login">
-                {t("signIn")}
-              </Link>
-            </li>
-          </ul>
-        </div>
+      <div className="atlas-container grid gap-8 py-10 md:grid-cols-[1.4fr_1fr_1fr]">
+        <div><AtlasMark tone="navy" /><p className="mt-4 max-w-sm text-sm leading-6 text-slate-600">{t("brandSubline")}</p></div>
+        <div><p className="text-xs font-black uppercase text-slate-400">{t("footerShop")}</p><Link href="/catalog" className="mt-3 block text-sm font-bold text-atlas-navy hover:text-atlas-blue">{t("catalog")}</Link></div>
+        <div><p className="text-xs font-black uppercase text-slate-400">{t("footerJoin")}</p><Link href="/login" className="mt-3 block text-sm font-bold text-atlas-navy hover:text-atlas-blue">{t("signIn")}</Link></div>
       </div>
-      <div className="border-t border-slate-200">
-        <div className="atlas-container py-5 text-xs text-slate-500">{t("footerRights")}</div>
-      </div>
+      <div className="border-t border-slate-200"><div className="atlas-container py-5 text-xs text-slate-500">{t("footerRights")}</div></div>
     </footer>
   );
 }
