@@ -4,11 +4,13 @@
 
 :root {
   color-scheme: light;
-  background: #f3f5f8;
-  --atlas-navy: #10194a;
-  --atlas-blue: #0a63b0;
-  --atlas-red: #dc2626;
-  --atlas-ink: #17203f;
+  background: #f6f4ef;
+  --atlas-navy: #111827;
+  --atlas-blue: #d62828;
+  --atlas-red: #d62828;
+  --atlas-ink: #171717;
+  --atlas-warm: #f6f4ef;
+  --atlas-yellow: #ffd43b;
 }
 
 * { box-sizing: border-box; }
@@ -16,45 +18,33 @@ html { scroll-behavior: smooth; }
 body {
   margin: 0;
   color: var(--atlas-ink);
-  background: linear-gradient(180deg, #ffffff 0, #f8fafc 28rem, #f3f5f8 100%);
+  background: var(--atlas-warm);
   font-feature-settings: "kern" 1, "liga" 1;
   text-rendering: optimizeLegibility;
 }
-::selection { color: #ffffff; background: var(--atlas-blue); }
+::selection { color: #ffffff; background: var(--atlas-red); }
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 3px solid rgba(10, 99, 176, 0.28);
+  outline: 3px solid rgba(214, 40, 40, 0.28);
   outline-offset: 2px;
 }
-
-/* The circular already promotes the lead products. Do not repeat the same grid
-   directly beneath it; the next merchandising lane will be New Arrivals. */
-main.bg-white > section.bg-atlas-light + section {
-  display: none;
-}
-
-/* Keep the storefront dense enough for repeat wholesale shopping. */
-main.bg-white > section {
-  scroll-margin-top: 96px;
-}
-main.bg-white img {
-  image-rendering: auto;
-}
+main img { image-rendering: auto; }
+main > section { scroll-margin-top: 96px; }
 
 @layer components {
-  .atlas-container { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
-  .panel { @apply rounded-lg border border-slate-200/90 bg-white shadow-panel; }
-  .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-atlas-blue px-5 py-2.5 text-sm font-bold text-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-atlas-navy hover:shadow-md focus:outline-none focus:ring-2 focus:ring-atlas-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60; }
-  .btn-secondary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-atlas-navy shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-atlas-blue hover:text-atlas-blue hover:shadow-md focus:outline-none focus:ring-2 focus:ring-atlas-blue focus:ring-offset-2; }
-  .btn-danger { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-atlas-red px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-atlas-red focus:ring-offset-2; }
-  .field, .input { @apply min-h-11 w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-atlas-navy shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-atlas-blue focus:ring-2 focus:ring-atlas-blue/20; }
+  .atlas-container { @apply mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-10; }
+  .panel { @apply rounded-md border border-slate-200 bg-white shadow-panel; }
+  .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded bg-atlas-blue px-5 py-2.5 text-sm font-bold text-white shadow-sm transition duration-200 hover:bg-atlas-navy focus:outline-none focus:ring-2 focus:ring-atlas-blue focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60; }
+  .btn-secondary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-atlas-navy transition duration-200 hover:border-atlas-blue hover:text-atlas-blue focus:outline-none focus:ring-2 focus:ring-atlas-blue focus:ring-offset-2; }
+  .btn-danger { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded bg-atlas-red px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-atlas-red focus:ring-offset-2; }
+  .field, .input { @apply min-h-11 w-full rounded border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-atlas-navy shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-atlas-blue focus:ring-2 focus:ring-atlas-blue/20; }
   .label { @apply text-sm font-bold text-slate-700; }
   .badge { @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold; }
-  .storefront-band { @apply border-y border-slate-200/80 bg-white; }
+  .storefront-band { @apply border-y border-black/10 bg-white; }
   .section-kicker { @apply text-xs font-black uppercase text-atlas-blue; }
   .section-title { @apply text-3xl font-black text-atlas-navy sm:text-4xl; }
-  .interactive-card { @apply rounded-lg border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-atlas-blue/30 hover:shadow-xl; }
+  .interactive-card { @apply rounded-md border border-black/10 bg-white transition duration-200 hover:border-atlas-blue hover:shadow-xl; }
 }
 
 @media (prefers-reduced-motion: reduce) {
