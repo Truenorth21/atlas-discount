@@ -5,9 +5,9 @@ export function AtlasMark({
 }: {
   size?: number;
   className?: string;
-  tone?: "navy" | "light";
+  tone?: "navy" | "light" | "white";
 }) {
-  const dark = tone === "light" ? "#FFFFFF" : "#111827";
+  const dark = tone === "light" || tone === "white" ? "#FFFFFF" : "#111827";
   return (
     <svg width={size} height={size} viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} role="img" aria-label="Atlas Discount">
       <path d="M5 44 22.5 7h8L47 44h-9.5l-3.2-7.5H18.1L14.8 44H5Z" fill="#D62828" />
