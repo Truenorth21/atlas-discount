@@ -1317,3 +1317,106 @@ export function useI18n() {
   }
   return context;
 }
+
+
+type SharedTranslationMap = Record<string, { en: string; es: string }>;
+
+const statusTranslations: SharedTranslationMap = {
+  approved: { en: "Approved", es: "Aprobado" },
+  rejected: { en: "Rejected", es: "Rechazado" },
+  pending: { en: "Pending", es: "Pendiente" },
+  uploaded: { en: "Uploaded", es: "Subido" },
+  needed: { en: "Needed", es: "Necesario" },
+  expiring: { en: "Expiring soon", es: "Vence pronto" },
+  expired: { en: "Expired", es: "Vencido" },
+  "ready to confirm": { en: "Ready to confirm", es: "Listo para confirmar" },
+  "admin review": { en: "Admin review", es: "Revisión administrativa" },
+  "quote sent": { en: "Quote sent", es: "Cotización enviada" },
+  submitted: { en: "Submitted", es: "Enviado" },
+  draft: { en: "Draft", es: "Borrador" },
+  published: { en: "Published", es: "Publicado" },
+  active: { en: "Active", es: "Activo" },
+  inactive: { en: "Inactive", es: "Inactivo" }
+};
+
+const fulfillmentTranslations: SharedTranslationMap = {
+  pickup: { en: "Pickup", es: "Recogida" },
+  "hub pickup": { en: "Hub pickup", es: "Recogida en centro" },
+  "local delivery": { en: "Local delivery", es: "Entrega local" },
+  "supplier direct": { en: "Supplier direct", es: "Proveedor directo" },
+  "atlas consolidation hub": { en: "Atlas consolidation hub", es: "Centro de consolidación Atlas" },
+  "freight quote needed": { en: "Freight quote needed", es: "Se requiere cotización de carga" },
+  "freight quote": { en: "Freight quote", es: "Cotización de carga" }
+};
+
+const hubTranslations: SharedTranslationMap = {
+  "miami hub": { en: "Miami hub", es: "Centro de Miami" },
+  miami: { en: "Miami", es: "Miami" },
+  "orlando hub": { en: "Orlando hub", es: "Centro de Orlando" },
+  orlando: { en: "Orlando", es: "Orlando" },
+  shipping: { en: "Shipping", es: "Envío" }
+};
+
+const documentTranslations: SharedTranslationMap = {
+  "resale certificate": { en: "Resale certificate", es: "Certificado de reventa" },
+  "business license or state registration": { en: "Business license or state registration", es: "Licencia comercial o registro estatal" },
+  "storefront, marketplace, or buying entity proof": { en: "Storefront, marketplace, or buying entity proof", es: "Comprobante de tienda, mercado o entidad compradora" },
+  "w-9": { en: "W-9", es: "W-9" },
+  "certificate of insurance": { en: "Certificate of insurance", es: "Certificado de seguro" },
+  "warehouse/pickup location proof": { en: "Warehouse/pickup location proof", es: "Comprobante de almacén o punto de recogida" },
+  "brand authorization or distribution agreement": { en: "Brand authorization or distribution agreement", es: "Autorización de marca o acuerdo de distribución" }
+};
+
+function sharedTranslation(value: string, language: Language, map: SharedTranslationMap) {
+  return map[value.trim().toLowerCase()]?.[language] ?? value;
+}
+
+export function translateStatus(value: string, language: Language) {
+  return sharedTranslation(value, language, statusTranslations);
+}
+
+export function translateFulfillment(value: string, language: Language) {
+  return sharedTranslation(value, language, fulfillmentTranslations);
+}
+
+export function translateHub(value: string, language: Language) {
+  return sharedTranslation(value, language, hubTranslations);
+}
+
+export function translateDocumentLabel(value: string, language: Language) {
+  return sharedTranslation(value, language, documentTranslations);
+}
+
+export function translateDocumentHint(value: string, language: Language) {
+  if (language === "en") return value;
+  const hints: Record<string, string> = {
+    "Upload a current, legible copy.": "Suba una copia vigente y legible.",
+    "Expiration date is required.": "La fecha de vencimiento es obligatoria.",
+    "PDF, JPG, or PNG.": "PDF, JPG o PNG.",
+    "Required before approval.": "Obligatorio antes de la aprobación."
+  };
+  return hints[value] ?? value;
+}
+
+export function translateRouteProgram(value: string, language: Language) {
+  if (language === "en") return value;
+  const values: Record<string, string> = {
+    "Independent route seller": "Vendedor de ruta independiente",
+    "Company sales team": "Equipo de ventas de la empresa",
+    "Broker or agency": "Corredor o agencia"
+  };
+  return values[value] ?? value;
+}
+
+export function translateProductLane(value: string, language: Language) {
+  if (language === "en") return value;
+  const values: Record<string, string> = {
+    "Grocery and pantry": "Comestibles y despensa",
+    "Beverages": "Bebidas",
+    "Cleaning and janitorial": "Limpieza y mantenimiento",
+    "Foodservice": "Servicio de alimentos",
+    "Health and beauty": "Salud y belleza",
+    "General merchandise": "Mercancía general"
+  };
+  return values[value] ?? value;
+}
