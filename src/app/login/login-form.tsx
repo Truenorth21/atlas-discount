@@ -15,7 +15,7 @@ export function LoginForm({
   isConfigured: boolean;
   next: string;
 }) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
 
   return (
     <form action={signIn} className="panel w-full max-w-md overflow-hidden p-0">
@@ -24,7 +24,7 @@ export function LoginForm({
         <div className="flex h-11 w-11 items-center justify-center rounded-md bg-[#eaf3ff] text-atlas-blue">
           <LockKeyhole size={21} />
         </div>
-        <p className="mt-5 text-xs font-black uppercase text-atlas-red">Atlas Discount account</p>
+        <p className="mt-5 text-xs font-black uppercase text-atlas-red">{language === "es" ? "Cuenta de Atlas Discount" : "Atlas Discount account"}</p>
         <h1 className="mt-2 text-3xl font-black text-atlas-navy">{t("loginTitle")}</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">{t("loginBody")}</p>
         {!isConfigured && (
