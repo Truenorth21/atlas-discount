@@ -5,7 +5,15 @@ import { CheckCircle2, FileUp, UploadCloud } from "lucide-react";
 import { registerUser } from "@/app/register/actions";
 import { documentHints, documentRequirements, routeSellerProductLanes, routeSellerPrograms, routeSellerTerritories } from "@/lib/data";
 import { requiresExpirationDate } from "@/lib/documents";
-import { useI18n } from "@/lib/i18n";
+import {
+  translateDocumentHint,
+  translateDocumentLabel,
+  translateHub,
+  translateProductLane,
+  translateRouteProgram,
+  translateStatus,
+  useI18n
+} from "@/lib/i18n";
 import { isSupabaseConfigured } from "@/lib/supabase/browser";
 import type { AtlasHub, BusinessDocument, RouteSellerPreference } from "@/lib/types";
 import { useAtlasStore } from "./local-store";
@@ -15,7 +23,7 @@ function documentId(type: "buyer" | "supplier" | "route_seller", label: string) 
 }
 
 export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" | "route_seller"; error?: string }) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const { addApplication } = useAtlasStore();
   const [submitted, setSubmitted] = useState(false);
   const requirements = documentRequirements[type];
@@ -185,7 +193,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
               <span className="label">{t("sellerProgram")}</span>
               <select className="field" name="routeProgram" required>
                 {routeSellerPrograms.map((program) => (
-                  <option key={program}>{program}</option>
+                  <option key={program}>{translateRouteProgram(program, language)}</option>
                 ))}
               </select>
             </label>
@@ -203,7 +211,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                 }}
               >
                 {Object.keys(routeSellerTerritories).map((hub) => (
-                  <option key={hub}>{hub}</option>
+                  <option key={hub}>{translateHub(hub, language)}</option>
                 ))}
               </select>
             </label>
@@ -225,7 +233,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
               <span className="label">{t("primaryProductLane")}</span>
               <select className="field" name="productLane" required>
                 {routeSellerProductLanes.map((lane) => (
-                  <option key={lane}>{lane}</option>
+                  <option key={lane}>{translateProductLane(lane, language)}</option>
                 ))}
               </select>
             </label>
@@ -320,9 +328,9 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                       size={17}
                     />
                     <div>
-                      <p className="text-sm font-bold text-atlas-navy">{document.label}</p>
+                      <p className="text-sm font-bold text-atlas-navy">{translateDocumentLabel(document.label, language)}</p>
                       {documentHints[document.label] && (
-                        <p className="mt-0.5 text-xs text-slate-500">{documentHints[document.label]}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{translateDocumentHint(document.label, language)}</p>
                       )}
                       <p className="mt-0.5 text-xs text-slate-600">
                         {document.fileName ? `${t("uploaded")}: ${document.fileName}` : t("waitingForUpload")}
@@ -337,7 +345,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                       document.status === "uploaded" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
                     }`}
                   >
-                    {document.status}
+                    {translateStatus(document.status, language)}
                   </span>
                 </div>
                 <label className="btn-secondary mt-3 w-fit cursor-pointer">
@@ -364,7 +372,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
                     />
                   </label>
                 )}
-                <input name="documentLabels" type="hidden" value={document.label} />
+                <input name="documentLabels" type="hidden" value={translateDocumentLabel(document.label, language)} />
               </div>
             ))}
           </div>
