@@ -109,3 +109,28 @@ main aside[class*="fixed"] { box-shadow: -18px 0 60px rgba(6, 43, 92, 0.16); }
     animation-iteration-count: 1 !important;
   }
 }
+
+
+/* Public storefront: editorial wholesale presentation */
+main.atlas-storefront {
+  background: #fff !important;
+}
+main.atlas-storefront > section:first-of-type > div.absolute {
+  background: linear-gradient(90deg, rgba(7, 27, 49, 0.96) 0%, rgba(7, 27, 49, 0.75) 55%, rgba(7, 27, 49, 0.2) 100%) !important;
+}
+main.atlas-deals {
+  background: #eef1ed !important;
+}
+footer.atlas-public-footer {
+  background: #081b32 !important;
+}
+.atlas-storefront a,
+.atlas-deals a,
+.atlas-public-footer a {
+  text-decoration: none;
+}
+@media (max-width: 767px) {
+  main.atlas-storefront > section:first-of-type > div.absolute {
+    background: rgba(7, 27, 49, 0.82) !important;
+  }
+}
