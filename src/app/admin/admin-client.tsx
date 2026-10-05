@@ -7,6 +7,7 @@ import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
 import { ProductImage } from "@/components/product-image";
 import { StatusBadge } from "@/components/status-badge";
+import { notifyApplicationDecision } from "./actions";
 import { useAtlasStore } from "@/components/local-store";
 import { uploadProductImage } from "@/lib/supabase/upload";
 import { getDocumentAlerts, getExpirationState } from "@/lib/documents";
@@ -168,10 +169,26 @@ export function AdminClient() {
                       <RoutePreferenceCard application={application} applications={store.applications} />
                     </div>
                     <div className="flex gap-2">
-                      <button className="btn-secondary px-3" type="button" onClick={() => updateApplicationStatus(application.id, "approved")} aria-label="Approve application">
+                      <button
+                        className="btn-secondary px-3"
+                        type="button"
+                        onClick={() => {
+                          updateApplicationStatus(application.id, "approved");
+                          void notifyApplicationDecision({ email: application.email, companyName: application.companyName, contactName: application.contactName, approved: true });
+                        }}
+                        aria-label="Approve application"
+                      >
                         <Check size={16} />
                       </button>
-                      <button className="btn-danger px-3" type="button" onClick={() => updateApplicationStatus(application.id, "rejected")} aria-label="Reject application">
+                      <button
+                        className="btn-danger px-3"
+                        type="button"
+                        onClick={() => {
+                          updateApplicationStatus(application.id, "rejected");
+                          void notifyApplicationDecision({ email: application.email, companyName: application.companyName, contactName: application.contactName, approved: false });
+                        }}
+                        aria-label="Reject application"
+                      >
                         <X size={16} />
                       </button>
                     </div>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { notifyOrderSubmitted } from "./actions";
 import { Boxes, CheckCircle2, ChevronDown, Heart, ImageIcon, Minus, PackageCheck, Plus, Search, ShoppingCart, Tag, Trash2, Truck, Warehouse, X } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage } from "@/components/product-image";
@@ -105,6 +106,7 @@ export default function CatalogClient({ isAuthenticated, userId, userRole, isApp
     if (!store.cart.length || minimumIssues.length) return;
     const id = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
     addOrder({ ...draftOrder, id, estimatedValue: orderTotal, status: pickupReady ? "Ready to confirm" : "Quote requested" });
+    void notifyOrderSubmitted({ id, totalCases, estimatedValue: orderTotal, fulfillmentType: fulfillment, pickup: pickupReady });
     setSubmittedId(id);
   }
 

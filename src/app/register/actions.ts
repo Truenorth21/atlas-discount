@@ -2,7 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { ADMIN_EMAIL, appUrl, emailLayout, esc, sendEmail } from "@/lib/email";
 import type { UserRole } from "@/lib/types";
+
+const roleLabels: Record<string, string> = {
+  buyer: "buyer (Member)",
+  supplier: "supplier",
+  route_seller: "sales rep"
+};
 
 function documentId(role: string, label: string) {
   return `${role}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
@@ -110,6 +117,27 @@ export async function registerUser(formData: FormData) {
       })
     );
   }
+
+  // Notify the applicant and Atlas admin. No-ops safely if email isn't configured.
+  const roleLabel = roleLabels[role] ?? role;
+  await sendEmail({
+    to: email,
+    subject: "We received your Atlas Discount application",
+    html: emailLayout(
+      "Application received",
+      `Hi ${esc(contactName) || "there"},<br/><br/>Thanks for applying to Atlas Discount as a ${esc(roleLabel)} for <strong>${esc(companyName)}</strong>. Our team is reviewing your account and documents, and we'll email you as soon as it's approved.`,
+      { label: "Go to your dashboard", href: `${appUrl}/login` }
+    )
+  });
+  await sendEmail({
+    to: ADMIN_EMAIL,
+    subject: `New ${roleLabel} application — ${companyName}`,
+    html: emailLayout(
+      "New application to review",
+      `<strong>${esc(companyName)}</strong> (${esc(roleLabel)})<br/>Contact: ${esc(contactName)}<br/>Email: ${esc(email)}<br/>Phone: ${esc(phone)}`,
+      { label: "Review in admin", href: `${appUrl}/admin` }
+    )
+  });
 
   redirect(role === "supplier" ? "/dashboard/supplier" : role === "route_seller" ? "/dashboard/route-seller" : "/dashboard/retailer");
 }
