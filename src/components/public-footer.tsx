@@ -62,7 +62,10 @@ export function PublicFooter() {
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-5 text-xs text-white/50 md:px-8">
           <span>© 2026 Atlas Discount</span>
-          <span>Marketplace · Fulfillment · Wholesale Network</span>
+          <span className="flex items-center gap-4">
+            <Link href="/terms" className="hover:text-white">{es ? "Términos de servicio" : "Terms of Service"}</Link>
+            <Link href="/privacy" className="hover:text-white">{es ? "Política de privacidad" : "Privacy Policy"}</Link>
+          </span>
         </div>
       </div>
     </footer>
