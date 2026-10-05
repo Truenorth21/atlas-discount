@@ -53,7 +53,7 @@ export default function DealsPage() {
   const { language } = useI18n();
   const es = language === "es";
   const promoted = store.products
-    .filter((product) => product.status === "approved" && (product.promotion?.status === "approved" || product.placements?.weeklyDeals))
+    .filter((product) => product.status === "approved" && (Boolean(product.promotion) || product.placements?.weeklyDeal))
     .slice(0, 12);
   const date = new Intl.DateTimeFormat(es ? "es-US" : "en-US", {
     month: "long",

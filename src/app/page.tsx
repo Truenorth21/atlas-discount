@@ -52,7 +52,7 @@ export default function HomePage() {
   ]
     .filter((product, index, list) => list.findIndex((item) => item.id === product.id) === index)
     .slice(0, 8);
-  const categories = productCategories.slice(0, 6);
+  const categories = Object.keys(productCategories).slice(0, 6);
 
   return (
     <main className="atlas-storefront min-h-screen bg-white text-[#142033]">
