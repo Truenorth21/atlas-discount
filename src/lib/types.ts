@@ -92,6 +92,47 @@ export type ProductSpec = {
   shippingWarehouse?: "Miami hub" | "Orlando hub";
   pickupAddress?: string;
   pickupPhone?: string;
+  /** Supplier-controlled buyer fulfillment rules for this product. */
+  fulfillment?: SupplierFulfillmentRules;
+};
+
+export type ShippingRateMethod = "flat" | "per_case" | "per_pallet";
+
+export type SupplierFulfillmentRules = {
+  pickup?: {
+    enabled: boolean;
+    locationName: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    instructions?: string;
+    leadTime: string;
+  };
+  includedDelivery?: {
+    enabled: boolean;
+    zipPrefixes: string[];
+    areaLabel: string;
+    minimumPallets: number;
+    leadTime: string;
+  };
+  shipping?: {
+    enabled: boolean;
+    zipPrefixes: string[];
+    coverageLabel: string;
+    method: string;
+    rateMethod: ShippingRateMethod;
+    rate: number;
+    leadTime: string;
+  };
+};
+
+export type SupplierFulfillmentSelection = {
+  supplierName: string;
+  option: "pickup" | "included_delivery" | "shipping";
+  label: string;
+  cost: number;
+  leadTime: string;
 };
 
 /** Explicit per-tier prices for one product. tierId -> price per master case (and optional full-pallet per-case price). */
@@ -246,6 +287,7 @@ export type OrderRequest = {
   destinationHub?: "Miami hub" | "Orlando hub";
   hubRouting: string;
   lineItems?: CartLine[];
+  supplierFulfillment?: SupplierFulfillmentSelection[];
   status: "Quote requested" | "Admin review" | "Sent to supplier" | "Ready to confirm";
   createdAt: string;
 };

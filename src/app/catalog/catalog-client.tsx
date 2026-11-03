@@ -1,21 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { notifyOrderSubmitted } from "./actions";
-import { Boxes, CheckCircle2, ChevronDown, Heart, ImageIcon, Minus, PackageCheck, Plus, Search, ShoppingCart, Tag, Trash2, Truck, Warehouse, X } from "lucide-react";
+import { Boxes, CheckCircle2, ChevronDown, Heart, Minus, PackageCheck, Plus, Search, ShoppingCart, Tag, Trash2, Truck, Warehouse, X } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage } from "@/components/product-image";
 import { useAtlasStore } from "@/components/local-store";
-import { atlasHubs, productCategories, readHomeHub, writeHomeHub } from "@/lib/data";
+import { productCategories } from "@/lib/data";
 import { useI18n } from "@/lib/i18n";
 import { buyerCasePrice, calculateQuoteFinancials, formatMoney } from "@/lib/pricing";
+import { calculateSupplierFulfillment } from "@/lib/fulfillment";
 import type { PricingContext } from "@/lib/pricing";
-import type { FulfillmentType, OrderRequest, Product } from "@/lib/types";
-
-type SimpleFulfillment = "Pickup" | "Local delivery" | "Freight quote needed";
-type ReceivingHub = "Miami hub" | "Orlando hub";
+import type { OrderRequest, Product } from "@/lib/types";
 
 const categoryLabels: Record<string, string> = {
   "Janitorial / Cleaning Supplies": "Cleaning",
@@ -34,15 +32,11 @@ export default function CatalogClient({ isAuthenticated, userId, userRole, isApp
   const [category, setCategory] = useState(searchParams.get("category") || "All");
   const [brand, setBrand] = useState("All");
   const [sortBy, setSortBy] = useState("featured");
-  const [fulfillment, setFulfillment] = useState<SimpleFulfillment>("Pickup");
-  const [receivingHub, setReceivingHub] = useState<ReceivingHub>("Miami hub");
+  const [destination, setDestination] = useState({ city: "", state: "FL", zip: "" });
+  const [fulfillmentSelections, setFulfillmentSelections] = useState<Record<string, string>>({});
   const [cartOpen, setCartOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setReceivingHub(readHomeHub());
-  }, []);
 
   const isAdminPreview = userRole === "admin";
   const canSeePricing = (isAuthenticated && (isApproved || store.documentsVerified)) || isAdminPreview;
@@ -70,24 +64,31 @@ export default function CatalogClient({ isAuthenticated, userId, userRole, isApp
 
   const totalCases = store.cart.reduce((sum, line) => sum + line.quantity, 0);
   const minimumIssues = store.cart.filter((line) => line.quantity < Math.max(1, line.product.moq || 1));
-  const hubRouting = fulfillment === "Pickup" ? `Pickup at ${receivingHub}` : fulfillment === "Local delivery" ? `Local delivery from ${receivingHub}` : "Atlas freight quote";
+  const supplierGroups = calculateSupplierFulfillment(store.cart, destination);
+  const selectedFulfillment = supplierGroups.map((group) => {
+    const selectedId = fulfillmentSelections[group.supplierName] ?? group.options[0]?.id;
+    const option = group.options.find((item) => item.id === selectedId);
+    return option ? { supplierName: group.supplierName, option } : null;
+  }).filter(Boolean) as Array<{ supplierName: string; option: (typeof supplierGroups)[number]["options"][number] }>;
+  const allSuppliersEligible = supplierGroups.length > 0 && supplierGroups.every((group) => group.options.length > 0) && selectedFulfillment.length === supplierGroups.length;
+  const fulfillmentCost = selectedFulfillment.reduce((sum, item) => sum + item.option.cost, 0);
+  const hubRouting = selectedFulfillment.map(({ supplierName, option }) => `${supplierName}: ${option.label}; ${option.leadTime}; ${formatMoney(option.cost)}`).join(" | ") || "Supplier fulfillment selection required";
   const draftOrder: OrderRequest = {
     id: "DRAFT",
     buyer: "Current Retailer",
-    buyerRegion: receivingHub === "Miami hub" ? "South Florida" : "Central Florida",
+    buyerRegion: [destination.city, destination.state, destination.zip].filter(Boolean).join(", "),
     totalCases,
     estimatedValue: 0,
-    fulfillmentType: fulfillment as FulfillmentType,
-    destinationHub: receivingHub,
+    fulfillmentType: "Supplier direct",
     hubRouting,
     lineItems: store.cart,
+    supplierFulfillment: selectedFulfillment.map(({ supplierName, option }) => ({ supplierName, option: option.id, label: option.label, cost: option.cost, leadTime: option.leadTime })),
     status: "Quote requested",
     createdAt: new Date().toISOString().slice(0, 10),
   };
   const financials = calculateQuoteFinancials(draftOrder, store.pricingSettings, undefined, pricingContext);
   const merchandiseTotal = financials.productRevenue;
-  const orderTotal = financials.buyerTotal;
-  const pickupReady = fulfillment === "Pickup";
+  const orderTotal = merchandiseTotal + fulfillmentCost;
 
   function addProduct(product: Product, quantity: number) {
     if (!isAuthenticated) {
@@ -103,10 +104,11 @@ export default function CatalogClient({ isAuthenticated, userId, userRole, isApp
       window.location.href = "/login?next=/catalog";
       return;
     }
-    if (!store.cart.length || minimumIssues.length) return;
+    if (!store.cart.length || minimumIssues.length || !allSuppliersEligible) return;
     const id = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
-    addOrder({ ...draftOrder, id, estimatedValue: orderTotal, status: pickupReady ? "Ready to confirm" : "Quote requested" });
-    void notifyOrderSubmitted({ id, totalCases, estimatedValue: orderTotal, fulfillmentType: fulfillment, pickup: pickupReady });
+    const pickupOnly = selectedFulfillment.every((item) => item.option.id === "pickup");
+    addOrder({ ...draftOrder, id, estimatedValue: orderTotal, status: "Ready to confirm" });
+    void notifyOrderSubmitted({ id, totalCases, estimatedValue: orderTotal, fulfillmentType: "Supplier-specific fulfillment", pickup: pickupOnly });
     setSubmittedId(id);
   }
 
@@ -160,7 +162,7 @@ export default function CatalogClient({ isAuthenticated, userId, userRole, isApp
         </div>
       </main>
 
-      {cartOpen && <CartDrawer cart={store.cart} canSeePricing={canSeePricing} settings={store.pricingSettings} tierId={buyerTierId} userId={userId} fulfillment={fulfillment} setFulfillment={setFulfillment} hub={receivingHub} setHub={(hub) => { setReceivingHub(hub); writeHomeHub(hub); }} merchandiseTotal={merchandiseTotal} orderTotal={orderTotal} minimumIssues={minimumIssues} submittedId={submittedId} updateQuantity={updateCartQuantity} remove={removeFromCart} submit={submitOrder} close={() => setCartOpen(false)} />}
+      {cartOpen && <CartDrawer cart={store.cart} canSeePricing={canSeePricing} settings={store.pricingSettings} tierId={buyerTierId} userId={userId} destination={destination} setDestination={setDestination} supplierGroups={supplierGroups} selections={fulfillmentSelections} setSelection={(supplier, option) => setFulfillmentSelections((current) => ({ ...current, [supplier]: option }))} merchandiseTotal={merchandiseTotal} fulfillmentCost={fulfillmentCost} orderTotal={orderTotal} minimumIssues={minimumIssues} allSuppliersEligible={allSuppliersEligible} submittedId={submittedId} updateQuantity={updateCartQuantity} remove={removeFromCart} submit={submitOrder} close={() => setCartOpen(false)} />}
       {detailProduct && <ProductDetail product={detailProduct} canSeePricing={canSeePricing} settings={store.pricingSettings} tierId={buyerTierId} userId={userId} close={() => setDetailProduct(null)} add={(quantity) => { addProduct(detailProduct, quantity); setDetailProduct(null); }} />}
     </>
   );
@@ -183,24 +185,19 @@ function ProductCard({ product, canSeePricing, settings, tierId, userId, favorit
   </article>;
 }
 
-function CartDrawer({ cart, canSeePricing, settings, tierId, userId, fulfillment, setFulfillment, hub, setHub, merchandiseTotal, orderTotal, minimumIssues, submittedId, updateQuantity, remove, submit, close }: { cart: ReturnType<typeof useAtlasStore>["store"]["cart"]; canSeePricing: boolean; settings: ReturnType<typeof useAtlasStore>["store"]["pricingSettings"]; tierId: string; userId?: string; fulfillment: SimpleFulfillment; setFulfillment: (value: SimpleFulfillment) => void; hub: ReceivingHub; setHub: (value: ReceivingHub) => void; merchandiseTotal: number; orderTotal: number; minimumIssues: typeof cart; submittedId: string | null; updateQuantity: (id: string, quantity: number) => void; remove: (id: string) => void; submit: () => void; close: () => void }) {
-  const options: Array<{ id: SimpleFulfillment; icon: typeof Warehouse; title: string; body: string }> = [
-    { id: "Pickup", icon: Warehouse, title: "Hub pickup", body: "Published case prices. Fastest confirmation." },
-    { id: "Local delivery", icon: Truck, title: "Local delivery", body: "Atlas adds the delivery charge before confirmation." },
-    { id: "Freight quote needed", icon: Boxes, title: "Freight quote", body: "For larger or out-of-area orders." },
-  ];
+function CartDrawer({ cart, canSeePricing, settings, tierId, userId, destination, setDestination, supplierGroups, selections, setSelection, merchandiseTotal, fulfillmentCost, orderTotal, minimumIssues, allSuppliersEligible, submittedId, updateQuantity, remove, submit, close }: { cart: ReturnType<typeof useAtlasStore>["store"]["cart"]; canSeePricing: boolean; settings: ReturnType<typeof useAtlasStore>["store"]["pricingSettings"]; tierId: string; userId?: string; destination: { city: string; state: string; zip: string }; setDestination: (value: { city: string; state: string; zip: string }) => void; supplierGroups: ReturnType<typeof calculateSupplierFulfillment>; selections: Record<string, string>; setSelection: (supplier: string, option: string) => void; merchandiseTotal: number; fulfillmentCost: number; orderTotal: number; minimumIssues: typeof cart; allSuppliersEligible: boolean; submittedId: string | null; updateQuantity: (id: string, quantity: number) => void; remove: (id: string) => void; submit: () => void; close: () => void }) {
   return <div className="fixed inset-0 z-50 bg-atlas-navy/55" onClick={close}><aside className="ml-auto flex h-full w-full max-w-xl flex-col bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
     <header className="flex items-center justify-between border-b border-slate-200 p-5"><div><p className="text-xs font-black uppercase text-atlas-blue">Wholesale order</p><h2 className="text-2xl font-black text-atlas-navy">Review your cases</h2></div><button type="button" onClick={close} className="flex h-10 w-10 items-center justify-center border border-slate-200"><X /></button></header>
     <div className="flex-1 overflow-y-auto p-5">
       {!cart.length ? <div className="py-16 text-center"><ShoppingCart className="mx-auto text-slate-300" size={38} /><p className="mt-3 font-black text-atlas-navy">Your order is empty</p><button type="button" onClick={close} className="mt-4 font-black text-atlas-blue underline">Continue shopping</button></div> : <>
         <div className="grid gap-3">{cart.map((line) => { const minimum = Math.max(1, line.product.moq || 1); const price = buyerCasePrice({ settings, product: line.product, tierId, accountId: userId }); return <div key={line.product.id} className="grid grid-cols-[64px_1fr_auto] gap-3 border-b border-slate-200 pb-3"><ProductImage product={line.product} className="h-16 w-16 border border-slate-200" iconSize={22} /><div><p className="font-black text-atlas-navy">{line.product.brand}</p><p className="line-clamp-1 text-xs text-slate-500">{line.product.productName || line.product.description}</p><div className="mt-2 flex items-center gap-2"><button type="button" onClick={() => updateQuantity(line.product.id, Math.max(minimum, line.quantity - 1))} className="h-7 w-7 border"><Minus size={12} className="mx-auto" /></button><span className="min-w-8 text-center text-sm font-black">{line.quantity}</span><button type="button" onClick={() => updateQuantity(line.product.id, line.quantity + 1)} className="h-7 w-7 border"><Plus size={12} className="mx-auto" /></button><span className="text-xs text-slate-500">cases</span></div></div><div className="text-right"><p className="font-black text-atlas-navy">{canSeePricing && price > 0 ? formatMoney(price * line.quantity) : "—"}</p><button type="button" onClick={() => remove(line.product.id)} className="mt-3 text-slate-400 hover:text-atlas-red"><Trash2 size={16} /></button></div></div>; })}</div>
-        <section className="mt-6"><h3 className="font-black text-atlas-navy">How should Atlas fulfill this order?</h3><div className="mt-3 grid gap-2">{options.map(({ id, icon: Icon, title, body }) => <button key={id} type="button" onClick={() => setFulfillment(id)} className={`flex items-start gap-3 border p-3 text-left ${fulfillment === id ? "border-atlas-blue bg-sky-50" : "border-slate-200"}`}><Icon size={20} className="mt-0.5 shrink-0 text-atlas-blue" /><span><span className="block font-black text-atlas-navy">{title}</span><span className="block text-xs leading-5 text-slate-600">{body}</span></span>{fulfillment === id && <CheckCircle2 size={18} className="ml-auto shrink-0 text-atlas-blue" />}</button>)}</div></section>
-        {fulfillment !== "Freight quote needed" && <section className="mt-5"><h3 className="text-sm font-black text-atlas-navy">Preferred hub</h3><div className="mt-2 grid grid-cols-2 gap-2">{atlasHubs.filter((item): item is ReceivingHub => item === "Miami hub" || item === "Orlando hub").map((item) => <button key={item} type="button" onClick={() => setHub(item)} className={`border p-3 text-sm font-black ${hub === item ? "border-atlas-blue bg-sky-50 text-atlas-navy" : "border-slate-200 text-slate-600"}`}>{item}</button>)}</div></section>}
+        <section className="mt-6"><h3 className="font-black text-atlas-navy">Delivery destination</h3><p className="mt-1 text-xs text-slate-500">ZIP determines which supplier delivery and shipping options are eligible. Pickup remains available where offered.</p><div className="mt-3 grid grid-cols-[1fr_72px_100px] gap-2"><input className="field" aria-label="Destination city" placeholder="City" value={destination.city} onChange={(event) => setDestination({ ...destination, city: event.target.value })} /><input className="field px-2 text-center uppercase" aria-label="Destination state" maxLength={2} value={destination.state} onChange={(event) => setDestination({ ...destination, state: event.target.value.toUpperCase() })} /><input className="field" aria-label="Destination ZIP" inputMode="numeric" maxLength={5} placeholder="ZIP" value={destination.zip} onChange={(event) => setDestination({ ...destination, zip: event.target.value.replace(/\D/g, "").slice(0, 5) })} /></div></section>
+        <section className="mt-6"><h3 className="font-black text-atlas-navy">Fulfillment by supplier</h3><p className="mt-1 text-xs text-slate-500">Each supplier ships or releases its own products. Only enabled, eligible options appear.</p><div className="mt-3 grid gap-4">{supplierGroups.map((group) => <div key={group.supplierName} className="border border-slate-200 p-3"><div className="flex items-start justify-between gap-3"><div><p className="font-black text-atlas-navy">{group.supplierName}</p><p className="text-xs text-slate-500">{group.cases} cases{group.palletOnly ? ` · ${group.pallets} full pallet${group.pallets === 1 ? "" : "s"}` : " · not a full-pallet order"}</p></div><span className="bg-atlas-light px-2 py-1 text-[10px] font-black uppercase text-atlas-blue">Separate fulfillment</span></div><div className="mt-3 grid gap-2">{group.options.map((option) => { const selected = (selections[group.supplierName] ?? group.options[0]?.id) === option.id; const Icon = option.id === "pickup" ? Warehouse : option.id === "included_delivery" ? Truck : Boxes; return <button key={option.id} type="button" onClick={() => setSelection(group.supplierName, option.id)} className={`flex items-start gap-3 border p-3 text-left ${selected ? "border-atlas-blue bg-sky-50" : "border-slate-200"}`}><Icon size={19} className="mt-0.5 shrink-0 text-atlas-blue" /><span><span className="block font-black text-atlas-navy">{option.label}{option.cost > 0 ? ` · ${formatMoney(option.cost)}` : ""}</span><span className="block text-xs leading-5 text-slate-600">{option.detail} · {option.leadTime}</span></span>{selected && <CheckCircle2 size={18} className="ml-auto shrink-0 text-atlas-blue" />}</button>; })}{!group.options.length && <div className="border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-900">No eligible option for this supplier. Enter a destination ZIP, adjust to full-pallet quantities, or contact Atlas Buyer Support.</div>}</div></div>)}</div></section>
         {minimumIssues.length > 0 && <div className="mt-5 border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-900">Increase {minimumIssues.length} {minimumIssues.length === 1 ? "item" : "items"} to meet the product minimum.</div>}
-        {submittedId && <div className="mt-5 border border-emerald-200 bg-emerald-50 p-4"><p className="flex items-center gap-2 font-black text-emerald-800"><PackageCheck size={18} />Order request {submittedId} submitted</p><p className="mt-1 text-xs text-emerald-700">Atlas will confirm inventory and any applicable delivery or freight charge.</p></div>}
+        {submittedId && <div className="mt-5 border border-emerald-200 bg-emerald-50 p-4"><p className="flex items-center gap-2 font-black text-emerald-800"><PackageCheck size={18} />Order request {submittedId} submitted</p><p className="mt-1 text-xs text-emerald-700">Atlas will confirm availability with each supplier. No inventory was reserved or charged.</p></div>}
       </>}
     </div>
-    {cart.length > 0 && <footer className="border-t border-slate-200 bg-atlas-light p-5"><div className="flex justify-between text-sm font-bold text-slate-600"><span>Merchandise</span><span>{formatMoney(merchandiseTotal)}</span></div><div className="mt-2 flex justify-between text-xl font-black text-atlas-navy"><span>{fulfillment === "Pickup" ? "Estimated total" : "Estimated total"}</span><span>{formatMoney(orderTotal)}</span></div><p className="mt-1 text-xs text-slate-500">{fulfillment === "Pickup" ? "Pickup pricing is ready for confirmation." : "Atlas will confirm the final fulfillment charge."}</p><button type="button" disabled={minimumIssues.length > 0 || !!submittedId} onClick={submit} className="btn-primary mt-4 w-full">{fulfillment === "Pickup" ? "Submit pickup order" : "Request final quote"}</button></footer>}
+    {cart.length > 0 && <footer className="border-t border-slate-200 bg-atlas-light p-5"><div className="flex justify-between text-sm font-bold text-slate-600"><span>Merchandise</span><span>{formatMoney(merchandiseTotal)}</span></div><div className="mt-1 flex justify-between text-sm font-bold text-slate-600"><span>Supplier shipping</span><span>{formatMoney(fulfillmentCost)}</span></div><div className="mt-2 flex justify-between text-xl font-black text-atlas-navy"><span>Estimated total</span><span>{formatMoney(orderTotal)}</span></div><p className="mt-1 text-xs text-slate-500">Fulfillment is calculated separately by supplier. Atlas confirms availability before anything is charged.</p><button type="button" disabled={minimumIssues.length > 0 || !allSuppliersEligible || !!submittedId} onClick={submit} className="btn-primary mt-4 w-full">Submit order request</button></footer>}
   </aside></div>;
 }
 

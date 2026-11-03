@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { Megaphone, Wallet } from "lucide-react";
+import { Boxes, MapPin, Megaphone, Truck, Wallet } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
 import { SingleProductForm } from "@/app/admin/admin-client";
@@ -14,11 +14,12 @@ import { getDocumentAlerts } from "@/lib/documents";
 import { defaultFulfillmentTierId, fulfillmentTiers } from "@/lib/data";
 import { useI18n } from "@/lib/i18n";
 import { isSupabaseConfigured } from "@/lib/supabase/browser";
-import type { Application } from "@/lib/types";
+import { parseZipPrefixes } from "@/lib/fulfillment";
+import type { Application, Product, SupplierFulfillmentRules } from "@/lib/types";
 
 export default function SupplierDashboardPage() {
   const { t } = useI18n();
-  const { store, setStore, addProducts, addPromotionSubmission } = useAtlasStore();
+  const { store, setStore, addProducts, addPromotionSubmission, updateProduct } = useAtlasStore();
   const [promo, setPromo] = useState(t("noPromotionSubmitted"));
   const adPlacements = [
     "Weekly deals email",
@@ -166,6 +167,16 @@ export default function SupplierDashboardPage() {
           submitLabel="Submit for review"
           submittedVerb="submitted to Atlas for review"
         />
+        <section className="panel p-5">
+          <h2 className="text-xl font-black text-atlas-navy">Fulfillment options</h2>
+          <p className="mt-1 text-sm text-slate-600">Enable only the services you offer. Atlas checks product quantity and destination ZIP separately for each supplier at checkout.</p>
+          <div className="mt-4 grid gap-4">
+            {supplierProducts.map((product) => (
+              <FulfillmentRulesEditor key={product.id} product={product} onSave={(rules) => updateProduct(product.id, { spec: { ...(product.spec ?? {}), fulfillment: rules } })} />
+            ))}
+            {!supplierProducts.length && <p className="rounded-md bg-atlas-light p-4 text-sm text-slate-600">Add a product before configuring fulfillment.</p>}
+          </div>
+        </section>
         <section className="panel overflow-hidden">
           <div className="border-b border-slate-200 p-5">
             <h2 className="text-xl font-black text-atlas-navy">Your products</h2>
@@ -219,6 +230,60 @@ export default function SupplierDashboardPage() {
     </>
   );
 }
+
+function FulfillmentRulesEditor({ product, onSave }: { product: Product; onSave: (rules: SupplierFulfillmentRules) => void }) {
+  const existing = product.spec?.fulfillment;
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const pickupEnabled = data.get("pickupEnabled") === "on";
+    const includedEnabled = data.get("includedEnabled") === "on";
+    const shippingEnabled = data.get("shippingEnabled") === "on";
+    const rules: SupplierFulfillmentRules = {
+      pickup: {
+        enabled: pickupEnabled,
+        locationName: String(data.get("locationName") || ""), address: String(data.get("address") || ""),
+        city: String(data.get("city") || ""), state: String(data.get("state") || "").toUpperCase(), zip: String(data.get("pickupZip") || "").replace(/\D/g, "").slice(0, 5),
+        instructions: String(data.get("instructions") || "") || undefined, leadTime: String(data.get("pickupLeadTime") || ""),
+      },
+      includedDelivery: {
+        enabled: includedEnabled, zipPrefixes: parseZipPrefixes(String(data.get("includedZips") || "")), areaLabel: String(data.get("areaLabel") || ""),
+        minimumPallets: Math.max(1, Number(data.get("minimumPallets")) || 1), leadTime: String(data.get("includedLeadTime") || ""),
+      },
+      shipping: {
+        enabled: shippingEnabled, zipPrefixes: parseZipPrefixes(String(data.get("shippingZips") || "")), coverageLabel: String(data.get("coverageLabel") || ""),
+        method: String(data.get("shippingMethod") || ""), rateMethod: String(data.get("rateMethod") || "flat") as "flat" | "per_case" | "per_pallet",
+        rate: Math.max(0, Number(data.get("shippingRate")) || 0), leadTime: String(data.get("shippingLeadTime") || ""),
+      },
+    };
+    if (pickupEnabled && (!rules.pickup?.address || !rules.pickup.city || rules.pickup.state.length !== 2 || rules.pickup.zip.length !== 5 || !rules.pickup.leadTime)) return setMessage("Pickup requires a complete authorized address, 2-letter state, ZIP, and lead time.");
+    if (includedEnabled && (!rules.includedDelivery?.zipPrefixes.length || !rules.includedDelivery.areaLabel || !rules.includedDelivery.leadTime)) return setMessage("Included delivery requires coverage ZIP prefixes, an area label, minimum pallets, and lead time.");
+    if (shippingEnabled && (!rules.shipping?.zipPrefixes.length || !rules.shipping.method || !rules.shipping.leadTime || rules.shipping.rate <= 0)) return setMessage("Shipping requires coverage ZIP prefixes, method, positive rate, and lead time.");
+    if (!pickupEnabled && !includedEnabled && !shippingEnabled) return setMessage("Enable at least one fulfillment option before saving.");
+    onSave(rules);
+    setMessage("Fulfillment settings saved.");
+  }
+
+  return <div className="border border-slate-200">
+    <button type="button" onClick={() => setOpen((value) => !value)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
+      <span><span className="block font-black text-atlas-navy">{product.brand} · {product.productName}</span><span className="mt-0.5 block text-xs text-slate-500">SKU {product.sku} · {existing ? [existing.pickup?.enabled && "pickup", existing.includedDelivery?.enabled && "included delivery", existing.shipping?.enabled && "shipping"].filter(Boolean).join(", ") || "none enabled" : "not configured"}</span></span>
+      <span className="text-sm font-black text-atlas-blue">{open ? "Close" : "Configure"}</span>
+    </button>
+    {open && <form onSubmit={submit} className="grid gap-5 border-t border-slate-200 bg-atlas-light p-4">
+      <fieldset className="grid gap-3 rounded-md border border-slate-200 bg-white p-4"><legend className="px-2 font-black text-atlas-navy"><MapPin size={17} className="mr-2 inline text-atlas-blue" />Authorized warehouse pickup</legend><Toggle name="pickupEnabled" label="Offer pickup for this product" checked={existing?.pickup?.enabled} /><div className="grid gap-3 md:grid-cols-2"><Field name="locationName" label="Location name" defaultValue={existing?.pickup?.locationName} /><Field name="address" label="Street address" defaultValue={existing?.pickup?.address} /><Field name="city" label="City" defaultValue={existing?.pickup?.city} /><Field name="state" label="State" defaultValue={existing?.pickup?.state} maxLength={2} /><Field name="pickupZip" label="ZIP" defaultValue={existing?.pickup?.zip} maxLength={5} /><Field name="pickupLeadTime" label="Lead time" placeholder="Usually ready in 1 business day" defaultValue={existing?.pickup?.leadTime} /></div><Field name="instructions" label="Pickup instructions (optional)" defaultValue={existing?.pickup?.instructions} /></fieldset>
+      <fieldset className="grid gap-3 rounded-md border border-slate-200 bg-white p-4"><legend className="px-2 font-black text-atlas-navy"><Truck size={17} className="mr-2 inline text-atlas-blue" />Delivery included in pallet price</legend><Toggle name="includedEnabled" label="Offer included delivery for eligible pallet orders" checked={existing?.includedDelivery?.enabled} /><div className="grid gap-3 md:grid-cols-2"><Field name="includedZips" label="Eligible ZIPs / prefixes" placeholder="331, 33010, 334" defaultValue={existing?.includedDelivery?.zipPrefixes.join(", ")} /><Field name="areaLabel" label="Buyer-facing area" placeholder="Miami-Dade and Broward" defaultValue={existing?.includedDelivery?.areaLabel} /><Field name="minimumPallets" label="Minimum full pallets" type="number" min={1} defaultValue={existing?.includedDelivery?.minimumPallets ?? 1} /><Field name="includedLeadTime" label="Lead time" placeholder="2–3 business days" defaultValue={existing?.includedDelivery?.leadTime} /></div><p className="text-xs text-slate-500">Shown only when every product line from this supplier is ordered in full-pallet multiples.</p></fieldset>
+      <fieldset className="grid gap-3 rounded-md border border-slate-200 bg-white p-4"><legend className="px-2 font-black text-atlas-navy"><Boxes size={17} className="mr-2 inline text-atlas-blue" />Additional-cost shipping</legend><Toggle name="shippingEnabled" label="Offer supplier-defined shipping" checked={existing?.shipping?.enabled} /><div className="grid gap-3 md:grid-cols-2"><Field name="shippingZips" label="Coverage ZIPs / prefixes" placeholder="33, 34" defaultValue={existing?.shipping?.zipPrefixes.join(", ")} /><Field name="coverageLabel" label="Buyer-facing coverage" placeholder="Florida" defaultValue={existing?.shipping?.coverageLabel} /><Field name="shippingMethod" label="Method" placeholder="LTL freight" defaultValue={existing?.shipping?.method} /><label className="grid gap-1 text-sm font-bold text-atlas-navy">Rate basis<select className="field" name="rateMethod" defaultValue={existing?.shipping?.rateMethod ?? "flat"}><option value="flat">Flat per supplier order</option><option value="per_case">Per case</option><option value="per_pallet">Per pallet</option></select></label><Field name="shippingRate" label="Rate ($)" type="number" min={0.01} step="0.01" defaultValue={existing?.shipping?.rate} /><Field name="shippingLeadTime" label="Lead time" placeholder="3–5 business days" defaultValue={existing?.shipping?.leadTime} /></div></fieldset>
+      {message && <p className={`text-sm font-bold ${message.includes("saved") ? "text-emerald-700" : "text-red-700"}`}>{message}</p>}
+      <button type="submit" className="btn-primary w-fit">Save fulfillment options</button>
+    </form>}
+  </div>;
+}
+
+function Toggle({ name, label, checked }: { name: string; label: string; checked?: boolean }) { return <label className="flex items-center gap-2 text-sm font-bold text-atlas-navy"><input type="checkbox" name={name} defaultChecked={checked} className="h-4 w-4 accent-atlas-blue" />{label}</label>; }
+function Field({ name, label, defaultValue, ...props }: { name: string; label: string; defaultValue?: string | number; [key: string]: unknown }) { return <label className="grid gap-1 text-sm font-bold text-atlas-navy">{label}<input className="field" name={name} defaultValue={defaultValue ?? ""} {...props} /></label>; }
 
 function SupplierPaymentCard({ application, companyName }: { application?: Application; companyName: string }) {
   const { t } = useI18n();

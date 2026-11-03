@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import CatalogClient from "./catalog-client";
 
@@ -26,5 +27,5 @@ export default async function CatalogPage() {
     }
   }
 
-  return <CatalogClient isAuthenticated={isAuthenticated} userId={userId} userRole={userRole} isApproved={isApproved} />;
+  return <Suspense fallback={<div className="atlas-container py-12 font-bold text-atlas-navy">Loading catalog…</div>}><CatalogClient isAuthenticated={isAuthenticated} userId={userId} userRole={userRole} isApproved={isApproved} /></Suspense>;
 }
