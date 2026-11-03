@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Plus, Printer, Tag } from "lucide-react";
 import { Nav } from "@/components/nav";
@@ -9,13 +9,15 @@ import { ProductImage } from "@/components/product-image";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
 import { atlasCaseSellPrice, formatMoney } from "@/lib/pricing";
+import { loadCurrentRouteSeller } from "@/lib/route-seller-client";
 
 type SheetLine = { productId: string; yourPrice: number };
 
 export default function DealSheetPage() {
   const { t } = useI18n();
   const { store } = useAtlasStore();
-  const repName = store.routeSellers[0]?.name ?? "Atlas Rep";
+  const [repName, setRepName] = useState("Atlas Rep");
+  useEffect(() => { void loadCurrentRouteSeller().then((rep) => { if (rep) setRepName(rep.name); }); }, []);
   const [lines, setLines] = useState<SheetLine[]>([]);
 
   const approved = useMemo(

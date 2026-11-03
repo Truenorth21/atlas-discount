@@ -220,6 +220,7 @@ export function Nav() {
           </div>
           <Link className="hover:text-atlas-blue" href={signedIn ? dashboardHref : "/login?next=/catalog"}>{t("navReorder")}</Link>
           <Link className="hover:text-atlas-blue" href="/sell">{t("navSuppliers")}</Link>
+          <Link className="hover:text-atlas-blue" href="/reps">Atlas Reps</Link>
           <a className="inline-flex items-center gap-1.5 text-atlas-blue hover:text-atlas-navy" href={whatsappLink(t("supportPrefill"))} target="_blank" rel="noreferrer">
             <LifeBuoy size={15} />
             {t("navSupport")}

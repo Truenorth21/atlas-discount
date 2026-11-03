@@ -64,7 +64,8 @@ export async function registerUser(formData: FormData) {
               address: String(formData.get("businessAddress") || ""),
               city: String(formData.get("businessCity") || ""),
               state: String(formData.get("businessState") || ""),
-              zip: String(formData.get("businessZip") || "")
+              zip: String(formData.get("businessZip") || ""),
+              referralCode: String(formData.get("referralCode") || "").trim().toUpperCase().slice(0, 32) || undefined
             }
           : null
     });

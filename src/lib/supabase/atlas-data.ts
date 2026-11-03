@@ -479,6 +479,14 @@ export async function saveOrderRequest(order: OrderRequest): Promise<void> {
   const buyerId = userData.user?.id;
   if (!buyerId) return;
 
+  const { data: buyerProfile } = await supabase
+    .from("profiles")
+    .select("business_details")
+    .eq("id", buyerId)
+    .maybeSingle();
+  const referralCode = String((buyerProfile?.business_details as { referralCode?: string } | null)?.referralCode ?? "").trim();
+  const notes = [order.buyerRegion ? `Region: ${order.buyerRegion}` : "", referralCode ? `Atlas Rep: ${referralCode}` : ""].filter(Boolean).join(" | ") || null;
+
   const { data, error } = await supabase
     .from("order_requests")
     .insert({
@@ -486,7 +494,7 @@ export async function saveOrderRequest(order: OrderRequest): Promise<void> {
       fulfillment_type: order.fulfillmentType,
       hub_routing: order.hubRouting || "Atlas routing review",
       status: order.status,
-      notes: order.buyerRegion ? `Region: ${order.buyerRegion}` : null
+      notes
     })
     .select("id")
     .single();
@@ -533,7 +541,7 @@ export async function loadAdminOrders(): Promise<OrderRequest[] | undefined> {
     return {
       id: order.id,
       buyer: profileMap.get(order.buyer_profile_id) ?? "Buyer",
-      buyerRegion: order.notes?.startsWith("Region: ") ? order.notes.slice("Region: ".length) : undefined,
+      buyerRegion: order.notes?.startsWith("Region: ") ? order.notes.split(" | ")[0].slice("Region: ".length) : undefined,
       totalCases: lineItems.reduce((sum, line) => sum + line.quantity, 0),
       estimatedValue: 0,
       fulfillmentType: order.fulfillment_type,

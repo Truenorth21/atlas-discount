@@ -22,7 +22,7 @@ function documentId(type: "buyer" | "supplier" | "route_seller", label: string) 
   return `${type}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
 }
 
-export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" | "route_seller"; error?: string }) {
+export function RegistrationForm({ type, error, referralCode }: { type: "buyer" | "supplier" | "route_seller"; error?: string; referralCode?: string }) {
   const { language, t } = useI18n();
   const { addApplication } = useAtlasStore();
   const [submitted, setSubmitted] = useState(false);
@@ -89,7 +89,8 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
               address: String(form.get("businessAddress") ?? ""),
               city: String(form.get("businessCity") ?? ""),
               state: String(form.get("businessState") ?? ""),
-              zip: String(form.get("businessZip") ?? "")
+              zip: String(form.get("businessZip") ?? ""),
+              referralCode: String(form.get("referralCode") ?? "") || undefined
             }
           : undefined,
       pickupLocation:
@@ -136,6 +137,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
   return (
     <form action={isSupabaseConfigured ? registerUser : undefined} onSubmit={onSubmit} className="panel grid gap-5 p-6">
       <input name="role" type="hidden" value={type} />
+      {type === "buyer" && referralCode && <input name="referralCode" type="hidden" value={referralCode} />}
       <div>
         <h1 className="text-3xl font-black text-atlas-navy">
           {type === "buyer" ? t("buyerRegistrationTitle") : type === "route_seller" ? t("routeSellerRegistrationTitle") : t("supplierRegistrationTitle")}
@@ -149,6 +151,7 @@ export function RegistrationForm({ type, error }: { type: "buyer" | "supplier" |
         </p>
       </div>
       {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+      {type === "buyer" && referralCode && <div className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm font-semibold text-atlas-navy">Atlas Rep referral applied: <span className="font-black text-atlas-blue">{referralCode}</span></div>}
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2">
           <span className="label">{t("companyName")}</span>

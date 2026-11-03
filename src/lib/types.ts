@@ -228,6 +228,7 @@ export type BuyerBusinessDetails = {
   city: string;
   state: string;
   zip: string;
+  referralCode?: string;
 };
 
 export type SupplierRemitTo = {

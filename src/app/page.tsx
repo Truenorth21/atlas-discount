@@ -252,7 +252,7 @@ export default function HomePage() {
               eyebrow: es ? "Ventas locales" : "Local sales",
               title: es ? "Haz crecer una ruta." : "Grow a sales route.",
               copy: es ? "Lleva el catálogo Atlas a negocios locales con territorios organizados." : "Bring the Atlas catalog to local businesses with organized territories.",
-              href: "/register/route-seller",
+              href: "/reps",
             },
           ].map((item) => (
             <Link key={item.title} href={item.href} className="group grid grid-rows-[230px_1fr] border border-[#dfe5ea] bg-white">

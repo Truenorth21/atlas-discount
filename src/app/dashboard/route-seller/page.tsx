@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { BadgeCheck, FileText, MapPinned, PackageSearch, Repeat2, Route, ShoppingCart, Sparkles, TrendingUp, Trophy } from "lucide-react";
+import { BadgeCheck, Copy, FileText, Link2, MapPinned, PackageSearch, Repeat2, Route, ShoppingCart, Sparkles, TrendingUp, Trophy } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage } from "@/components/product-image";
 import { StatusBadge } from "@/components/status-badge";
@@ -12,16 +12,26 @@ import { CartToast } from "@/components/cart-toast";
 import { getDocumentAlerts } from "@/lib/documents";
 import { useI18n } from "@/lib/i18n";
 import type { Product } from "@/lib/types";
+import { loadCurrentRouteSeller, type CurrentRouteSeller } from "@/lib/route-seller-client";
 
 export default function RouteSellerDashboardPage() {
   const { t } = useI18n();
   const { store, addToCart } = useAtlasStore();
   const [added, setAdded] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<CurrentRouteSeller | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { void loadCurrentRouteSeller().then(setIdentity); }, []);
   function addAndConfirm(product: Product) {
     addToCart(product);
     setAdded(product.brand);
   }
-  const routeSeller = store.routeSellers[0];
+  const demoSeller = store.routeSellers[0];
+  const routeSeller = identity ? {
+    id: identity.userId, name: identity.name, program: identity.program, territory: identity.territory,
+    assignedHub: identity.assignedHub, productLane: identity.productLane, status: identity.status,
+    monthlySales: 0, activeAccounts: 0, routeStops: [] as string[]
+  } : demoSeller;
+  const referralLink = identity && typeof window !== "undefined" ? `${window.location.origin}/register/buyer?rep=${encodeURIComponent(identity.referralCode)}` : "";
   const commissionPct = store.pricingSettings.routeSellerCommissionPercent ?? 10;
   const estMonthlyCommission = Math.round((routeSeller.monthlySales * commissionPct) / 100);
   const documentAlerts = getDocumentAlerts(store.applications, "route_seller");
@@ -30,7 +40,7 @@ export default function RouteSellerDashboardPage() {
   const suggestedProducts = approvedProducts.slice(0, 3);
   const routeStaples = approvedProducts.slice(0, 4);
   const promoted = approvedProducts.find((product) => product.promotion);
-  const leaderboard = [...store.routeSellers].sort((a, b) => b.monthlySales - a.monthlySales);
+  const leaderboard = identity ? [routeSeller] : [...store.routeSellers].sort((a, b) => b.monthlySales - a.monthlySales);
   const insights = [
     ...(promoted ? [`${promoted.brand} ${t("insightRestockSuffix")}`] : []),
     t("insightReorder"),
@@ -57,6 +67,7 @@ export default function RouteSellerDashboardPage() {
           <Metric icon={<TrendingUp />} label={t("monthlySales")} value={`$${routeSeller.monthlySales.toLocaleString()}`} />
           <Metric icon={<PackageSearch />} label={t("activeAccounts")} value={String(routeSeller.activeAccounts)} />
         </section>
+        {identity && <section className="panel grid gap-5 p-5 lg:grid-cols-[1fr_auto] lg:items-center"><div><p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Your buyer referral link</p><h2 className="mt-1 text-xl font-black text-atlas-navy">Credit new accounts to your Atlas Rep profile</h2><p className="mt-1 text-sm text-slate-600">Share this link when introducing a new buyer. Their application and future order notes will carry your rep code <span className="font-black text-atlas-navy">{identity.referralCode}</span>.</p><div className="mt-3 flex min-w-0 items-center gap-2 border border-slate-200 bg-atlas-light p-3"><Link2 size={17} className="shrink-0 text-atlas-blue"/><span className="truncate text-sm font-semibold text-atlas-navy">{referralLink}</span></div></div><button type="button" className="btn-primary" onClick={async()=>{await navigator.clipboard.writeText(referralLink);setCopied(true);setTimeout(()=>setCopied(false),1800);}}><Copy size={16}/>{copied?"Copied":"Copy referral link"}</button></section>}
         <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
           <div className="panel p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -183,6 +194,7 @@ export default function RouteSellerDashboardPage() {
                   <span className="font-semibold text-atlas-navy">{stop}</span>
                 </div>
               ))}
+              {!routeSeller.routeStops.length && <p className="rounded-md bg-atlas-light p-4 text-sm text-slate-600">No route stops yet. Approved buyer accounts credited through your referral link will appear here as route tools are activated.</p>}
             </div>
           </div>
           <aside className="grid gap-4">

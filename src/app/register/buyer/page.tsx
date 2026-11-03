@@ -4,7 +4,7 @@ import { RegistrationForm } from "@/components/registration-form";
 export default async function BuyerRegistrationPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; rep?: string }>;
 }) {
   const params = await searchParams;
 
@@ -13,7 +13,7 @@ export default async function BuyerRegistrationPage({
       <Nav />
       <main className="bg-gradient-to-b from-atlas-light to-white py-10">
         <div className="atlas-container">
-          <RegistrationForm type="buyer" error={params.error} />
+          <RegistrationForm type="buyer" error={params.error} referralCode={params.rep?.trim().toUpperCase().slice(0, 32)} />
         </div>
       </main>
     </>
