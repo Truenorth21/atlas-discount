@@ -58,49 +58,64 @@ export default function HomePage() {
     <main className="atlas-storefront min-h-screen bg-white text-[#142033]">
       <Nav />
 
-      <section className="relative min-h-[590px] overflow-hidden bg-[#10253d]">
+      <section className="atlas-home-hero relative overflow-hidden bg-[#f5f1e8] px-4 py-4 sm:px-6 lg:px-10 lg:py-7">
+        <div className="relative mx-auto min-h-[620px] max-w-[1440px] overflow-hidden rounded-[28px] bg-[#10253d]">
         <img
-          src="https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=2200&q=90"
-          alt="Wholesale warehouse inventory"
+          src="/atlas-hero-2026.png"
+          alt="Atlas Discount wholesale warehouse and local business buyer"
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#071b31]/95 via-[#071b31]/76 to-[#071b31]/25" />
-        <div className="relative mx-auto flex min-h-[590px] max-w-7xl items-center px-5 py-16 md:px-8">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#071b31]/95 via-[#071b31]/70 to-transparent" />
+        <div className="relative flex min-h-[620px] items-center px-6 py-16 md:px-12 lg:px-20">
           <div className="max-w-3xl text-white">
-            <div className="mb-6 inline-flex items-center gap-2 border border-white/25 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-wide backdrop-blur-sm">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] backdrop-blur-sm">
               <Boxes size={16} />
-              {es ? "Mayorista para negocios verificados" : "Wholesale for verified businesses"}
+              {es ? "Mayorista local, hecho más fácil" : "Local wholesale, made easier"}
             </div>
-            <h1 className="max-w-3xl text-5xl font-bold leading-[1.02] md:text-7xl">
+            <h1 className="max-w-3xl text-5xl font-black leading-[.97] tracking-[-0.045em] md:text-7xl">
               {es
-                ? "Abastece tu negocio con productos que se venden."
-                : "Stock your business with products that move."}
+                ? "Más productos. Menos complicaciones."
+                : "More products. Less runaround."}
             </h1>
             <p className="mt-7 max-w-2xl text-lg leading-8 text-white/82 md:text-xl">
               {es
                 ? "Compra cajas, pallets y surtidos mixtos de proveedores aprobados, con recogida en Miami u Orlando y opciones de entrega."
-                : "Buy cases, pallets, and mixed assortments from approved suppliers, with Miami or Orlando pickup and delivery options."}
+                : "Discover case and pallet deals from approved suppliers—with clear pickup, local delivery, and shipping options."}
             </p>
+            <form action="/catalog" className="mt-8 flex max-w-2xl overflow-hidden rounded-2xl border border-white/20 bg-white p-2 shadow-2xl">
+              <label className="flex min-w-0 flex-1 items-center gap-3 px-3 text-[#647184]">
+                <Search size={20} className="shrink-0" />
+                <input
+                  name="search"
+                  className="min-w-0 flex-1 bg-transparent py-2 text-sm text-[#142033] outline-none placeholder:text-[#7b8796]"
+                  placeholder={es ? "Buscar bebidas, snacks, limpieza…" : "Search beverages, snacks, cleaning…"}
+                />
+              </label>
+              <button className="rounded-xl bg-[#d82832] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#b91f28]">
+                {es ? "Buscar" : "Search"}
+              </button>
+            </form>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link
                 href="/catalog"
-                className="inline-flex items-center gap-2 bg-[#d82832] px-6 py-4 text-sm font-bold text-white transition hover:bg-[#b91f28]"
+                className="inline-flex items-center gap-2 rounded-full bg-[#d82832] px-6 py-4 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#b91f28]"
               >
                 {es ? "Comprar catálogo" : "Shop the catalog"} <ArrowRight size={17} />
               </Link>
               <Link
                 href="/register/buyer"
-                className="inline-flex items-center gap-2 border border-white/55 bg-white/10 px-6 py-4 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white hover:text-[#10253d]"
+                className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-6 py-4 text-sm font-bold text-white backdrop-blur-sm transition hover:bg-white hover:text-[#10253d]"
               >
                 {es ? "Abrir cuenta mayorista" : "Open a wholesale account"}
               </Link>
             </div>
           </div>
         </div>
+        </div>
       </section>
 
-      <section className="border-b border-[#dfe5ea] bg-white">
-        <div className="mx-auto grid max-w-7xl divide-y divide-[#dfe5ea] px-5 md:grid-cols-4 md:divide-x md:divide-y-0 md:px-8">
+      <section className="border-b border-[#e6e0d5] bg-[#f5f1e8]">
+        <div className="mx-auto grid max-w-7xl divide-y divide-[#ddd6c9] px-5 md:grid-cols-4 md:divide-x md:divide-y-0 md:px-8">
           {[
             [BadgePercent, es ? "Precios por volumen" : "Volume pricing", es ? "Mejores precios por caja y pallet" : "Better pricing by case and pallet"],
             [Truck, es ? "Fulfillment flexible" : "Flexible fulfillment", es ? "Recogida, entrega o flete" : "Pickup, delivery, or freight"],
@@ -121,7 +136,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-[#f2f4f2] py-16">
+      <section className="bg-[#f5f1e8] py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <div className="mb-8 flex items-end justify-between gap-5">
             <div>
@@ -143,7 +158,7 @@ export default function HomePage() {
                 key={category}
                 href={("/catalog?category=" + encodeURIComponent(category)) as NextRoute}
                 className={
-                  "group relative overflow-hidden bg-[#10253d] " +
+                  "group relative overflow-hidden rounded-[22px] bg-[#10253d] shadow-sm " +
                   (index === 0 ? "md:col-span-2 md:row-span-2" : index === 1 ? "md:col-span-2" : "")
                 }
               >
@@ -163,7 +178,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white py-16">
+      <section className="bg-[#fffdfa] py-20">
         <div className="mx-auto max-w-7xl px-5 md:px-8">
           <div className="mb-8 flex items-end justify-between">
             <div>
@@ -179,12 +194,12 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid gap-px bg-[#dfe5ea] sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {featured.length > 0
               ? featured.slice(0, 4).map((product) => <StorefrontProduct key={product.id} product={product} es={es} />)
               : fallbackDeals.map((item) => (
-                  <Link key={item.name} href="/catalog" className="group bg-white p-4">
-                    <div className="aspect-[4/3] overflow-hidden bg-[#eef1f3]">
+                  <Link key={item.name} href="/catalog" className="group rounded-[22px] border border-[#e6e0d5] bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+                    <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-[#eef1f3]">
                       <img src={item.image} alt={item.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                     </div>
                     <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#c51f2a]">
@@ -201,8 +216,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-[#eef1ed] py-16">
-        <div className="mx-auto grid max-w-7xl overflow-hidden bg-[#0e2f50] md:grid-cols-[1.05fr_.95fr]">
+      <section className="bg-[#e9f1f5] px-5 py-20 md:px-8">
+        <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[28px] bg-[#0e2f50] shadow-2xl md:grid-cols-[1.05fr_.95fr]">
           <div className="flex flex-col justify-center px-6 py-12 text-white md:px-12">
             <p className="text-xs font-bold uppercase tracking-wide text-[#ffcf4a]">
               {es ? "Circular de esta semana" : "This week’s circular"}
@@ -215,7 +230,7 @@ export default function HomePage() {
                 ? "Explora promociones seleccionadas, ahorros por volumen y productos destacados en una página fácil de comprar."
                 : "Explore selected promotions, volume savings, and featured products in one easy-to-shop flyer."}
             </p>
-            <Link href="/deals" className="mt-8 inline-flex w-fit items-center gap-2 bg-[#ffcf4a] px-6 py-4 text-sm font-bold text-[#10253d]">
+            <Link href="/deals" className="mt-8 inline-flex w-fit items-center gap-2 rounded-full bg-[#ffcf4a] px-6 py-4 text-sm font-bold text-[#10253d]">
               {es ? "Ver ofertas semanales" : "See weekly deals"} <ArrowRight size={17} />
             </Link>
           </div>
@@ -230,7 +245,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white py-16">
+      <section className="bg-[#fffdfa] py-20">
         <div className="mx-auto grid max-w-7xl gap-5 px-5 md:grid-cols-3 md:px-8">
           {[
             {
@@ -255,7 +270,7 @@ export default function HomePage() {
               href: "/reps",
             },
           ].map((item) => (
-            <Link key={item.title} href={item.href} className="group grid grid-rows-[230px_1fr] border border-[#dfe5ea] bg-white">
+            <Link key={item.title} href={item.href} className="group grid grid-rows-[230px_1fr] overflow-hidden rounded-[22px] border border-[#e6e0d5] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
               <div className="overflow-hidden">
                 <img src={item.image} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
               </div>
@@ -279,8 +294,8 @@ export default function HomePage() {
 
 function StorefrontProduct({ product, es }: { product: Product; es: boolean }) {
   return (
-    <Link href={"/catalog?search=" + encodeURIComponent(product.productName)} className="group bg-white p-4">
-      <div className="aspect-[4/3] overflow-hidden bg-[#eef1f3]">
+    <Link href={"/catalog?search=" + encodeURIComponent(product.productName)} className="group rounded-[22px] border border-[#e6e0d5] bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+      <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-[#eef1f3]">
         <ProductImage product={product} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
       </div>
       <p className="mt-4 text-xs font-bold uppercase tracking-wide text-[#c51f2a]">{product.brand}</p>
