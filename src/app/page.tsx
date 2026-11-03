@@ -59,14 +59,10 @@ export default function HomePage() {
       <Nav />
 
       <section className="atlas-home-hero relative overflow-hidden bg-[#f5f1e8] px-4 py-4 sm:px-6 lg:px-10 lg:py-7">
-        <div className="relative mx-auto min-h-[620px] max-w-[1440px] overflow-hidden rounded-[28px] bg-[#10253d]">
-        <img
-          src="/atlas-hero-2026.png"
-          alt="Atlas Discount wholesale warehouse and local business buyer"
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#071b31]/95 via-[#071b31]/70 to-transparent" />
-        <div className="relative flex min-h-[620px] items-center px-6 py-16 md:px-12 lg:px-20">
+        <div className="atlas-hero-surface relative mx-auto min-h-[560px] max-w-[1440px] overflow-hidden rounded-[28px] bg-[#092e60]">
+        <div className="atlas-hero-orb atlas-hero-orb-one" />
+        <div className="atlas-hero-orb atlas-hero-orb-two" />
+        <div className="relative flex min-h-[560px] items-center px-6 py-14 md:px-12 lg:px-20">
           <div className="max-w-3xl text-white">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] backdrop-blur-sm">
               <Boxes size={16} />
@@ -108,6 +104,11 @@ export default function HomePage() {
               >
                 {es ? "Abrir cuenta mayorista" : "Open a wholesale account"}
               </Link>
+            </div>
+            <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-white/75">
+              <span className="inline-flex items-center gap-2"><CheckCircle2 size={16} className="text-[#78d4ff]" /> {es ? "Proveedores aprobados" : "Approved suppliers"}</span>
+              <span className="inline-flex items-center gap-2"><CheckCircle2 size={16} className="text-[#78d4ff]" /> {es ? "Opciones claras de entrega" : "Clear fulfillment choices"}</span>
+              <span className="inline-flex items-center gap-2"><CheckCircle2 size={16} className="text-[#78d4ff]" /> {es ? "Soporte humano" : "Human buyer support"}</span>
             </div>
           </div>
         </div>
