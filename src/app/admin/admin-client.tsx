@@ -838,7 +838,7 @@ const blankProductForm = {
   casePack: "1", caseL: "", caseW: "", caseH: "", caseWeight: "", caseWeightUnit: "lb",
   palletCasesPerFloor: "", palletLayers: "", palletStandardWeight: "40",
   stocking: "hub", shippingWarehouse: "Orlando hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
-  supplierCost: "", suggestedRetail: "", moq: "1", minOrderValue: "", leadTime: "", inventoryAvailable: "0",
+  supplierCost: "", supplierPalletCost: "", suggestedRetail: "", moq: "1", minOrderValue: "", leadTime: "", inventoryAvailable: "0",
   priceRetailer: "", priceDistributor: "", repCommissionPct: "",
   palletPriceRetailer: "", palletPriceDistributor: "",
   supplierName: "Atlas Admin", promotion: ""
@@ -919,6 +919,7 @@ function formFromProduct(product: Product): typeof blankProductForm {
     pickupAddress: spec?.pickupAddress ?? "",
     pickupPhone: spec?.pickupPhone ?? "",
     supplierCost: numToStr(product.supplierCost),
+    supplierPalletCost: numToStr(product.supplierPalletCost),
     suggestedRetail: numToStr(product.suggestedRetail),
     moq: numToStr(product.moq) || "1",
     minOrderValue: numToStr(product.minOrderValue),
@@ -1096,6 +1097,7 @@ export function SingleProductForm({
           ? `${casesPerFloor}/floor × ${palletLayers} high = ${totalCases} cases${palletTotalWeight !== undefined ? ` • ~${Math.round(palletTotalWeight)} lb` : ""}`
           : "",
       supplierCost: toNum(form.supplierCost) ?? 0,
+      supplierPalletCost: toNum(form.supplierPalletCost),
       tierPricing: buildTierPricing(form, effectivePalletCases),
       suggestedRetail: toNum(form.suggestedRetail) ?? 0,
       moq: toNum(form.moq) ?? 1,
@@ -1355,7 +1357,18 @@ export function SingleProductForm({
             </div>
           </div>
         ) : (
-          <p className="text-xs text-slate-500 md:col-span-3">Atlas sets the buyer price and owns the invoice. Enter your case price and an optional suggested retail; Atlas handles the rest.</p>
+          <div className="grid gap-3 md:col-span-3 sm:grid-cols-2">
+            <AdminProductInput label="Your price per PALLET to Atlas ($, optional)" type="number" value={form.supplierPalletCost} onChange={updateField("supplierPalletCost")} />
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-slate-600">
+              <p className="font-black text-atlas-navy">Full pallet: {effectivePalletCases > 0 ? `${effectivePalletCases} cases` : "set Ti/Hi or case dimensions above"}</p>
+              {effectivePalletCases > 0 && toNum(form.supplierPalletCost) ? (
+                <p className="mt-1 font-semibold text-atlas-blue">Equivalent to {formatMoney((toNum(form.supplierPalletCost) ?? 0) / effectivePalletCases)} per case.</p>
+              ) : (
+                <p className="mt-1">Enter the total amount Atlas pays for one complete pallet. Leave blank if your pallet price is simply case price × pallet quantity.</p>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 sm:col-span-2">Atlas sets the buyer price and owns the invoice. Enter your case price, optional full-pallet price, and optional suggested retail; Atlas handles the rest.</p>
+          </div>
         )}
 
         <ProductSectionHeading>Stock &amp; order minimum</ProductSectionHeading>

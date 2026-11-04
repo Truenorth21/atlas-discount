@@ -24,6 +24,7 @@ type ProductRow = {
   case_weight?: string | null;
   pallet_configuration?: string | null;
   supplier_cost?: number | null;
+  supplier_pallet_cost?: number | null;
   tier_pricing?: TierPricing | null;
   suggested_retail: number;
   moq: number;
@@ -111,6 +112,7 @@ function productFromRow(row: ProductRow): Product {
     caseWeight: row.case_weight ?? "",
     palletConfiguration: row.pallet_configuration ?? "",
     supplierCost: Number(row.supplier_cost) || 0,
+    supplierPalletCost: row.supplier_pallet_cost != null ? Number(row.supplier_pallet_cost) : undefined,
     tierPricing: row.tier_pricing ?? undefined,
     suggestedRetail: Number(row.suggested_retail) || 0,
     moq: Number(row.moq) || 1,
@@ -157,6 +159,7 @@ function productToRow(product: Product, supplierProfileId?: string | null) {
     case_weight: product.caseWeight,
     pallet_configuration: product.palletConfiguration,
     supplier_cost: product.supplierCost,
+    supplier_pallet_cost: product.supplierPalletCost ?? null,
     tier_pricing: product.tierPricing ?? { case: {} },
     suggested_retail: product.suggestedRetail,
     moq: product.moq,

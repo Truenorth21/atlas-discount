@@ -95,6 +95,7 @@ create table public.products (
   case_weight text not null,
   pallet_configuration text not null,
   supplier_cost numeric(12, 2) not null,
+  supplier_pallet_cost numeric(12, 2),
   tier_pricing jsonb not null default '{"case":{}}'::jsonb,
   suggested_retail numeric(12, 2) not null,
   moq integer not null,

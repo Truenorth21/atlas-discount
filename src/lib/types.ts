@@ -28,6 +28,8 @@ export type Product = {
   palletConfiguration: string;
   /** Atlas's cost per master case. Admin-only — never sent to buyers (excluded from the catalog view). */
   supplierCost: number;
+  /** Optional total price Atlas pays for one full pallet. Admin/supplier-only. */
+  supplierPalletCost?: number;
   /** Explicit per-tier sell prices the admin enters per master case (and optional full-pallet price). */
   tierPricing?: TierPricing;
   /** Suggested retail (SRP) per UNIT — when set, it calculates each level's case price. */
