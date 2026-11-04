@@ -67,7 +67,7 @@ export function calculateSupplierFulfillment(cart: CartLine[], destination: Buye
     if (pickup?.enabled && pickup.address && pickup.city && pickup.state && pickup.zip) {
       options.push({
         id: "pickup",
-        label: `Pickup at ${pickup.locationName || supplierName}`,
+        label: `Warehouse pickup — FREE`,
         detail: `${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zip}${pickup.instructions ? ` · ${pickup.instructions}` : ""}`,
         leadTime: pickup.leadTime,
         cost: 0,
@@ -78,7 +78,7 @@ export function calculateSupplierFulfillment(cart: CartLine[], destination: Buye
     if (included?.enabled && palletOnly && pallets >= Math.max(1, included.minimumPallets) && covered(included.zipPrefixes, destination.zip)) {
       options.push({
         id: "included_delivery",
-        label: "Pallet delivery included",
+        label: "Full-pallet delivery — INCLUDED",
         detail: `${included.areaLabel || "Supplier delivery area"} · ${pallets} pallet${pallets === 1 ? "" : "s"}`,
         leadTime: included.leadTime,
         cost: 0,
@@ -89,8 +89,8 @@ export function calculateSupplierFulfillment(cart: CartLine[], destination: Buye
     if (shipping?.enabled && covered(shipping.zipPrefixes, destination.zip)) {
       options.push({
         id: "shipping",
-        label: shipping.method || "Supplier shipping",
-        detail: `${shipping.coverageLabel || "Supplier shipping area"} · ${shipping.rateMethod.replaceAll("_", " ")}`,
+        label: `${shipping.method || "Supplier shipping"} — ADDED COST`,
+        detail: `${shipping.coverageLabel || "Supplier shipping area"} · charged ${shipping.rateMethod.replaceAll("_", " ")}`,
         leadTime: shipping.leadTime,
         cost: shippingCost(shipping.rateMethod, Math.max(0, shipping.rate), cases, Math.max(1, pallets)),
       });
