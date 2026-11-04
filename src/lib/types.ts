@@ -195,6 +195,14 @@ export type PlacementBooking = {
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   paymentStatus: "unpaid" | "invoiced" | "paid";
+  campaignStatus: "approved" | "scheduled" | "live" | "completed" | "cancelled";
+  /** Admin confirmation that the promised placement was checked in its real channel. */
+  verifiedAt?: string;
+  verificationNote?: string;
+  impressions?: number;
+  clicks?: number;
+  attributedOrders?: number;
+  attributedSales?: number;
   createdAt: string;
 };
 

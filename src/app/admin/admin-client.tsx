@@ -2342,7 +2342,7 @@ function SupplierAdRequests({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-black text-atlas-navy">Supplier ad requests</h3>
-          <p className="mt-1 text-sm text-slate-600">Suppliers book a placement; approve to schedule it across the catalog and email.</p>
+          <p className="mt-1 text-sm text-slate-600">Approval confirms Atlas will consider the request. It is not live until admin creates a dated booking below, confirms payment, activates the promised channel, and verifies delivery.</p>
         </div>
         <span className="badge bg-amber-50 text-amber-800">{pending} pending</span>
       </div>
@@ -2372,6 +2372,7 @@ function SupplierAdRequests({
                     </button>
                   </>
                 )}
+                {item.status === "approved" && <span className="text-xs font-bold text-atlas-blue">Create the dated booking below</span>}
               </div>
             </div>
           ))}
@@ -2388,6 +2389,10 @@ function BookingStat({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-lg font-black text-atlas-navy">{value}</p>
     </div>
   );
+}
+
+function MetricInput({ label, value, onChange }: { label: string; value?: number; onChange: (value: number) => void }) {
+  return <label className="grid gap-0.5 text-[10px] font-bold text-slate-500">{label}<input className="field h-7 min-h-7 px-1 text-xs" type="number" min="0" step={label === "Sales $" ? "0.01" : "1"} value={value ?? 0} onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))} /></label>;
 }
 
 function bookingStatus(b: PlacementBooking, today: string): "active" | "upcoming" | "ended" {
@@ -2429,35 +2434,56 @@ function PlacementBookingsPanel({
       id: `pb-${Date.now().toString(36)}`,
       supplierName: form.supplierName.trim(),
       productId: product?.id,
-      productName: product?.brand,
+      productName: product ? `${product.brand} · ${product.productName}` : undefined,
       slot: slotDef.id,
       slotName: slotDef.name,
       rate: Number(form.rate) || defaultRate,
       startDate: form.startDate,
       endDate: form.endDate,
       paymentStatus: "unpaid",
+      campaignStatus: "scheduled",
       createdAt: today
     };
     persist([booking, ...bookings]);
-    // Light link: turn on the matching product placement so the slot actually shows.
-    if (product) {
-      if (slotDef.id === "featured") updateProductPlacements(product.id, { ...product.placements, homepageFeatured: true });
-      if (slotDef.id === "weekly") updateProductPlacements(product.id, { ...product.placements, weeklyDeal: true });
-    }
     setForm({ ...blank, slot: form.slot });
   }
   function cyclePayment(id: string) {
     const order: PlacementBooking["paymentStatus"][] = ["unpaid", "invoiced", "paid"];
     persist(bookings.map((b) => (b.id === id ? { ...b, paymentStatus: order[(order.indexOf(b.paymentStatus) + 1) % 3] } : b)));
   }
+  function patchBooking(id: string, patch: Partial<PlacementBooking>) {
+    persist(bookings.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+  }
+  function setCampaignStatus(booking: PlacementBooking, campaignStatus: PlacementBooking["campaignStatus"]) {
+    if (campaignStatus === "live" && booking.paymentStatus !== "paid") return;
+    patchBooking(booking.id, { campaignStatus });
+    const product = products.find((p) => p.id === booking.productId);
+    if (!product) return;
+    const anotherLive = bookings.some((other) => other.id !== booking.id && other.productId === booking.productId && other.slot === booking.slot && other.campaignStatus === "live");
+    const shouldDisplay = campaignStatus === "live" || anotherLive;
+    if (booking.slot === "featured") updateProductPlacements(product.id, { ...product.placements, homepageFeatured: shouldDisplay });
+    if (booking.slot === "weekly") updateProductPlacements(product.id, { ...product.placements, weeklyDeal: shouldDisplay });
+  }
   function remove(id: string) {
     persist(bookings.filter((b) => b.id !== id));
   }
 
-  const activeBookings = bookings.filter((b) => bookingStatus(b, today) === "active");
+  const activeBookings = bookings.filter((b) => bookingStatus(b, today) === "active" && b.campaignStatus === "live");
   const booked = bookings.reduce((s, b) => s + b.rate, 0);
   const paid = bookings.filter((b) => b.paymentStatus === "paid").reduce((s, b) => s + b.rate, 0);
   const activeRevenue = activeBookings.reduce((s, b) => s + b.rate, 0);
+  const monitoringIssues = bookings.flatMap((b) => {
+    const dateStatus = bookingStatus(b, today);
+    const product = products.find((p) => p.id === b.productId);
+    const placementLive = b.slot === "featured" ? product?.placements?.homepageFeatured : b.slot === "weekly" ? product?.placements?.weeklyDeal : true;
+    const issues: string[] = [];
+    if (b.paymentStatus === "paid" && dateStatus === "active" && b.campaignStatus !== "live") issues.push(`${b.supplierName}: paid campaign is in its date window but is not marked live.`);
+    if (b.campaignStatus === "live" && b.paymentStatus !== "paid") issues.push(`${b.supplierName}: campaign is live without confirmed payment.`);
+    if (b.campaignStatus === "live" && !placementLive) issues.push(`${b.supplierName}: campaign is marked live but the promised product placement is off.`);
+    if (b.campaignStatus === "live" && !b.verifiedAt) issues.push(`${b.supplierName}: live placement has not been visually verified by admin.`);
+    if (dateStatus === "ended" && b.campaignStatus === "live") issues.push(`${b.supplierName}: campaign ended but is still marked live.`);
+    return issues;
+  });
 
   const statusTone: Record<string, string> = {
     active: "bg-emerald-50 text-emerald-700",
@@ -2483,6 +2509,10 @@ function PlacementBookingsPanel({
         <BookingStat label="Booked total" value={formatMoney(booked)} />
         <BookingStat label="Paid" value={formatMoney(paid)} />
         <BookingStat label="Outstanding" value={formatMoney(booked - paid)} />
+      </div>
+      <div className={`mt-4 rounded-xl border p-4 ${monitoringIssues.length ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}>
+        <p className={`font-black ${monitoringIssues.length ? "text-red-800" : "text-emerald-800"}`}>Promotion delivery monitor · {monitoringIssues.length ? `${monitoringIssues.length} action${monitoringIssues.length === 1 ? "" : "s"} required` : "all monitored bookings are consistent"}</p>
+        {monitoringIssues.length > 0 ? <ul className="mt-2 grid gap-1 text-sm text-red-800">{monitoringIssues.map((issue) => <li key={issue}>• {issue}</li>)}</ul> : <p className="mt-1 text-xs text-emerald-700">Paid/live status, promised product placement, verification, and end dates have no conflicts.</p>}
       </div>
 
       {/* Add a booking */}
@@ -2539,6 +2569,7 @@ function PlacementBookingsPanel({
                 <th className="px-2 py-2">Status</th>
                 <th className="px-2 py-2">Rate</th>
                 <th className="px-2 py-2">Payment</th>
+                <th className="px-2 py-2">Delivery &amp; results</th>
                 <th className="px-2 py-2" />
               </tr>
             </thead>
@@ -2556,6 +2587,20 @@ function PlacementBookingsPanel({
                       <button type="button" className={`badge ${payTone[b.paymentStatus]}`} onClick={() => cyclePayment(b.id)} title="Click to change">
                         {b.paymentStatus}
                       </button>
+                    </td>
+                    <td className="min-w-[280px] px-2 py-2">
+                      <div className="grid gap-2">
+                        <select className="field h-8 min-h-8 text-xs" value={b.campaignStatus ?? "scheduled"} onChange={(event) => setCampaignStatus(b, event.target.value as PlacementBooking["campaignStatus"])}>
+                          <option value="approved">Approved</option><option value="scheduled">Scheduled</option><option value="live" disabled={b.paymentStatus !== "paid"}>Live {b.paymentStatus !== "paid" ? "(payment required)" : ""}</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option>
+                        </select>
+                        <button type="button" className={b.verifiedAt ? "btn-secondary px-2 py-1 text-xs" : "rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-black text-amber-800"} onClick={() => patchBooking(b.id, { verifiedAt: new Date().toISOString(), verificationNote: "Admin confirmed promised placement" })}>{b.verifiedAt ? `Verified ${b.verifiedAt.slice(0, 10)}` : "Verify promised placement"}</button>
+                        <div className="grid grid-cols-4 gap-1">
+                          <MetricInput label="Views" value={b.impressions} onChange={(value) => patchBooking(b.id, { impressions: value })} />
+                          <MetricInput label="Clicks" value={b.clicks} onChange={(value) => patchBooking(b.id, { clicks: value })} />
+                          <MetricInput label="Orders" value={b.attributedOrders} onChange={(value) => patchBooking(b.id, { attributedOrders: value })} />
+                          <MetricInput label="Sales $" value={b.attributedSales} onChange={(value) => patchBooking(b.id, { attributedSales: value })} />
+                        </div>
+                      </div>
                     </td>
                     <td className="px-2 py-2">
                       <button className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-atlas-red" type="button" onClick={() => remove(b.id)} aria-label="Remove booking">

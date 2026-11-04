@@ -60,6 +60,7 @@ export default function SupplierDashboardPage() {
       id: `promo-${Date.now()}`,
       supplierName: supplierApplication?.companyName ?? "Current Supplier",
       placement: String(form.get("placement")),
+      productName: String(form.get("promotionProduct") || "") || undefined,
       note: note || undefined,
       status: "pending",
       submittedAt: new Date().toISOString().slice(0, 10)
@@ -138,8 +139,9 @@ export default function SupplierDashboardPage() {
           <form className="panel p-6" onSubmit={submitPromotion}>
             <h2 className="flex items-center gap-2 text-xl font-black">
               <Megaphone className="text-atlas-blue" />
-              {t("promotionSubmission")}
+              Request advertising
             </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">This sends a request—it does not immediately charge you or activate an ad. Atlas confirms availability, dates, final price, and the promised placement before scheduling.</p>
             <label className="mt-4 grid gap-2">
               <span className="label">{t("placementLabel")}</span>
               <select className="field" name="placement" required>
@@ -148,10 +150,13 @@ export default function SupplierDashboardPage() {
                 ))}
               </select>
             </label>
+            <label className="mt-3 grid gap-2"><span className="label">Product to promote</span><select className="field" name="promotionProduct" required><option value="">Select a product…</option>{supplierProducts.map((product) => <option key={product.id} value={`${product.brand} · ${product.productName}`}>{product.brand} · {product.productName}</option>)}</select></label>
             <textarea className="field mt-3 min-h-24" name="promotion" placeholder={t("promotionPlaceholder")} />
-            <button className="btn-primary mt-3 w-full" type="submit">{t("submitPromotion")}</button>
+            <button className="btn-primary mt-3 w-full" type="submit">Submit advertising request</button>
+            <p className="mt-3 text-xs leading-5 text-slate-500">Workflow: request → Atlas approval → booking and invoice → payment → scheduled → live and verified → results reported.</p>
             <p className="mt-3 text-sm font-semibold text-atlas-blue">{promo}</p>
           </form>
+          {store.promotionSubmissions.filter((item) => item.supplierName === companyName || item.supplierName === "Current Supplier").length > 0 && <div className="panel p-5"><h2 className="text-lg font-black text-atlas-navy">Your advertising requests</h2><div className="mt-3 grid gap-2">{store.promotionSubmissions.filter((item) => item.supplierName === companyName || item.supplierName === "Current Supplier").map((item) => <div key={item.id} className="rounded-md border border-slate-200 p-3 text-sm"><div className="flex items-center justify-between gap-3"><div><p className="font-black text-atlas-navy">{item.placement}</p><p className="text-xs text-slate-500">{item.productName || "Product pending selection"}</p></div><StatusBadge status={item.status} /></div></div>)}</div></div>}
         </aside>
         <div className="grid h-fit gap-6">
         <SupplierPaymentCard application={supplierApplication} companyName={companyName} />
