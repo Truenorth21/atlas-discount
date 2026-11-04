@@ -89,6 +89,7 @@ type PricingRow = {
     freeDeliveryThreshold?: number;
     maxPalletWeightLb?: number;
     supplierAssignments?: SupplierAssignment[];
+    supplierMemberships?: import("@/lib/types").SupplierMembershipAssignment[];
     placementBookings?: PlacementBooking[];
   } | null;
 };
@@ -229,6 +230,7 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     freeDeliveryThreshold: row.customer_pricing?.freeDeliveryThreshold ?? defaultPricingSettings.freeDeliveryThreshold,
     maxPalletWeightLb: row.customer_pricing?.maxPalletWeightLb ?? defaultPricingSettings.maxPalletWeightLb,
     supplierAssignments: row.customer_pricing?.supplierAssignments ?? [],
+    supplierMemberships: row.customer_pricing?.supplierMemberships ?? [],
     placementBookings: row.customer_pricing?.placementBookings ?? []
   };
 }
@@ -280,6 +282,7 @@ function pricingToRow(settings: PricingSettings) {
       freeDeliveryThreshold: settings.freeDeliveryThreshold,
       maxPalletWeightLb: settings.maxPalletWeightLb,
       supplierAssignments: settings.supplierAssignments ?? [],
+      supplierMemberships: settings.supplierMemberships ?? [],
       placementBookings: settings.placementBookings ?? []
     },
     updated_at: new Date().toISOString()

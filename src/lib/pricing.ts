@@ -1,11 +1,18 @@
 import type { CartLine, CustomerTier, FulfillmentType, OrderRequest, PricingSettings, Product, QuoteAdjustment, QuoteFinancials, QuoteLineOverride } from "./types";
 import { planOrderPallets, productPalletSize } from "./pallets";
+import { supplierMembershipPlans } from "./data";
 
 // Pallet-size helpers live in pallets.ts (so the planner has no dependency on this
 // module); re-exported here for the many call sites that import them from pricing.
 export { casesPerPallet, productPalletSize } from "./pallets";
 
 export const REFERENCE_TIER_ID = "retailer";
+
+export function supplierMembershipPlan(settings: PricingSettings, supplierName: string, today = new Date().toISOString().slice(0, 10)) {
+  const assignment = (settings.supplierMemberships ?? []).find((item) => item.supplierName === supplierName);
+  const active = assignment && assignment.startsAt <= today && (!assignment.expiresAt || assignment.expiresAt >= today) && (assignment.planId === "free" || assignment.paymentStatus === "paid");
+  return supplierMembershipPlans.find((plan) => plan.id === (active ? assignment.planId : "free")) ?? supplierMembershipPlans[0];
+}
 
 export function customerTiers(settings: PricingSettings): CustomerTier[] {
   return settings.customerTiers ?? [];
@@ -345,8 +352,9 @@ export function calculateLinePricing(
     const looseCases = line.quantity - palletCases;
     const revenue = palletCases * palletUnit + looseCases * casePrice;
     const isPromotion = Boolean(line.product.promotion?.trim());
-    const standardFee = (isPromotion ? settings.atlasPromotionFeePercent : settings.atlasStandardFeePercent) / 100;
-    const palletFee = (isPromotion ? settings.atlasPromotionFeePercent : settings.atlasPalletFeePercent) / 100;
+    const membership = supplierMembershipPlan(settings, line.product.supplierName);
+    const standardFee = (isPromotion ? membership.promotionFee : membership.caseFee) / 100;
+    const palletFee = (isPromotion ? membership.promotionFee : membership.palletFee) / 100;
     const atlasFee = marketplace ? looseCases * casePrice * standardFee + palletCases * palletUnit * palletFee : 0;
     const supplierCost = marketplace ? revenue - atlasFee : line.product.supplierCost * line.quantity;
 

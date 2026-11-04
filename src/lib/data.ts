@@ -167,6 +167,13 @@ export const productCollections: Array<{ id: string; label: string; keywords: st
 
 export const defaultFulfillmentTierId = "direct";
 
+export const supplierMembershipPlans = [
+  { id: "free", name: "Free", annualPrice: 0, caseFee: 15, palletFee: 12, promotionFee: 10, listingLimit: 10, adCredit: 0, consolidationDiscount: 0, support: "Standard" },
+  { id: "starter", name: "Starter", annualPrice: 100, caseFee: 14, palletFee: 11, promotionFee: 9, listingLimit: 25, adCredit: 0, consolidationDiscount: 0, support: "Standard" },
+  { id: "growth", name: "Growth", annualPrice: 250, caseFee: 12, palletFee: 10, promotionFee: 8, listingLimit: 100, adCredit: 50, consolidationDiscount: 5, support: "Priority" },
+  { id: "premier", name: "Premier", annualPrice: 499, caseFee: 10, palletFee: 8, promotionFee: 7, listingLimit: null, adCredit: 150, consolidationDiscount: 10, support: "Dedicated" }
+] as const;
+
 /** Supplier-paid advertising / promotion placements (KeHE/UNFI style — pay per placement, no subscription). */
 export const adPlacements: Array<{ id: string; name: string; rateKey: keyof PricingSettings; blurb: string }> = [
   { id: "featured", name: "Featured product", rateKey: "featuredProductRate", blurb: "Premium slot on the homepage ordering portal." },

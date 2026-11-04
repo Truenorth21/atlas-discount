@@ -181,6 +181,15 @@ export type SupplierAssignment = {
   fulfillmentTier: string;
 };
 
+export type SupplierMembershipAssignment = {
+  supplierId: string;
+  supplierName: string;
+  planId: "free" | "starter" | "growth" | "premier";
+  paymentStatus: "not_required" | "pending" | "paid" | "failed";
+  startsAt: string;
+  expiresAt?: string;
+};
+
 /** A sold advertising/promotion placement Atlas schedules and tracks for revenue. */
 export type PlacementBooking = {
   id: string;
@@ -192,6 +201,8 @@ export type PlacementBooking = {
   slotName: string;
   /** Amount charged for the placement. */
   rate: number;
+  listRate?: number;
+  membershipCreditApplied?: number;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   paymentStatus: "unpaid" | "invoiced" | "paid";
@@ -411,6 +422,8 @@ export type PricingSettings = {
   perPalletFreightCost?: number;
   /** Per-supplier plan + fulfillment tier assignments. */
   supplierAssignments?: SupplierAssignment[];
+  /** Annual supplier memberships. Expired or unpaid assignments automatically price as Free. */
+  supplierMemberships?: SupplierMembershipAssignment[];
   /** Sold advertising/promotion placements Atlas schedules + tracks for revenue. */
   placementBookings?: PlacementBooking[];
 };

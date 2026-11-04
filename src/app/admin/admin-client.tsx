@@ -24,12 +24,13 @@ import {
   formatPercent,
   marginOfSale,
   productPalletSize,
-  standardCasePrice
+  standardCasePrice,
+  supplierMembershipPlan
 } from "@/lib/pricing";
-import { adPlacements, atlasHubs, defaultFulfillmentTierId, fulfillmentTiers, fulfillmentTypes, productCategories } from "@/lib/data";
+import { adPlacements, atlasHubs, defaultFulfillmentTierId, fulfillmentTiers, fulfillmentTypes, productCategories, supplierMembershipPlans } from "@/lib/data";
 import { buildPalletSheetHtml, cppFromDims, planOrderPallets } from "@/lib/pallets";
 import { DashboardHero } from "@/components/dashboard-hero";
-import type { AccountPricing, Application, AtlasHub, CartLine, CustomerTier, DocumentStatus, OrderRequest, PlacementBooking, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, TierPricing } from "@/lib/types";
+import type { AccountPricing, Application, AtlasHub, CartLine, CustomerTier, DocumentStatus, OrderRequest, PlacementBooking, PricingSettings, Product, ProductSpec, PromotionSubmission, QuoteAdjustment, SupplierAssignment, SupplierMembershipAssignment, TierPricing } from "@/lib/types";
 
 const documentRejectionReasons = [
   "Document is expired",
@@ -1036,6 +1037,7 @@ export function SingleProductForm({
   const palletProductWeight = caseWeightLb !== undefined ? caseWeightLb * totalCases : undefined;
   const palletStandard = toNum(form.palletStandardWeight) ?? 0;
   const palletTotalWeight = palletProductWeight !== undefined ? palletProductWeight + palletStandard : undefined;
+  const liveMembershipPlan = supplierMembershipPlan(pricingSettings, (lockSupplierName ? defaultSupplierName : form.supplierName) || defaultSupplierName);
 
   const dimWeight = (l: string, w: string, h: string, weight: string, unit: string) => ({
     length: toNum(l),
@@ -1048,6 +1050,10 @@ export function SingleProductForm({
     [l, w, h].some((value) => value.trim() !== "") ? `${l || "?"} x ${w || "?"} x ${h || "?"} in` : "";
 
   function addProduct() {
+    if (!showAtlasEconomics && liveMembershipPlan.listingLimit !== null && products.length >= liveMembershipPlan.listingLimit) {
+      setMessage(`${liveMembershipPlan.name} allows ${liveMembershipPlan.listingLimit} active listings. Contact Atlas to upgrade before adding another product.`);
+      return;
+    }
     if (!form.sku || !form.brand || !form.productName || !form.category) {
       setMessage("Please fill in at least SKU, brand, product name, and category.");
       return;
@@ -1069,7 +1075,7 @@ export function SingleProductForm({
 
     const customerCasePrice = toNum(form.supplierCost) ?? 0;
     const customerPalletPrice = toNum(form.supplierPalletCost);
-    const supplierCasePayout = showAtlasEconomics ? customerCasePrice : customerCasePrice * (1 - pricingSettings.atlasStandardFeePercent / 100);
+    const supplierCasePayout = showAtlasEconomics ? customerCasePrice : customerCasePrice * (1 - liveMembershipPlan.caseFee / 100);
     const spec: ProductSpec = {
       pricingModel: showAtlasEconomics ? "wholesale_margin" : "marketplace_fee",
       customerCasePrice: showAtlasEconomics ? undefined : customerCasePrice,
@@ -1118,7 +1124,7 @@ export function SingleProductForm({
           ? `${casesPerFloor}/floor × ${palletLayers} high = ${totalCases} cases${palletTotalWeight !== undefined ? ` • ~${Math.round(palletTotalWeight)} lb` : ""}`
           : "",
       supplierCost: supplierCasePayout,
-      supplierPalletCost: showAtlasEconomics ? customerPalletPrice : customerPalletPrice ? customerPalletPrice * (1 - pricingSettings.atlasPalletFeePercent / 100) : undefined,
+      supplierPalletCost: showAtlasEconomics ? customerPalletPrice : customerPalletPrice ? customerPalletPrice * (1 - liveMembershipPlan.palletFee / 100) : undefined,
       tierPricing: showAtlasEconomics ? buildTierPricing(form, effectivePalletCases) : {
         case: { retailer: customerCasePrice, distributor: customerCasePrice },
         pallet: customerPalletPrice && effectivePalletCases > 0 ? { retailer: customerPalletPrice / effectivePalletCases, distributor: customerPalletPrice / effectivePalletCases } : undefined
@@ -1391,8 +1397,8 @@ export function SingleProductForm({
             </div>
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-slate-700 sm:col-span-2">
               <p className="font-black text-atlas-navy">You set the customer price. Atlas automatically retains its marketplace fee.</p>
-              <p className="mt-1">Case fee: {pricingSettings.atlasStandardFeePercent}% · Your case payout: {formatMoney((toNum(form.supplierCost) ?? 0) * (1 - pricingSettings.atlasStandardFeePercent / 100))}</p>
-              {toNum(form.supplierPalletCost) ? <p className="mt-1">Pallet fee: {pricingSettings.atlasPalletFeePercent}% · Your pallet payout: {formatMoney((toNum(form.supplierPalletCost) ?? 0) * (1 - pricingSettings.atlasPalletFeePercent / 100))}</p> : null}
+              <p className="mt-1">{liveMembershipPlan.name} case fee: {liveMembershipPlan.caseFee}% · Your case payout: {formatMoney((toNum(form.supplierCost) ?? 0) * (1 - liveMembershipPlan.caseFee / 100))}</p>
+              {toNum(form.supplierPalletCost) ? <p className="mt-1">{liveMembershipPlan.name} pallet fee: {liveMembershipPlan.palletFee}% · Your pallet payout: {formatMoney((toNum(form.supplierPalletCost) ?? 0) * (1 - liveMembershipPlan.palletFee / 100))}</p> : null}
             </div>
           </div>
         )}
@@ -2264,8 +2270,7 @@ function MarketingPanel({
     ["whatsappPromotionRate", "WhatsApp promotion", "Supplier-funded broadcast promotion"],
     ["sponsoredCategoryRate", "Sponsored category", "Category sponsorship such as beverage, snack, or cleaning"],
     ["newProductLaunchRate", "New product launch program", "Homepage, weekly deals, newsletter, and launch section"],
-    ["closeoutListingRate", "Closeout listing", "Overstock, short-dated, packaging change, and liquidation listings"],
-    ["supplierMembershipRate", "Supplier membership / month", "Optional monthly program for higher supplier visibility"]
+    ["closeoutListingRate", "Closeout listing", "Overstock, short-dated, packaging change, and liquidation listings"]
   ];
 
   return (
@@ -2281,6 +2286,7 @@ function MarketingPanel({
       </div>
       <SupplierAdRequests submissions={promotionSubmissions} updateStatus={updatePromotionSubmissionStatus} />
       <PlacementBookingsPanel settings={settings} updatePricingSettings={updatePricingSettings} products={products} updateProductPlacements={updateProductPlacements} />
+      <SupplierMembershipPanel applications={applications} settings={settings} updatePricingSettings={updatePricingSettings} />
       <SupplierFulfillmentPanel applications={applications} settings={settings} updatePricingSettings={updatePricingSettings} />
       <PromoteProductsPanel products={products} updateProductPromotion={updateProductPromotion} updateProductPlacements={updateProductPlacements} />
       <div className="panel p-5">
@@ -2430,6 +2436,10 @@ function PlacementBookingsPanel({
   function addBooking() {
     if (!form.supplierName.trim() || !form.endDate) return;
     const product = approvedProducts.find((p) => p.id === form.productId);
+    const listRate = Number(form.rate) || defaultRate;
+    const plan = supplierMembershipPlan(settings, form.supplierName.trim());
+    const usedCredit = bookings.filter((item) => item.supplierName === form.supplierName.trim()).reduce((sum, item) => sum + (item.membershipCreditApplied ?? 0), 0);
+    const membershipCreditApplied = Math.min(listRate, Math.max(0, plan.adCredit - usedCredit));
     const booking: PlacementBooking = {
       id: `pb-${Date.now().toString(36)}`,
       supplierName: form.supplierName.trim(),
@@ -2437,7 +2447,9 @@ function PlacementBookingsPanel({
       productName: product ? `${product.brand} · ${product.productName}` : undefined,
       slot: slotDef.id,
       slotName: slotDef.name,
-      rate: Number(form.rate) || defaultRate,
+      listRate,
+      membershipCreditApplied,
+      rate: listRate - membershipCreditApplied,
       startDate: form.startDate,
       endDate: form.endDate,
       paymentStatus: "unpaid",
@@ -2582,7 +2594,7 @@ function PlacementBookingsPanel({
                     <td className="px-2 py-2 text-slate-600">{b.supplierName}{b.productName ? ` · ${b.productName}` : ""}</td>
                     <td className="px-2 py-2 text-slate-600">{b.startDate} → {b.endDate}</td>
                     <td className="px-2 py-2"><span className={`badge ${statusTone[status]}`}>{status}</span></td>
-                    <td className="px-2 py-2 font-bold text-atlas-navy">{formatMoney(b.rate)}</td>
+                    <td className="px-2 py-2 font-bold text-atlas-navy">{formatMoney(b.rate)}{(b.membershipCreditApplied ?? 0) > 0 && <span className="block text-[10px] font-semibold text-emerald-700">{formatMoney(b.membershipCreditApplied ?? 0)} membership credit</span>}</td>
                     <td className="px-2 py-2">
                       <button type="button" className={`badge ${payTone[b.paymentStatus]}`} onClick={() => cyclePayment(b.id)} title="Click to change">
                         {b.paymentStatus}
@@ -2616,6 +2628,33 @@ function PlacementBookingsPanel({
       )}
     </div>
   );
+}
+
+function SupplierMembershipPanel({ applications, settings, updatePricingSettings }: { applications: Application[]; settings: PricingSettings; updatePricingSettings: ReturnType<typeof useAtlasStore>["updatePricingSettings"] }) {
+  const suppliers = applications.filter((application) => application.type === "supplier" && application.status === "approved");
+  const today = new Date().toISOString().slice(0, 10);
+  const [draft, setDraft] = useState<SupplierMembershipAssignment[]>(settings.supplierMemberships ?? []);
+  const [saved, setSaved] = useState(false);
+  function current(supplier: Application): SupplierMembershipAssignment {
+    return draft.find((item) => item.supplierId === supplier.id) ?? { supplierId: supplier.id, supplierName: supplier.companyName, planId: "free", paymentStatus: "not_required", startsAt: today };
+  }
+  function patch(supplier: Application, update: Partial<SupplierMembershipAssignment>) {
+    setDraft((items) => {
+      const existing = items.find((item) => item.supplierId === supplier.id) ?? { supplierId: supplier.id, supplierName: supplier.companyName, planId: "free" as const, paymentStatus: "not_required" as const, startsAt: today };
+      const next = { ...existing, ...update, supplierName: supplier.companyName };
+      return items.some((item) => item.supplierId === supplier.id) ? items.map((item) => item.supplierId === supplier.id ? next : item) : [...items, next];
+    });
+  }
+  function selectPlan(supplier: Application, planId: SupplierMembershipAssignment["planId"]) {
+    const paid = planId !== "free";
+    const expires = new Date(`${today}T12:00:00`); expires.setFullYear(expires.getFullYear() + 1);
+    patch(supplier, { planId, paymentStatus: paid ? "pending" : "not_required", startsAt: today, expiresAt: paid ? expires.toISOString().slice(0, 10) : undefined });
+  }
+  function save() { updatePricingSettings({ ...settings, supplierMemberships: draft }); setSaved(true); setTimeout(() => setSaved(false), 2000); }
+  return <div className="panel p-5"><h3 className="text-lg font-black text-atlas-navy">Annual supplier memberships</h3><p className="mt-1 max-w-3xl text-sm text-slate-600">Admin controls membership, payment, activation, and expiration. Paid benefits apply only after payment is marked paid. Expired or unpaid plans automatically use Free fees.</p>
+    <div className="mt-4 grid gap-3 md:grid-cols-4">{supplierMembershipPlans.map((plan) => <div key={plan.id} className="rounded-xl border border-slate-200 p-3"><p className="font-black text-atlas-navy">{plan.name} · {formatMoney(plan.annualPrice)}/year</p><p className="mt-1 text-xs text-slate-600">{plan.caseFee}% case · {plan.palletFee}% pallet · {plan.promotionFee}% promo</p></div>)}</div>
+    {suppliers.length === 0 ? <p className="mt-4 rounded-md bg-atlas-light p-4 text-sm text-slate-600">No approved suppliers yet.</p> : <div className="mt-4 grid gap-3">{suppliers.map((supplier) => { const value = current(supplier); const effective = supplierMembershipPlan({ ...settings, supplierMemberships: draft }, supplier.companyName, today); const expired = Boolean(value.expiresAt && value.expiresAt < today); return <div key={supplier.id} className="grid gap-3 rounded-xl border border-slate-200 p-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_1fr]"><div><p className="font-black text-atlas-navy">{supplier.companyName}</p><p className={`text-xs font-bold ${expired ? "text-red-700" : "text-emerald-700"}`}>Effective now: {effective.name}{expired ? " · membership expired" : ""}</p></div><select className="field" value={value.planId} onChange={(event) => selectPlan(supplier, event.target.value as SupplierMembershipAssignment["planId"])}>{supplierMembershipPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} — ${plan.annualPrice}/yr</option>)}</select><select className="field" value={value.paymentStatus} onChange={(event) => patch(supplier, { paymentStatus: event.target.value as SupplierMembershipAssignment["paymentStatus"] })}><option value="not_required">No payment required</option><option value="pending">Payment pending</option><option value="paid">Paid</option><option value="failed">Payment failed</option></select><input className="field" type="date" value={value.startsAt} onChange={(event) => patch(supplier, { startsAt: event.target.value })} /><input className="field" type="date" value={value.expiresAt ?? ""} onChange={(event) => patch(supplier, { expiresAt: event.target.value || undefined })} /></div>; })}<button className="btn-primary w-fit" type="button" onClick={save}>{saved ? "Memberships saved" : "Save memberships"}</button></div>}
+  </div>;
 }
 
 function SupplierFulfillmentPanel({

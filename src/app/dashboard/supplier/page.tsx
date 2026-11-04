@@ -11,7 +11,8 @@ import { useAtlasStore } from "@/components/local-store";
 import { saveSupplierPayment } from "@/app/register/actions";
 import { DashboardHero } from "@/components/dashboard-hero";
 import { getDocumentAlerts } from "@/lib/documents";
-import { defaultFulfillmentTierId, fulfillmentTiers } from "@/lib/data";
+import { defaultFulfillmentTierId, fulfillmentTiers, supplierMembershipPlans } from "@/lib/data";
+import { supplierMembershipPlan } from "@/lib/pricing";
 import { useI18n } from "@/lib/i18n";
 import { isSupabaseConfigured } from "@/lib/supabase/browser";
 import { parseZipPrefixes } from "@/lib/fulfillment";
@@ -31,6 +32,8 @@ export default function SupplierDashboardPage() {
   ];
   const supplierApplication = store.applications.find((application) => application.type === "supplier");
   const companyName = supplierApplication?.companyName ?? "Current Supplier";
+  const membership = supplierMembershipPlan(store.pricingSettings, companyName);
+  const membershipAssignment = (store.pricingSettings.supplierMemberships ?? []).find((item) => item.supplierName === companyName);
   // Scope to the signed-in supplier's own products — matches how uploads are tagged
   // (supplierName = the supplier's company). Legacy demo names kept as a fallback.
   const supplierProducts = store.products.filter(
@@ -95,6 +98,7 @@ export default function SupplierDashboardPage() {
               <p className="font-black text-atlas-navy">Fulfillment: {fulfillment.name}</p>
               <p className="mt-0.5 text-xs text-slate-600">{fulfillment.blurb}</p>
             </div>
+            <div className="mt-3 rounded-md bg-sky-50 p-3 text-sm"><p className="font-black text-atlas-navy">Membership: {membership.name}</p><p className="mt-0.5 text-xs text-slate-600">{membership.caseFee}% case · {membership.palletFee}% pallet · {membership.promotionFee}% promotional fee</p></div>
             <Link className="btn-secondary mt-3 w-fit rounded-full" href="/sell">
               See advertising rates
             </Link>
@@ -168,6 +172,11 @@ export default function SupplierDashboardPage() {
             <div><p className="text-sm font-black text-atlas-blue">3 · Atlas protects the relationship</p><p className="mt-1 text-sm leading-6 text-slate-600">Consolidation orders do not expose the buyer. Direct shipments reveal only fulfillment-required information and cannot include supplier marketing or invoices.</p></div>
           </div>
           <div className="border-t border-slate-200 bg-sky-50 px-5 py-3 text-xs font-semibold text-slate-700">Hialeah Gardens consolidation may include receiving, pallet-building, storage, delivery, or freight fees. Atlas confirms applicable charges before release.</div>
+        </section>
+        <section className="panel p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Annual supplier membership</p><h2 className="mt-1 text-2xl font-black text-atlas-navy">Start free. Upgrade as your Atlas sales grow.</h2><p className="mt-1 text-sm text-slate-600">Paid plans last 12 months after payment is confirmed. Expired or unpaid plans automatically return to Free rates.</p></div>{membershipAssignment?.expiresAt && <div className="rounded-md bg-atlas-light px-3 py-2 text-sm"><p className="font-black text-atlas-navy">{membership.name}</p><p className="text-xs text-slate-500">Through {membershipAssignment.expiresAt}</p></div>}</div>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{supplierMembershipPlans.map((plan) => <div key={plan.id} className={`rounded-xl border-2 p-4 ${plan.id === membership.id ? "border-atlas-blue bg-sky-50" : "border-slate-200 bg-white"}`}><div className="flex items-center justify-between"><h3 className="text-lg font-black text-atlas-navy">{plan.name}</h3>{plan.id === membership.id && <span className="badge bg-atlas-blue text-white">Current</span>}</div><p className="mt-1 text-2xl font-black text-atlas-navy">${plan.annualPrice}<span className="text-xs font-semibold text-slate-500"> / year</span></p><ul className="mt-3 grid gap-1 text-xs text-slate-600"><li><strong>{plan.caseFee}%</strong> standard case fee</li><li><strong>{plan.palletFee}%</strong> full-pallet fee</li><li><strong>{plan.promotionFee}%</strong> promotional fee</li><li>{plan.listingLimit ?? "Unlimited"} active listings</li><li>${plan.adCredit} annual ad credit</li><li>{plan.consolidationDiscount}% Hialeah consolidation discount</li><li>{plan.support} support</li></ul></div>)}</div>
+          <p className="mt-4 rounded-md bg-atlas-light p-3 text-xs leading-5 text-slate-600">Plan upgrades are activated by Atlas after annual payment is confirmed. The fee rate in effect when Atlas confirms an order is the rate used for that order.</p>
         </section>
         <SingleProductForm
           addProducts={addProducts}
