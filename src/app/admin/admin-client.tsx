@@ -203,6 +203,7 @@ export function AdminClient() {
             addProducts={addProducts}
             pendingProducts={pendingProducts}
             products={store.products}
+            supplierNames={store.applications.filter((application) => application.type === "supplier").map((application) => application.companyName)}
             pricingSettings={store.pricingSettings}
             updateProductStatus={updateProductStatus}
             updateProduct={updateProduct}
@@ -360,6 +361,7 @@ function ProductAdminPanel({
   addProducts,
   pendingProducts,
   products,
+  supplierNames,
   pricingSettings,
   updateProductStatus,
   updateProduct,
@@ -368,6 +370,7 @@ function ProductAdminPanel({
   addProducts: ReturnType<typeof useAtlasStore>["addProducts"];
   pendingProducts: Product[];
   products: Product[];
+  supplierNames: string[];
   pricingSettings: PricingSettings;
   updateProductStatus: ReturnType<typeof useAtlasStore>["updateProductStatus"];
   updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
@@ -422,7 +425,13 @@ function ProductAdminPanel({
           submittedMessage="valid products published to the catalog."
         />
       )}
-      {activeProductTab === "single" && <SingleProductForm addProducts={addProducts} products={products} />}
+      {activeProductTab === "single" && (
+        <SingleProductForm
+          addProducts={addProducts}
+          products={products}
+          supplierOptions={Array.from(new Set(["Atlas Admin", ...supplierNames, ...products.map((product) => product.supplierName).filter(Boolean)]))}
+        />
+      )}
       {activeProductTab === "approvals" && (
         <ProductApprovalsList
           pendingProducts={pendingProducts}
@@ -925,6 +934,7 @@ function formFromProduct(product: Product): typeof blankProductForm {
 export function SingleProductForm({
   addProducts,
   products,
+  supplierOptions = [],
   defaultSupplierName = "Atlas Admin",
   lockSupplierName = false,
   defaultStatus = "approved",
@@ -936,6 +946,7 @@ export function SingleProductForm({
 }: {
   addProducts: ReturnType<typeof useAtlasStore>["addProducts"];
   products: Product[];
+  supplierOptions?: string[];
   defaultSupplierName?: string;
   lockSupplierName?: boolean;
   defaultStatus?: Product["status"];
@@ -1149,7 +1160,22 @@ export function SingleProductForm({
         <AdminProductInput label="UPC" value={form.upc} onChange={updateField("upc")} />
         <AdminProductInput label="GTIN (case)" value={form.gtinCase} onChange={updateField("gtinCase")} />
         <AdminProductInput label="GTIN (inner)" value={form.gtinInner} onChange={updateField("gtinInner")} />
-        {!lockSupplierName && <AdminProductInput label="Supplier name" value={form.supplierName} onChange={updateField("supplierName")} />}
+        {!lockSupplierName && (
+          <label className="grid gap-1">
+            <span className="text-sm font-bold text-slate-700">Vendor / supplier *</span>
+            <input
+              className="input"
+              list="atlas-vendor-options"
+              value={form.supplierName}
+              onChange={updateField("supplierName")}
+              placeholder="Select or enter a vendor"
+            />
+            <datalist id="atlas-vendor-options">
+              {supplierOptions.map((name) => <option key={name} value={name} />)}
+            </datalist>
+            <span className="text-xs text-slate-500">Admin assigns this product to its vendor. Supplier-entered products remain locked to that supplier.</span>
+          </label>
+        )}
         <AdminProductInput label="Product name *" value={form.productName} onChange={updateField("productName")} />
         <AdminProductInput label="Unit size (e.g. 16oz)" value={form.unitSize} onChange={updateField("unitSize")} />
         <label className="grid gap-1">
@@ -1287,7 +1313,7 @@ export function SingleProductForm({
         <AdminProductInput label="Suggested retail per UNIT ($)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
         <div className="hidden md:block" />
         {showAtlasEconomics ? (
-          <div className="md:col-span-3">
+          <div className="grid gap-4 md:col-span-3">
             <ChannelPricingPanel
               caseCost={toNum(form.supplierCost) ?? 0}
               casePack={toNum(form.casePack) ?? 1}
@@ -1300,6 +1326,19 @@ export function SingleProductForm({
               onRepCommission={(v) => setForm((c) => ({ ...c, repCommissionPct: v }))}
               onReset={() => setForm((c) => ({ ...c, priceRetailer: "", priceDistributor: "", repCommissionPct: "" }))}
             />
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h4 className="font-black text-atlas-navy">Full-pallet pricing</h4>
+                  <p className="mt-1 text-xs text-slate-600">Optional price per case when the buyer orders at least one complete pallet. Leave blank to use normal case pricing.</p>
+                </div>
+                <span className="badge bg-white text-atlas-blue">{totalCases || autoCasesPerPallet || "—"} cases / pallet</span>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <AdminProductInput label="Retailer pallet price / case ($)" type="number" value={form.palletPriceRetailer} onChange={updateField("palletPriceRetailer")} />
+                <AdminProductInput label="Distributor pallet price / case ($)" type="number" value={form.palletPriceDistributor} onChange={updateField("palletPriceDistributor")} />
+              </div>
+            </div>
           </div>
         ) : (
           <p className="text-xs text-slate-500 md:col-span-3">Atlas sets the buyer price and owns the invoice. Enter your case price and an optional suggested retail; Atlas handles the rest.</p>
@@ -3586,11 +3625,15 @@ function ProductTierPriceRow({
 }) {
   const pack = product.casePack || 1;
   const seed: Record<string, string> = {};
+  const palletSeed: Record<string, string> = {};
   for (const tier of tiers) {
     const value = product.tierPricing?.case?.[tier.id];
     seed[tier.id] = typeof value === "number" ? String(value) : "";
+    const palletValue = product.tierPricing?.pallet?.[tier.id];
+    palletSeed[tier.id] = typeof palletValue === "number" ? String(palletValue) : "";
   }
   const [draft, setDraft] = useState<Record<string, string>>(seed);
+  const [palletDraft, setPalletDraft] = useState<Record<string, string>>(palletSeed);
   const [srp, setSrp] = useState(product.suggestedRetail ? String(product.suggestedRetail) : "");
   const [costDraft, setCostDraft] = useState(product.supplierCost ? String(product.supplierCost) : "");
   const [saved, setSaved] = useState(false);
@@ -3612,15 +3655,20 @@ function ProductTierPriceRow({
 
   function save() {
     const casePrices: Record<string, number> = {};
+    const palletPrices: Record<string, number> = {};
     for (const [tierId, value] of Object.entries(draft)) {
       const numeric = Number(value);
       if (value.trim() !== "" && !Number.isNaN(numeric) && numeric > 0) casePrices[tierId] = numeric;
+    }
+    for (const [tierId, value] of Object.entries(palletDraft)) {
+      const numeric = Number(value);
+      if (value.trim() !== "" && !Number.isNaN(numeric) && numeric > 0) palletPrices[tierId] = numeric;
     }
     const patch: Partial<Product> = {};
     if (srpNum !== (product.suggestedRetail || 0)) patch.suggestedRetail = srpNum;
     if (cost !== (product.supplierCost || 0)) patch.supplierCost = cost;
     if (Object.keys(patch).length > 0) updateProduct(product.id, patch);
-    onSave(product.id, { case: casePrices, pallet: product.tierPricing?.pallet });
+    onSave(product.id, Object.keys(palletPrices).length > 0 ? { case: casePrices, pallet: palletPrices } : { case: casePrices });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -3666,30 +3714,46 @@ function ProductTierPriceRow({
       <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {tiers.map((tier) => {
           const raw = draft[tier.id] ?? "";
+          const palletRaw = palletDraft[tier.id] ?? "";
           const calculated = calc[tier.id] ?? 0;
           const effective = raw.trim() === "" ? calculated : Number(raw) || 0;
           const overridden = raw.trim() !== "";
           const atlasMargin = marginOfSale(effective, cost);
           return (
-            <label key={tier.id} className="grid gap-1 rounded-md bg-atlas-light p-2">
+            <div key={tier.id} className="grid gap-2 rounded-md bg-atlas-light p-2">
               <span className="flex items-center justify-between text-xs font-bold text-slate-600">
                 {tier.label}
                 {overridden && <span className="text-[10px] font-black uppercase text-atlas-blue">override</span>}
               </span>
-              <input
-                className="field h-9 min-h-9"
-                type="number"
-                step="0.01"
-                placeholder={calculated > 0 ? `${formatMoney(calculated)}` : "enter SRP"}
-                value={raw}
-                onChange={(event) => setDraft((current) => ({ ...current, [tier.id]: event.target.value }))}
-              />
+              <label className="grid gap-1">
+                <span className="text-[11px] font-semibold text-slate-500">Standard case price</span>
+                <input
+                  className="field h-9 min-h-9"
+                  type="number"
+                  step="0.01"
+                  placeholder={calculated > 0 ? `${formatMoney(calculated)}` : "enter SRP"}
+                  value={raw}
+                  onChange={(event) => setDraft((current) => ({ ...current, [tier.id]: event.target.value }))}
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-[11px] font-semibold text-slate-500">Full-pallet price / case</span>
+                <input
+                  className="field h-9 min-h-9"
+                  type="number"
+                  step="0.01"
+                  placeholder="optional"
+                  value={palletRaw}
+                  onChange={(event) => setPalletDraft((current) => ({ ...current, [tier.id]: event.target.value }))}
+                />
+              </label>
               <span className="text-xs font-semibold text-emerald-700">
                 {effective > 0
                   ? `${formatMoney(effective)}/case${cost > 0 ? ` · Atlas ${atlasMargin}%` : ""}`
                   : "Set SRP above"}
               </span>
-            </label>
+              <span className="text-[11px] text-slate-500">{palletCases > 0 ? `Applies at ${palletCases}+ cases.` : "Set pallet configuration to activate full-pallet pricing."}</span>
+            </div>
           );
         })}
       </div>
