@@ -228,6 +228,10 @@ export const productFields = [
   "pallet configuration",
   "supplier cost",
   "suggested retail",
+  "retailer case price",
+  "distributor case price",
+  "retailer pallet price per case",
+  "distributor pallet price per case",
   "MOQ",
   "lead time",
   "inventory available",
@@ -235,7 +239,8 @@ export const productFields = [
   "pickup location",
   "shipping location",
   "delivery radius",
-  "preferred Atlas hub"
+  "preferred Atlas hub",
+  "vendor / supplier"
 ];
 
 export const documentRequirements = {

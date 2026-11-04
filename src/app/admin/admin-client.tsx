@@ -421,6 +421,7 @@ function ProductAdminPanel({
         <ProductUpload
           defaultStatus="approved"
           supplierName="Atlas Admin"
+          allowSupplierAssignment
           submitLabel="Publish valid rows"
           submittedMessage="valid products published to the catalog."
         />

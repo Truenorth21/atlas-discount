@@ -3,7 +3,7 @@
 import { ChangeEvent, useState } from "react";
 import readXlsxFile from "read-excel-file/browser";
 import { AlertTriangle, Download, ImagePlus, UploadCloud } from "lucide-react";
-import { atlasHubs, productFields } from "@/lib/data";
+import { atlasHubs } from "@/lib/data";
 import type { AtlasHub, Product } from "@/lib/types";
 import { uploadProductImage } from "@/lib/supabase/upload";
 import { useAtlasStore } from "./local-store";
@@ -14,6 +14,17 @@ function normalize(row: Record<string, unknown>, index: number): Product {
   const preferredHub = atlasHubs.includes(get("preferred Atlas hub") as AtlasHub)
     ? (get("preferred Atlas hub") as AtlasHub)
     : "Orlando hub";
+  const casePricing = {
+    retailer: number("retailer case price"),
+    distributor: number("distributor case price")
+  };
+  const palletPricing = {
+    retailer: number("retailer pallet price per case"),
+    distributor: number("distributor pallet price per case")
+  };
+  const cleanPricing = (prices: Record<string, number>) => Object.fromEntries(Object.entries(prices).filter(([, value]) => value > 0));
+  const cleanedCasePricing = cleanPricing(casePricing);
+  const cleanedPalletPricing = cleanPricing(palletPricing);
 
   return {
     id: `upload-${Date.now()}-${index}`,
@@ -33,6 +44,9 @@ function normalize(row: Record<string, unknown>, index: number): Product {
     caseWeight: get("case weight"),
     palletConfiguration: get("pallet configuration"),
     supplierCost: number("supplier cost"),
+    tierPricing: Object.keys(cleanedPalletPricing).length > 0
+      ? { case: cleanedCasePricing, pallet: cleanedPalletPricing }
+      : { case: cleanedCasePricing },
     suggestedRetail: number("suggested retail"),
     moq: number("MOQ"),
     leadTime: get("lead time"),
@@ -49,7 +63,7 @@ function normalize(row: Record<string, unknown>, index: number): Product {
           ? "Route through Orlando for Central Florida consolidation and statewide delivery lanes."
           : "Supplier can ship or release orders directly without Atlas hub handling.",
     status: "pending",
-    supplierName: "Current Supplier"
+    supplierName: get("vendor / supplier") || "Current Supplier"
   };
 }
 
@@ -80,11 +94,13 @@ function validate(product: Product) {
 export function ProductUpload({
   defaultStatus = "pending",
   supplierName = "Current Supplier",
+  allowSupplierAssignment = false,
   submitLabel = "Submit valid rows",
   submittedMessage = "valid products submitted for admin review."
 }: {
   defaultStatus?: Product["status"];
   supplierName?: string;
+  allowSupplierAssignment?: boolean;
   submitLabel?: string;
   submittedMessage?: string;
 }) {
@@ -107,13 +123,10 @@ export function ProductUpload({
   }
 
   function downloadTemplate() {
-    const blob = new Blob([`${productFields.join(",")}\n`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
-    link.download = "atlas-discount-product-template.csv";
+    link.href = "/atlas-discount-product-template.xlsx";
+    link.download = "atlas-discount-product-template.xlsx";
     link.click();
-    URL.revokeObjectURL(url);
   }
 
   function parseCsv(text: string) {
@@ -138,11 +151,14 @@ export function ProductUpload({
         Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""]))
       );
     }
-    const products = rows.map((row, index) => ({
-      ...normalize(row, index),
-      status: defaultStatus,
-      supplierName
-    }));
+    const products = rows.map((row, index) => {
+      const product = normalize(row, index);
+      return {
+        ...product,
+        status: defaultStatus,
+        supplierName: allowSupplierAssignment ? product.supplierName : supplierName
+      };
+    });
     setPreview(products.map((product) => ({ product, errors: validate(product) })));
     setMessage(`${products.length} rows parsed. Review validation before submitting.`);
   }
@@ -159,11 +175,11 @@ export function ProductUpload({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-black text-atlas-navy">Product sheet</h2>
-          <p className="mt-1 text-sm text-slate-600">Download the template, fill it in, then upload CSV or Excel.</p>
+          <p className="mt-1 text-sm text-slate-600">Download the guided Excel template, use its dropdown menus, then upload the completed workbook. CSV upload remains supported.</p>
         </div>
         <button className="btn-secondary" type="button" onClick={downloadTemplate}>
           <Download size={16} />
-          Template
+          Excel template
         </button>
       </div>
       <label className="mt-5 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-atlas-light p-4 text-sm text-slate-600">
