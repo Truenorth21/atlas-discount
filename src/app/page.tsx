@@ -82,7 +82,7 @@ export default function HomePage() {
               <label className="flex min-w-0 flex-1 items-center gap-3 px-3 text-[#647184]">
                 <Search size={20} className="shrink-0" />
                 <input
-                  name="search"
+                  name="q"
                   className="min-w-0 flex-1 bg-transparent py-2 text-sm text-[#142033] outline-none placeholder:text-[#7b8796]"
                   placeholder={es ? "Buscar bebidas, snacks, limpieza…" : "Search beverages, snacks, cleaning…"}
                 />
@@ -295,7 +295,7 @@ export default function HomePage() {
 
 function StorefrontProduct({ product, es }: { product: Product; es: boolean }) {
   return (
-    <Link href={"/catalog?search=" + encodeURIComponent(product.productName)} className="group rounded-[22px] border border-[#e6e0d5] bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+    <Link href={"/catalog?q=" + encodeURIComponent(product.productName)} className="group rounded-[22px] border border-[#e6e0d5] bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
       <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-[#eef1f3]">
         <ProductImage product={product} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
       </div>
