@@ -1,7 +1,7 @@
 "use client";
 
 import { defaultPricingSettings } from "@/lib/data";
-import type { AccountPricing, Application, ApprovalStatus, AtlasHub, BuyerBusinessDetails, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PickupLocation, PlacementBooking, PricingSettings, Product, ProductPlacements, ProductSpec, PromotionSubmission, RouteSellerPreference, SupplierAssignment, SupplierRemitTo, TierPricing } from "@/lib/types";
+import type { AccountPricing, Application, ApprovalStatus, AtlasHub, BuyerBusinessDetails, CustomerTier, DocumentStatus, FulfillmentType, OrderRequest, PickupLocation, PlacementBooking, PricingSettings, Product, ProductPlacements, ProductSpec, PromotionSubmission, RouteSellerPreference, SupplierAgreementAcceptance, SupplierAssignment, SupplierRemitTo, TierPricing } from "@/lib/types";
 import { createClient } from "./browser";
 
 type ProductRow = {
@@ -441,6 +441,7 @@ export async function loadAdminApplications(): Promise<Application[] | undefined
       businessDetails: profile.business_details ?? undefined,
       pickupLocation: supplierRow?.pickup_location ?? undefined,
       remitTo: supplierRow?.remit_to ?? undefined,
+      supplierAgreement: (profile.business_details as { agreementAcceptance?: SupplierAgreementAcceptance } | null)?.agreementAcceptance,
       submittedAt: (profile.created_at ?? "").slice(0, 10)
     };
   });

@@ -81,6 +81,10 @@ export type ProductSpec = {
   customerCasePrice?: number;
   /** Total customer price for one full pallet. */
   customerPalletPrice?: number;
+  /** Where inventory is physically held before Atlas approves an order. */
+  inventoryLocation?: "supplier_warehouse" | "atlas_hialeah" | "atlas_orlando";
+  /** What happens after approval; separate from the inventory location. */
+  orderRouting?: "hialeah_consolidation" | "atlas_fulfilled" | "supplier_direct" | "supplier_pickup";
   unit?: DimWeight;
   hasInner?: boolean;
   innerPack?: number;
@@ -215,8 +219,17 @@ export type Application = {
   businessDetails?: BuyerBusinessDetails;
   /** Supplier remit-to / payment preference — collected post-approval (no bank numbers stored here). */
   remitTo?: SupplierRemitTo;
+  supplierAgreement?: SupplierAgreementAcceptance;
   newsletterOptIn?: boolean;
   submittedAt: string;
+};
+
+export type SupplierAgreementAcceptance = {
+  version: string;
+  signerName: string;
+  signerTitle: string;
+  acceptedAt: string;
+  ipAddress?: string;
 };
 
 export type PickupLocation = {

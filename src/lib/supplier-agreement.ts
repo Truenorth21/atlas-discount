@@ -1,0 +1,2 @@
+export const SUPPLIER_AGREEMENT_VERSION = "2026-11-04";
+

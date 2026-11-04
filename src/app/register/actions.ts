@@ -1,9 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { ADMIN_EMAIL, appUrl, emailLayout, esc, sendEmail } from "@/lib/email";
 import type { UserRole } from "@/lib/types";
+import { SUPPLIER_AGREEMENT_VERSION } from "@/lib/supplier-agreement";
 
 const roleLabels: Record<string, string> = {
   buyer: "buyer (Member)",
@@ -29,6 +31,22 @@ export async function registerUser(formData: FormData) {
   const companyName = String(formData.get("companyName"));
   const contactName = String(formData.get("contactName"));
   const phone = String(formData.get("phone"));
+  if (role === "supplier" && formData.get("supplierAgreementAccepted") !== "on") {
+    redirect(`/register/supplier?error=${encodeURIComponent("You must accept the Supplier Marketplace Agreement to apply.")}` as never);
+  }
+  const signerName = String(formData.get("agreementSignerName") || "").trim();
+  const signerTitle = String(formData.get("agreementSignerTitle") || "").trim();
+  if (role === "supplier" && (!signerName || !signerTitle)) {
+    redirect(`/register/supplier?error=${encodeURIComponent("Enter the authorized signer's name and title.")}` as never);
+  }
+  const requestHeaders = role === "supplier" ? await headers() : null;
+  const supplierAgreement = role === "supplier" ? {
+    version: SUPPLIER_AGREEMENT_VERSION,
+    signerName,
+    signerTitle,
+    acceptedAt: new Date().toISOString(),
+    ipAddress: requestHeaders?.get("x-forwarded-for")?.split(",")[0]?.trim() || requestHeaders?.get("x-real-ip") || undefined
+  } : undefined;
 
   const { data, error } = await supabase!.auth.signUp({
     email,
@@ -67,7 +85,7 @@ export async function registerUser(formData: FormData) {
               zip: String(formData.get("businessZip") || ""),
               referralCode: String(formData.get("referralCode") || "").trim().toUpperCase().slice(0, 32) || undefined
             }
-          : null
+          : role === "supplier" ? { agreementAcceptance: supplierAgreement } : null
     });
 
     if (role === "supplier") {

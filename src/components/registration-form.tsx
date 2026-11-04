@@ -16,6 +16,7 @@ import {
 } from "@/lib/i18n";
 import { isSupabaseConfigured } from "@/lib/supabase/browser";
 import type { AtlasHub, BusinessDocument, RouteSellerPreference } from "@/lib/types";
+import { SUPPLIER_AGREEMENT_VERSION } from "@/lib/supplier-agreement";
 import { useAtlasStore } from "./local-store";
 
 function documentId(type: "buyer" | "supplier" | "route_seller", label: string) {
@@ -103,6 +104,15 @@ export function RegistrationForm({ type, error, referralCode }: { type: "buyer" 
               contact: String(form.get("warehouseContact") ?? "") || undefined,
               phone: String(form.get("warehousePhone") ?? "") || undefined,
               hours: String(form.get("warehouseHours") ?? "") || undefined
+            }
+          : undefined,
+      supplierAgreement:
+        type === "supplier"
+          ? {
+              version: SUPPLIER_AGREEMENT_VERSION,
+              signerName: String(form.get("agreementSignerName") ?? ""),
+              signerTitle: String(form.get("agreementSignerTitle") ?? ""),
+              acceptedAt: new Date().toISOString()
             }
           : undefined,
       routePreference:
@@ -313,6 +323,24 @@ export function RegistrationForm({ type, error, referralCode }: { type: "buyer" 
               <input className="field" name="warehouseHours" placeholder={t("warehouseHoursPlaceholder")} />
             </label>
           </div>
+        </div>
+      )}
+      {type === "supplier" && (
+        <div className="grid gap-4 rounded-xl border-2 border-atlas-blue bg-sky-50 p-5">
+          <div>
+            <p className="text-sm font-black uppercase tracking-wide text-atlas-blue">Required supplier agreement</p>
+            <h2 className="mt-1 text-xl font-black text-atlas-navy">Protecting Atlas buyers and supplier relationships</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-700">The authorized signer must accept the Supplier Marketplace Agreement, including confidentiality, limited use of buyer information, non-solicitation, and non-circumvention provisions.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2"><span className="label">Authorized signer&apos;s full name</span><input className="field" name="agreementSignerName" required /></label>
+            <label className="grid gap-2"><span className="label">Signer&apos;s title</span><input className="field" name="agreementSignerTitle" placeholder="Owner, President, Authorized Officer" required /></label>
+          </div>
+          <label className="flex items-start gap-3 rounded-lg bg-white p-4 text-sm leading-6 text-slate-700">
+            <input className="mt-1 h-5 w-5 shrink-0 accent-atlas-blue" name="supplierAgreementAccepted" type="checkbox" required />
+            <span>I am authorized to bind the supplier and agree to the <a className="font-black text-atlas-blue underline" href="/supplier-agreement" target="_blank" rel="noreferrer">Atlas Discount Supplier Marketplace Agreement</a>, version {SUPPLIER_AGREEMENT_VERSION}, including its confidentiality, non-solicitation, and non-circumvention provisions.</span>
+          </label>
+          <p className="text-xs text-slate-500">Atlas records the agreement version, signer, acceptance time, and request IP when available. Products remain subject to Atlas review and approval.</p>
         </div>
       )}
       <div className="grid gap-2">

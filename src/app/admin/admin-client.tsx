@@ -851,7 +851,7 @@ const blankProductForm = {
   innerPack: "", innerL: "", innerW: "", innerH: "", innerWeight: "", innerWeightUnit: "lb",
   casePack: "1", caseL: "", caseW: "", caseH: "", caseWeight: "", caseWeightUnit: "lb",
   palletCasesPerFloor: "", palletLayers: "", palletStandardWeight: "40",
-  stocking: "hub", shippingWarehouse: "Orlando hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
+  stocking: "supplier", orderRouting: "hialeah_consolidation", shippingWarehouse: "Miami hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
   supplierCost: "", supplierPalletCost: "", suggestedRetail: "", moq: "1", minOrderValue: "", leadTime: "", inventoryAvailable: "0",
   priceRetailer: "", priceDistributor: "", repCommissionPct: "",
   palletPriceRetailer: "", palletPriceDistributor: "",
@@ -927,7 +927,8 @@ function formFromProduct(product: Product): typeof blankProductForm {
     palletCasesPerFloor: numToStr(spec?.palletCasesPerFloor),
     palletLayers: numToStr(spec?.palletLayers),
     palletStandardWeight: numToStr(spec?.palletStandardWeight) || "40",
-    stocking: product.preferredHub === "Supplier direct" ? "dropship" : "hub",
+    stocking: spec?.inventoryLocation === "atlas_hialeah" ? "atlas_hialeah" : spec?.inventoryLocation === "atlas_orlando" ? "atlas_orlando" : "supplier",
+    orderRouting: spec?.orderRouting ?? (product.preferredHub === "Supplier direct" ? "supplier_direct" : "hialeah_consolidation"),
     shippingWarehouse: spec?.shippingWarehouse ?? (product.preferredHub === "Miami hub" ? "Miami hub" : "Orlando hub"),
     fulfillmentMode: spec?.fulfillmentMode ?? "delivered",
     pickupAddress: spec?.pickupAddress ?? "",
@@ -1073,6 +1074,8 @@ export function SingleProductForm({
       pricingModel: showAtlasEconomics ? "wholesale_margin" : "marketplace_fee",
       customerCasePrice: showAtlasEconomics ? undefined : customerCasePrice,
       customerPalletPrice: showAtlasEconomics ? undefined : customerPalletPrice,
+      inventoryLocation: form.stocking === "atlas_hialeah" ? "atlas_hialeah" : form.stocking === "atlas_orlando" ? "atlas_orlando" : "supplier_warehouse",
+      orderRouting: form.stocking === "atlas_hialeah" || form.stocking === "atlas_orlando" ? "atlas_fulfilled" : form.orderRouting as ProductSpec["orderRouting"],
       unit: dimWeight(form.unitL, form.unitW, form.unitH, form.unitWeight, form.unitWeightUnit),
       hasInner,
       innerPack: hasInner ? toNum(form.innerPack) : undefined,
@@ -1089,14 +1092,10 @@ export function SingleProductForm({
       pickupPhone: form.fulfillmentMode === "pickup" ? form.pickupPhone || undefined : undefined
     };
 
-    // Drop-ship products aren't stocked at a hub: they always fulfill supplier-direct.
-    const isDropship = form.stocking === "dropship";
-    const preferredHub: AtlasHub = isDropship ? "Supplier direct" : (form.shippingWarehouse as AtlasHub);
-    const location = isDropship
-      ? form.pickupAddress || "Ships from supplier"
-      : form.fulfillmentMode === "pickup" && form.pickupAddress
-        ? form.pickupAddress
-        : form.shippingWarehouse;
+    const heldAtAtlas = form.stocking === "atlas_hialeah" || form.stocking === "atlas_orlando";
+    const consolidatesAtHialeah = form.stocking === "supplier" && form.orderRouting === "hialeah_consolidation";
+    const preferredHub: AtlasHub = form.stocking === "atlas_orlando" ? "Orlando hub" : heldAtAtlas || consolidatesAtHialeah ? "Miami hub" : "Supplier direct";
+    const location = form.stocking === "atlas_hialeah" ? "Atlas Hialeah Gardens hub" : form.stocking === "atlas_orlando" ? "Atlas Orlando hub (future)" : form.pickupAddress || "Supplier warehouse";
 
     const product: Product = {
       id: `admin-${Date.now()}`,
@@ -1130,16 +1129,17 @@ export function SingleProductForm({
       leadTime: form.leadTime || "Ready now",
       inventoryAvailable: toNum(form.inventoryAvailable) ?? 0,
       location,
-      pickupLocation: form.fulfillmentMode === "pickup" ? form.pickupAddress || location : location,
+      pickupLocation: form.orderRouting === "supplier_pickup" ? form.pickupAddress || location : location,
       shippingLocation: form.shippingWarehouse,
       deliveryRadius: "",
       preferredHub,
-      routeRecommendation:
-        preferredHub === "Supplier direct"
-          ? "Ships directly from the supplier — not stocked at an Atlas hub."
-          : preferredHub === "Miami hub"
-            ? "Stage through Miami for South Florida pickup and delivery."
-            : "Stage through Orlando for Central Florida pickup and delivery.",
+      routeRecommendation: heldAtAtlas
+        ? `Atlas fulfills from ${form.stocking === "atlas_hialeah" ? "Hialeah Gardens" : "the approved Orlando hub"}.`
+        : consolidatesAtHialeah
+          ? "Supplier holds inventory. After Atlas approves an order, the supplier sends released goods to Hialeah Gardens for paid consolidation."
+          : form.orderRouting === "supplier_pickup"
+            ? "Supplier holds inventory and prepares approved orders for buyer pickup."
+            : "Supplier holds inventory and ships approved orders using Atlas-controlled documents.",
       status: defaultStatus,
       supplierName: (lockSupplierName ? defaultSupplierName : form.supplierName) || defaultSupplierName,
       promotion: form.promotion || undefined,
@@ -1303,36 +1303,33 @@ export function SingleProductForm({
           </div>
         )}
 
-        <ProductSectionHeading>Fulfillment</ProductSectionHeading>
+        <ProductSectionHeading>Inventory location &amp; order routing</ProductSectionHeading>
+        <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-slate-700 md:col-span-3"><p className="font-black text-atlas-navy">These are two different questions.</p><p><strong>Inventory location</strong> is where the product sits before an order. <strong>Order routing</strong> is what happens only after Atlas approves and releases the order.</p></div>
         <label className="grid gap-1">
-          <span className="text-sm font-bold text-slate-700">Where is this stocked?</span>
+          <span className="text-sm font-bold text-slate-700">1. Where is inventory physically held?</span>
           <select className="input" value={form.stocking} onChange={updateField("stocking")}>
-            <option value="hub">Stocked at an Atlas hub</option>
-            <option value="dropship">Drop ship — not in an Atlas warehouse</option>
+            <option value="supplier">At the supplier&apos;s warehouse</option>
+            <option value="atlas_hialeah">Already stocked at Atlas — Hialeah Gardens</option>
+            <option value="atlas_orlando">Already stocked at Atlas — Orlando (future)</option>
           </select>
         </label>
-        {form.stocking === "hub" ? (
+        {form.stocking === "supplier" ? (
           <label className="grid gap-1">
-            <span className="text-sm font-bold text-slate-700">Shipping warehouse</span>
-            <select className="input" value={form.shippingWarehouse} onChange={updateField("shippingWarehouse")}>
-              <option value="Orlando hub">Orlando hub</option>
-              <option value="Miami hub">Miami hub</option>
+            <span className="text-sm font-bold text-slate-700">2. After Atlas releases an order</span>
+            <select className="input" value={form.orderRouting} onChange={updateField("orderRouting")}>
+              <option value="hialeah_consolidation">Send released goods to Atlas Hialeah for consolidation</option>
+              <option value="supplier_direct">Ship directly with Atlas-issued documents</option>
+              <option value="supplier_pickup">Prepare for authorized pickup at supplier warehouse</option>
             </select>
           </label>
         ) : (
-          <div className="grid gap-1 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-            <span className="font-bold">Drop ship</span>
-            Ships directly from the supplier — buyers can&apos;t pick it up at a hub, and it isn&apos;t combined onto a hub pallet.
+          <div className="grid gap-1 rounded-md border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-800">
+            <span className="font-bold">Atlas-held inventory</span>
+            Atlas releases and fulfills approved orders from this hub. The supplier does not resend each order.
           </div>
         )}
-        <label className="grid gap-1">
-          <span className="text-sm font-bold text-slate-700">Pickup or delivered</span>
-          <select className="input" value={form.fulfillmentMode} onChange={updateField("fulfillmentMode")} disabled={form.stocking === "dropship"}>
-            <option value="delivered">Delivered</option>
-            <option value="pickup">Pickup</option>
-          </select>
-        </label>
-        {form.fulfillmentMode === "pickup" && (
+        <div className="rounded-md border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">{form.stocking === "supplier" && form.orderRouting === "hialeah_consolidation" ? "Supplier keeps inventory until Atlas sends a release order. Supplier sends only the released cases or pallets to Hialeah Gardens. Atlas receives, combines, and routes the buyer order; consolidation fees may apply." : form.stocking === "supplier" && form.orderRouting === "supplier_direct" ? "Supplier ships only after Atlas approval. Atlas provides shipping documents and limits buyer data to what is required for fulfillment." : form.stocking === "supplier" ? "Buyer pickup is offered only at the authorized supplier location and only after Atlas releases the order." : "Inventory is already at Atlas and will be fulfilled by Atlas after order approval."}</div>
+        {form.stocking === "supplier" && form.orderRouting === "supplier_pickup" && (
           <>
             <AdminProductInput label="Pickup phone" value={form.pickupPhone} onChange={updateField("pickupPhone")} />
             <label className="grid gap-1 md:col-span-3">
@@ -3148,7 +3145,8 @@ function ApplicantDetailsCard({ application }: { application: Application }) {
   const business = application.businessDetails;
   const pickup = application.pickupLocation;
   const remit = application.remitTo;
-  if (!business && !pickup && !remit) return null;
+  const agreement = application.supplierAgreement;
+  if (!business && !pickup && !remit && !agreement) return null;
 
   return (
     <div className="mb-4 grid gap-3 rounded-lg border border-slate-200 bg-atlas-light p-4 md:grid-cols-2">
@@ -3173,6 +3171,13 @@ function ApplicantDetailsCard({ application }: { application: Application }) {
           <p className="text-xs font-black uppercase tracking-wide text-slate-500">Payment / remit-to</p>
           <p className="mt-1 text-sm text-atlas-navy"><span className="font-bold">{remit.payeeName || "—"}</span> · {remit.method}</p>
           <p className="text-sm text-slate-600">{remit.email}{remit.address ? ` · ${remit.address}` : ""}</p>
+        </div>
+      )}
+      {agreement && (
+        <div>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Supplier agreement accepted</p>
+          <p className="mt-1 text-sm text-atlas-navy"><span className="font-bold">{agreement.signerName}</span> · {agreement.signerTitle}</p>
+          <p className="text-xs text-slate-500">Version {agreement.version} · {new Date(agreement.acceptedAt).toLocaleString()}{agreement.ipAddress ? ` · IP ${agreement.ipAddress}` : ""}</p>
         </div>
       )}
     </div>

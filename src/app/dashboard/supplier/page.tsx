@@ -155,6 +155,15 @@ export default function SupplierDashboardPage() {
         </aside>
         <div className="grid h-fit gap-6">
         <SupplierPaymentCard application={supplierApplication} companyName={companyName} />
+        <section className="panel overflow-hidden">
+          <div className="bg-atlas-navy p-5 text-white"><p className="text-xs font-black uppercase tracking-widest text-sky-300">How Atlas routing works</p><h2 className="mt-1 text-2xl font-black">You keep inventory until Atlas releases an order.</h2></div>
+          <div className="grid gap-4 p-5 md:grid-cols-3">
+            <div><p className="text-sm font-black text-atlas-blue">1 · Atlas approves</p><p className="mt-1 text-sm leading-6 text-slate-600">A buyer request is not permission to ship. Atlas confirms the order and sends you a release number, quantities, labels, and routing instructions.</p></div>
+            <div><p className="text-sm font-black text-atlas-blue">2 · You route released goods</p><p className="mt-1 text-sm leading-6 text-slate-600">Send them to Atlas Hialeah Gardens for paid consolidation, ship with Atlas-issued documents, or prepare an authorized pickup—according to the product setup.</p></div>
+            <div><p className="text-sm font-black text-atlas-blue">3 · Atlas protects the relationship</p><p className="mt-1 text-sm leading-6 text-slate-600">Consolidation orders do not expose the buyer. Direct shipments reveal only fulfillment-required information and cannot include supplier marketing or invoices.</p></div>
+          </div>
+          <div className="border-t border-slate-200 bg-sky-50 px-5 py-3 text-xs font-semibold text-slate-700">Hialeah Gardens consolidation may include receiving, pallet-building, storage, delivery, or freight fees. Atlas confirms applicable charges before release.</div>
+        </section>
         <SingleProductForm
           addProducts={addProducts}
           products={supplierProducts}
