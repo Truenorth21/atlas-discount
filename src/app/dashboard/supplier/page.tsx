@@ -162,6 +162,7 @@ export default function SupplierDashboardPage() {
           lockSupplierName
           defaultStatus="pending"
           showAtlasEconomics={false}
+          pricingSettings={store.pricingSettings}
           title="Add one product"
           subtitle="Add a single product, or start from a copy of one you already listed and change only what differs (SKU, name, UPC). New products go to Atlas for review."
           submitLabel="Submit for review"
@@ -189,7 +190,7 @@ export default function SupplierDashboardPage() {
                   <th className="px-5 py-3">SKU</th>
                   <th className="px-5 py-3">{t("brandLabel")}</th>
                   <th className="px-5 py-3">{t("productHeader")}</th>
-                  <th className="px-5 py-3">{t("cost")}</th>
+                  <th className="px-5 py-3">Customer case price</th>
                   <th className="px-5 py-3">{t("hub")}</th>
                   <th className="px-5 py-3">{t("dimensions")}</th>
                   <th className="px-5 py-3">{t("inventory")}</th>
@@ -202,7 +203,7 @@ export default function SupplierDashboardPage() {
                     <td className="px-5 py-4 font-bold">{product.sku}</td>
                     <td className="px-5 py-4">{product.brand}</td>
                     <td className="px-5 py-4">{product.description}</td>
-                    <td className="px-5 py-4">${product.supplierCost.toFixed(2)}</td>
+                    <td className="px-5 py-4">${(product.spec?.customerCasePrice ?? product.supplierCost).toFixed(2)}</td>
                     <td className="px-5 py-4">{product.preferredHub ?? "Orlando hub"}</td>
                     <td className="px-5 py-4">
                       <p>{t("dimProduct")}: {product.productDimensions || t("notProvided")}</p>

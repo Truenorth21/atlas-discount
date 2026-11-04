@@ -431,6 +431,7 @@ function ProductAdminPanel({
           addProducts={addProducts}
           products={products}
           supplierOptions={Array.from(new Set(["Atlas Admin", ...supplierNames, ...products.map((product) => product.supplierName).filter(Boolean)]))}
+          pricingSettings={pricingSettings}
         />
       )}
       {activeProductTab === "approvals" && (
@@ -799,11 +800,24 @@ function ProductApprovalsList({
                     <h3 className="mt-3 text-lg font-black">{product.brand} • {product.sku}</h3>
                     <p className="text-sm text-slate-600">{product.description}</p>
                   <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                    <div><dt className="font-bold">Supplier cost</dt><dd>{formatMoney(product.supplierCost)}</dd></div>
-                    <div><dt className="font-bold">Case sell price</dt><dd>{formatMoney(atlasCaseSellPrice(product.supplierCost, pricingSettings))} / loose case</dd></div>
-                    <div><dt className="font-bold">Pallet sell price</dt><dd>{formatMoney(atlasPalletSellPrice(product.supplierCost, pricingSettings))} / case at {casesPerPallet(product.palletConfiguration) || "full pallet"} cases</dd></div>
-                    <div><dt className="font-bold">Loose case margin</dt><dd>{formatMoney(atlasCaseSellPrice(product.supplierCost, pricingSettings) - product.supplierCost)}</dd></div>
-                    <div><dt className="font-bold">Pallet case margin</dt><dd>{formatMoney(atlasPalletSellPrice(product.supplierCost, pricingSettings) - product.supplierCost)}</dd></div>
+                    {product.spec?.pricingModel === "marketplace_fee" ? (
+                      <>
+                        <div><dt className="font-bold">Customer case price</dt><dd>{formatMoney(product.spec.customerCasePrice ?? 0)}</dd></div>
+                        <div><dt className="font-bold">Atlas case fee</dt><dd>{pricingSettings.atlasStandardFeePercent}% ({formatMoney((product.spec.customerCasePrice ?? 0) * pricingSettings.atlasStandardFeePercent / 100)})</dd></div>
+                        <div><dt className="font-bold">Supplier case payout</dt><dd>{formatMoney((product.spec.customerCasePrice ?? 0) * (1 - pricingSettings.atlasStandardFeePercent / 100))}</dd></div>
+                        <div><dt className="font-bold">Customer pallet price</dt><dd>{product.spec.customerPalletPrice ? formatMoney(product.spec.customerPalletPrice) : "Uses case price × quantity"}</dd></div>
+                        <div><dt className="font-bold">Atlas pallet fee</dt><dd>{pricingSettings.atlasPalletFeePercent}%</dd></div>
+                        <div><dt className="font-bold">Promotional fee</dt><dd>{pricingSettings.atlasPromotionFeePercent}% when a deal is active</dd></div>
+                      </>
+                    ) : (
+                      <>
+                        <div><dt className="font-bold">Supplier cost</dt><dd>{formatMoney(product.supplierCost)}</dd></div>
+                        <div><dt className="font-bold">Case sell price</dt><dd>{formatMoney(atlasCaseSellPrice(product.supplierCost, pricingSettings))} / loose case</dd></div>
+                        <div><dt className="font-bold">Pallet sell price</dt><dd>{formatMoney(atlasPalletSellPrice(product.supplierCost, pricingSettings))} / case at {casesPerPallet(product.palletConfiguration) || "full pallet"} cases</dd></div>
+                        <div><dt className="font-bold">Loose case margin</dt><dd>{formatMoney(atlasCaseSellPrice(product.supplierCost, pricingSettings) - product.supplierCost)}</dd></div>
+                        <div><dt className="font-bold">Pallet case margin</dt><dd>{formatMoney(atlasPalletSellPrice(product.supplierCost, pricingSettings) - product.supplierCost)}</dd></div>
+                      </>
+                    )}
                     <div><dt className="font-bold">Inventory</dt><dd>{product.inventoryAvailable}</dd></div>
                     <div><dt className="font-bold">Product dimensions</dt><dd>{product.productDimensions || "Not provided"}</dd></div>
                     <div><dt className="font-bold">Case dimensions</dt><dd>{product.caseDimensions || "Not provided"}</dd></div>
@@ -945,7 +959,8 @@ export function SingleProductForm({
   subtitle = "Only SKU, brand, product name, and category are required — fill in the rest as you have it.",
   submitLabel = "Publish product",
   submittedVerb = "published to the catalog",
-  showAtlasEconomics = true
+  showAtlasEconomics = true,
+  pricingSettings
 }: {
   addProducts: ReturnType<typeof useAtlasStore>["addProducts"];
   products: Product[];
@@ -959,6 +974,7 @@ export function SingleProductForm({
   submittedVerb?: string;
   /** Atlas-only cost/margin/channel pricing. Hidden for supplier-facing use. */
   showAtlasEconomics?: boolean;
+  pricingSettings: PricingSettings;
 }) {
   const [form, setForm] = useState({ ...blankProductForm, supplierName: defaultSupplierName });
   const [hasInner, setHasInner] = useState(false);
@@ -1050,7 +1066,13 @@ export function SingleProductForm({
       return;
     }
 
+    const customerCasePrice = toNum(form.supplierCost) ?? 0;
+    const customerPalletPrice = toNum(form.supplierPalletCost);
+    const supplierCasePayout = showAtlasEconomics ? customerCasePrice : customerCasePrice * (1 - pricingSettings.atlasStandardFeePercent / 100);
     const spec: ProductSpec = {
+      pricingModel: showAtlasEconomics ? "wholesale_margin" : "marketplace_fee",
+      customerCasePrice: showAtlasEconomics ? undefined : customerCasePrice,
+      customerPalletPrice: showAtlasEconomics ? undefined : customerPalletPrice,
       unit: dimWeight(form.unitL, form.unitW, form.unitH, form.unitWeight, form.unitWeightUnit),
       hasInner,
       innerPack: hasInner ? toNum(form.innerPack) : undefined,
@@ -1096,9 +1118,12 @@ export function SingleProductForm({
         totalCases > 0
           ? `${casesPerFloor}/floor × ${palletLayers} high = ${totalCases} cases${palletTotalWeight !== undefined ? ` • ~${Math.round(palletTotalWeight)} lb` : ""}`
           : "",
-      supplierCost: toNum(form.supplierCost) ?? 0,
-      supplierPalletCost: toNum(form.supplierPalletCost),
-      tierPricing: buildTierPricing(form, effectivePalletCases),
+      supplierCost: supplierCasePayout,
+      supplierPalletCost: showAtlasEconomics ? customerPalletPrice : customerPalletPrice ? customerPalletPrice * (1 - pricingSettings.atlasPalletFeePercent / 100) : undefined,
+      tierPricing: showAtlasEconomics ? buildTierPricing(form, effectivePalletCases) : {
+        case: { retailer: customerCasePrice, distributor: customerCasePrice },
+        pallet: customerPalletPrice && effectivePalletCases > 0 ? { retailer: customerPalletPrice / effectivePalletCases, distributor: customerPalletPrice / effectivePalletCases } : undefined
+      },
       suggestedRetail: toNum(form.suggestedRetail) ?? 0,
       moq: toNum(form.moq) ?? 1,
       minOrderValue: toNum(form.minOrderValue) ?? 0,
@@ -1318,7 +1343,7 @@ export function SingleProductForm({
         )}
 
         <ProductSectionHeading>Pricing</ProductSectionHeading>
-        <AdminProductInput label={showAtlasEconomics ? "Case cost to Atlas (for margin)" : "Your case price to Atlas"} type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
+        <AdminProductInput label={showAtlasEconomics ? "Case cost to Atlas (for margin)" : "Customer price per CASE ($)"} type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
         <AdminProductInput label="Suggested retail per UNIT ($)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
         <div className="hidden md:block" />
         {showAtlasEconomics ? (
@@ -1358,16 +1383,20 @@ export function SingleProductForm({
           </div>
         ) : (
           <div className="grid gap-3 md:col-span-3 sm:grid-cols-2">
-            <AdminProductInput label="Your price per PALLET to Atlas ($, optional)" type="number" value={form.supplierPalletCost} onChange={updateField("supplierPalletCost")} />
+            <AdminProductInput label="Customer price per PALLET ($, optional)" type="number" value={form.supplierPalletCost} onChange={updateField("supplierPalletCost")} />
             <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-slate-600">
               <p className="font-black text-atlas-navy">Full pallet: {effectivePalletCases > 0 ? `${effectivePalletCases} cases` : "set Ti/Hi or case dimensions above"}</p>
               {effectivePalletCases > 0 && toNum(form.supplierPalletCost) ? (
                 <p className="mt-1 font-semibold text-atlas-blue">Equivalent to {formatMoney((toNum(form.supplierPalletCost) ?? 0) / effectivePalletCases)} per case.</p>
               ) : (
-                <p className="mt-1">Enter the total amount Atlas pays for one complete pallet. Leave blank if your pallet price is simply case price × pallet quantity.</p>
+                <p className="mt-1">Enter the customer&apos;s total price for one complete pallet. Leave blank to use case price × pallet quantity.</p>
               )}
             </div>
-            <p className="text-xs text-slate-500 sm:col-span-2">Atlas sets the buyer price and owns the invoice. Enter your case price, optional full-pallet price, and optional suggested retail; Atlas handles the rest.</p>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-slate-700 sm:col-span-2">
+              <p className="font-black text-atlas-navy">You set the customer price. Atlas automatically retains its marketplace fee.</p>
+              <p className="mt-1">Case fee: {pricingSettings.atlasStandardFeePercent}% · Your case payout: {formatMoney((toNum(form.supplierCost) ?? 0) * (1 - pricingSettings.atlasStandardFeePercent / 100))}</p>
+              {toNum(form.supplierPalletCost) ? <p className="mt-1">Pallet fee: {pricingSettings.atlasPalletFeePercent}% · Your pallet payout: {formatMoney((toNum(form.supplierPalletCost) ?? 0) * (1 - pricingSettings.atlasPalletFeePercent / 100))}</p> : null}
+            </div>
           </div>
         )}
 
@@ -2974,8 +3003,17 @@ function PricingSettingsPanel({
       </div>
 
       <PricingGroup
+        title="Atlas marketplace fees"
+        body="Suppliers set the customer-facing price. Atlas automatically retains this percentage from each completed sale; the remainder is the supplier payout. Admin controls these defaults."
+      >
+        <NumberField label="Standard case fee" value={settings.atlasStandardFeePercent} onChange={updateNumber("atlasStandardFeePercent")} hint="Atlas share of supplier-set case sales." suffix="%" />
+        <NumberField label="Full pallet fee" value={settings.atlasPalletFeePercent} onChange={updateNumber("atlasPalletFeePercent")} hint="Atlas share of full-pallet sales." suffix="%" />
+        <NumberField label="Promotional deal fee" value={settings.atlasPromotionFeePercent} onChange={updateNumber("atlasPromotionFeePercent")} hint="Atlas share when an approved promotional deal price is active." suffix="%" />
+      </PricingGroup>
+
+      <PricingGroup
         title="Default product margins"
-        body="When a product has no explicit per-tier price set, Atlas prices it to earn these target margins (% of the sale price). US distribution is run on margins, not markups. Per-product prices in the Product prices tab always win over these."
+        body="Legacy fallback for Atlas-priced inventory only. Supplier marketplace listings use the fee settings above."
       >
         <NumberField label="Loose case target margin" value={settings.caseMarginPercent} onChange={updateNumber("caseMarginPercent")} hint="Atlas margin on a single loose case when no explicit price is set." suffix="%" />
         <NumberField label="Full pallet target margin" value={settings.palletMarginPercent} onChange={updateNumber("palletMarginPercent")} hint="Atlas margin on full-pallet cases (usually lower than loose)." suffix="%" />

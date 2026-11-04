@@ -76,6 +76,11 @@ export type DimWeight = {
 
 /** Rich item-setup spec: unit / inner / master case + pallet + fulfillment. */
 export type ProductSpec = {
+  /** Supplier sets the customer price; Atlas retains the configured marketplace fee. */
+  pricingModel?: "marketplace_fee" | "wholesale_margin";
+  customerCasePrice?: number;
+  /** Total customer price for one full pallet. */
+  customerPalletPrice?: number;
   unit?: DimWeight;
   hasInner?: boolean;
   innerPack?: number;
@@ -323,6 +328,10 @@ export type PricingSettings = {
   minimumOrderValue: number;
   supplierDirectFeePercent: number;
   supplierDirectMinimumFee: number;
+  /** Marketplace commission retained from supplier-set customer prices. */
+  atlasStandardFeePercent: number;
+  atlasPalletFeePercent: number;
+  atlasPromotionFeePercent: number;
   /** Atlas target margin % (of sale price) for loose cases when a product has no explicit tier price. */
   caseMarginPercent: number;
   /** Atlas target margin % (of sale price) for full-pallet cases when a product has no explicit tier price. */

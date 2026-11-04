@@ -74,6 +74,9 @@ type PricingRow = {
   closeout_listing_rate: number;
   supplier_membership_rate: number;
   customer_pricing?: {
+    atlasStandardFeePercent?: number;
+    atlasPalletFeePercent?: number;
+    atlasPromotionFeePercent?: number;
     customerTiers?: CustomerTier[];
     accountPricing?: AccountPricing[];
     hubTransferPerCase?: number;
@@ -187,6 +190,9 @@ function pricingFromRow(row: PricingRow): PricingSettings {
     minimumOrderValue: Number(row.minimum_order_value),
     supplierDirectFeePercent: Number(row.supplier_direct_fee_percent),
     supplierDirectMinimumFee: Number(row.supplier_direct_minimum_fee),
+    atlasStandardFeePercent: row.customer_pricing?.atlasStandardFeePercent ?? defaultPricingSettings.atlasStandardFeePercent,
+    atlasPalletFeePercent: row.customer_pricing?.atlasPalletFeePercent ?? defaultPricingSettings.atlasPalletFeePercent,
+    atlasPromotionFeePercent: row.customer_pricing?.atlasPromotionFeePercent ?? defaultPricingSettings.atlasPromotionFeePercent,
     caseMarginPercent: row.case_margin_percent != null ? Number(row.case_margin_percent) : defaultPricingSettings.caseMarginPercent,
     palletMarginPercent: row.pallet_margin_percent != null ? Number(row.pallet_margin_percent) : defaultPricingSettings.palletMarginPercent,
     minimumCaseMarginPerCase: Number(row.minimum_case_margin_per_case),
@@ -260,6 +266,9 @@ function pricingToRow(settings: PricingSettings) {
     supplier_membership_rate: settings.supplierMembershipRate,
     customer_pricing: {
       customerTiers: settings.customerTiers ?? [],
+      atlasStandardFeePercent: settings.atlasStandardFeePercent,
+      atlasPalletFeePercent: settings.atlasPalletFeePercent,
+      atlasPromotionFeePercent: settings.atlasPromotionFeePercent,
       accountPricing: settings.accountPricing ?? [],
       hubTransferPerCase: settings.hubTransferPerCase,
       hubTransferCostPerCase: settings.hubTransferCostPerCase,

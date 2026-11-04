@@ -259,13 +259,18 @@ export function tierPalletPrice(product: Product, settings: PricingSettings, tie
 
 /** Buyer's per-case price for their tier, including any per-account adjustment. */
 export function buyerCasePrice(args: { settings: PricingSettings; product: Product; tierId: string; accountId?: string }) {
-  const base = tierCasePrice(args.product, args.settings, args.tierId) ?? 0;
+  const listed = args.product.spec?.pricingModel === "marketplace_fee" ? args.product.spec.customerCasePrice : undefined;
+  const base = listed ?? tierCasePrice(args.product, args.settings, args.tierId) ?? 0;
   return base * (1 - accountAdjustmentPct(args.settings, args.accountId) / 100);
 }
 
 /** Buyer's full-pallet per-case price for their tier, including any per-account adjustment. */
 export function buyerPalletPrice(args: { settings: PricingSettings; product: Product; tierId: string; accountId?: string }) {
-  const base = tierPalletPrice(args.product, args.settings, args.tierId) ?? 0;
+  const palletCases = productPalletSize(args.product);
+  const listed = args.product.spec?.pricingModel === "marketplace_fee" && args.product.spec.customerPalletPrice && palletCases > 0
+    ? args.product.spec.customerPalletPrice / palletCases
+    : undefined;
+  const base = listed ?? tierPalletPrice(args.product, args.settings, args.tierId) ?? 0;
   return base * (1 - accountAdjustmentPct(args.settings, args.accountId) / 100);
 }
 
@@ -311,6 +316,7 @@ export function calculateLinePricing(
   override?: QuoteLineOverride,
   ctx?: PricingContext
 ) {
+  const marketplace = line.product.spec?.pricingModel === "marketplace_fee";
   const manualSellPrice = override?.sellPricePerCase;
   if (typeof manualSellPrice === "number" && manualSellPrice >= 0) {
     const supplierCost = line.product.supplierCost * line.quantity;
@@ -334,7 +340,15 @@ export function calculateLinePricing(
   if (ctx?.tierId) {
     const casePrice = buyerCasePrice({ settings, product: line.product, tierId: ctx.tierId, accountId: ctx.accountId });
     const palletUnit = buyerPalletPrice({ settings, product: line.product, tierId: ctx.tierId, accountId: ctx.accountId });
-    const supplierCost = line.product.supplierCost * line.quantity;
+    const palletSize = productPalletSize(line.product);
+    const palletCases = line.product.preferredHub === "Supplier direct" ? 0 : palletSize > 0 ? Math.floor(line.quantity / palletSize) * palletSize : 0;
+    const looseCases = line.quantity - palletCases;
+    const revenue = palletCases * palletUnit + looseCases * casePrice;
+    const isPromotion = Boolean(line.product.promotion?.trim());
+    const standardFee = (isPromotion ? settings.atlasPromotionFeePercent : settings.atlasStandardFeePercent) / 100;
+    const palletFee = (isPromotion ? settings.atlasPromotionFeePercent : settings.atlasPalletFeePercent) / 100;
+    const atlasFee = marketplace ? looseCases * casePrice * standardFee + palletCases * palletUnit * palletFee : 0;
+    const supplierCost = marketplace ? revenue - atlasFee : line.product.supplierCost * line.quantity;
 
     if (line.product.preferredHub === "Supplier direct") {
       return {
@@ -345,16 +359,11 @@ export function calculateLinePricing(
         casePrice,
         palletPrice: casePrice,
         supplierCost,
-        revenue: casePrice * line.quantity,
-        margin: casePrice * line.quantity - supplierCost,
-        pricingModel: "Atlas hub product margin" as const
+        revenue,
+        margin: revenue - supplierCost,
+        pricingModel: marketplace ? "Atlas marketplace fee" as const : "Atlas hub product margin" as const
       };
     }
-
-    const palletSize = productPalletSize(line.product);
-    const palletCases = palletSize > 0 ? Math.floor(line.quantity / palletSize) * palletSize : 0;
-    const looseCases = line.quantity - palletCases;
-    const revenue = palletCases * palletUnit + looseCases * casePrice;
 
     return {
       palletSize,
@@ -366,7 +375,7 @@ export function calculateLinePricing(
       supplierCost,
       revenue,
       margin: revenue - supplierCost,
-      pricingModel: "Atlas hub product margin" as const
+      pricingModel: marketplace ? "Atlas marketplace fee" as const : "Atlas hub product margin" as const
     };
   }
 
