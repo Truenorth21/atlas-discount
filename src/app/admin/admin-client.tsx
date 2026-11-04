@@ -851,7 +851,7 @@ const toNum = (value: string) => {
 };
 
 /** Resolve final Retailer + Distributor case prices from the channel engine (with any overrides). */
-function buildTierPricing(form: typeof blankProductForm): TierPricing {
+function buildTierPricing(form: typeof blankProductForm, palletCases: number): TierPricing {
   const pricing = computeChannelPricing({
     caseCost: toNum(form.supplierCost) ?? 0,
     casePack: toNum(form.casePack) ?? 1,
@@ -868,8 +868,8 @@ function buildTierPricing(form: typeof blankProductForm): TierPricing {
   const palletPrices: Record<string, number> = {};
   const palletR = toNum(form.palletPriceRetailer);
   const palletD = toNum(form.palletPriceDistributor);
-  if (palletR && palletR > 0) palletPrices.retailer = palletR;
-  if (palletD && palletD > 0) palletPrices.distributor = palletD;
+  if (palletR && palletR > 0 && palletCases > 0) palletPrices.retailer = Math.round((palletR / palletCases) * 100) / 100;
+  if (palletD && palletD > 0 && palletCases > 0) palletPrices.distributor = Math.round((palletD / palletCases) * 100) / 100;
   return Object.keys(palletPrices).length > 0 ? { case: casePrices, pallet: palletPrices } : { case: casePrices };
 }
 
@@ -879,6 +879,7 @@ const numToStr = (n?: number) => (n === undefined || n === null || Number.isNaN(
 function formFromProduct(product: Product): typeof blankProductForm {
   const spec = product.spec;
   const tier = product.tierPricing;
+  const palletCases = productPalletSize(product);
   return {
     ...blankProductForm,
     sku: product.sku ? `${product.sku}-COPY` : "",
@@ -925,8 +926,8 @@ function formFromProduct(product: Product): typeof blankProductForm {
     inventoryAvailable: numToStr(product.inventoryAvailable) || "0",
     priceRetailer: numToStr(tier?.case?.retailer),
     priceDistributor: numToStr(tier?.case?.distributor),
-    palletPriceRetailer: numToStr(tier?.pallet?.retailer),
-    palletPriceDistributor: numToStr(tier?.pallet?.distributor),
+    palletPriceRetailer: numToStr(tier?.pallet?.retailer && palletCases > 0 ? tier.pallet.retailer * palletCases : undefined),
+    palletPriceDistributor: numToStr(tier?.pallet?.distributor && palletCases > 0 ? tier.pallet.distributor * palletCases : undefined),
     supplierName: product.supplierName ?? "Atlas Admin",
     promotion: product.promotion ?? ""
   };
@@ -1011,6 +1012,7 @@ export function SingleProductForm({
     { spec: { caseDims: { length: toNum(form.caseL), width: toNum(form.caseW), height: toNum(form.caseH), weight: toNum(form.caseWeight), weightUnit: form.caseWeightUnit as "lb" | "oz" } } } as Product,
     {}
   );
+  const effectivePalletCases = totalCases || autoCasesPerPallet;
   const caseWeightRaw = toNum(form.caseWeight);
   const caseWeightLb = caseWeightRaw === undefined ? undefined : form.caseWeightUnit === "oz" ? caseWeightRaw / 16 : caseWeightRaw;
   const palletProductWeight = caseWeightLb !== undefined ? caseWeightLb * totalCases : undefined;
@@ -1040,6 +1042,10 @@ export function SingleProductForm({
       !((toNum(form.caseWeight) ?? 0) > 0);
     if (missingCaseDims) {
       setMessage("Case dimensions (L × W × H) and case weight are required — they let Atlas plan pallets and freight automatically.");
+      return;
+    }
+    if ((toNum(form.palletPriceRetailer) || toNum(form.palletPriceDistributor)) && effectivePalletCases <= 0) {
+      setMessage("Enter pallet Ti/Hi or complete case dimensions before setting a full pallet price.");
       return;
     }
 
@@ -1090,7 +1096,7 @@ export function SingleProductForm({
           ? `${casesPerFloor}/floor × ${palletLayers} high = ${totalCases} cases${palletTotalWeight !== undefined ? ` • ~${Math.round(palletTotalWeight)} lb` : ""}`
           : "",
       supplierCost: toNum(form.supplierCost) ?? 0,
-      tierPricing: buildTierPricing(form),
+      tierPricing: buildTierPricing(form, effectivePalletCases),
       suggestedRetail: toNum(form.suggestedRetail) ?? 0,
       moq: toNum(form.moq) ?? 1,
       minOrderValue: toNum(form.minOrderValue) ?? 0,
@@ -1331,14 +1337,21 @@ export function SingleProductForm({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h4 className="font-black text-atlas-navy">Full-pallet pricing</h4>
-                  <p className="mt-1 text-xs text-slate-600">Optional price per case when the buyer orders at least one complete pallet. Leave blank to use normal case pricing.</p>
+                  <p className="mt-1 text-xs text-slate-600">Enter the total selling price for one complete pallet. Atlas calculates the per-case rate automatically for checkout. Leave blank to use normal case pricing.</p>
                 </div>
                 <span className="badge bg-white text-atlas-blue">{totalCases || autoCasesPerPallet || "—"} cases / pallet</span>
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <AdminProductInput label="Retailer pallet price / case ($)" type="number" value={form.palletPriceRetailer} onChange={updateField("palletPriceRetailer")} />
-                <AdminProductInput label="Distributor pallet price / case ($)" type="number" value={form.palletPriceDistributor} onChange={updateField("palletPriceDistributor")} />
+                <AdminProductInput label="Retailer price per PALLET ($)" type="number" value={form.palletPriceRetailer} onChange={updateField("palletPriceRetailer")} />
+                <AdminProductInput label="Distributor price per PALLET ($)" type="number" value={form.palletPriceDistributor} onChange={updateField("palletPriceDistributor")} />
               </div>
+              {effectivePalletCases > 0 && (toNum(form.palletPriceRetailer) || toNum(form.palletPriceDistributor)) && (
+                <p className="mt-3 text-xs font-semibold text-atlas-blue">
+                  Per-case equivalent: {toNum(form.palletPriceRetailer) ? `Retailer ${formatMoney((toNum(form.palletPriceRetailer) ?? 0) / effectivePalletCases)}` : ""}
+                  {toNum(form.palletPriceRetailer) && toNum(form.palletPriceDistributor) ? " · " : ""}
+                  {toNum(form.palletPriceDistributor) ? `Distributor ${formatMoney((toNum(form.palletPriceDistributor) ?? 0) / effectivePalletCases)}` : ""}
+                </p>
+              )}
             </div>
           </div>
         ) : (
@@ -3625,13 +3638,14 @@ function ProductTierPriceRow({
   updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
 }) {
   const pack = product.casePack || 1;
+  const palletCases = productPalletSize(product);
   const seed: Record<string, string> = {};
   const palletSeed: Record<string, string> = {};
   for (const tier of tiers) {
     const value = product.tierPricing?.case?.[tier.id];
     seed[tier.id] = typeof value === "number" ? String(value) : "";
     const palletValue = product.tierPricing?.pallet?.[tier.id];
-    palletSeed[tier.id] = typeof palletValue === "number" ? String(palletValue) : "";
+    palletSeed[tier.id] = typeof palletValue === "number" && palletCases > 0 ? String(Math.round(palletValue * palletCases * 100) / 100) : "";
   }
   const [draft, setDraft] = useState<Record<string, string>>(seed);
   const [palletDraft, setPalletDraft] = useState<Record<string, string>>(palletSeed);
@@ -3663,7 +3677,7 @@ function ProductTierPriceRow({
     }
     for (const [tierId, value] of Object.entries(palletDraft)) {
       const numeric = Number(value);
-      if (value.trim() !== "" && !Number.isNaN(numeric) && numeric > 0) palletPrices[tierId] = numeric;
+      if (value.trim() !== "" && !Number.isNaN(numeric) && numeric > 0 && palletCases > 0) palletPrices[tierId] = Math.round((numeric / palletCases) * 100) / 100;
     }
     const patch: Partial<Product> = {};
     if (srpNum !== (product.suggestedRetail || 0)) patch.suggestedRetail = srpNum;
@@ -3673,8 +3687,6 @@ function ProductTierPriceRow({
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
-
-  const palletCases = productPalletSize(product);
 
   return (
     <div className="rounded-md border border-slate-200 p-3">
@@ -3738,7 +3750,7 @@ function ProductTierPriceRow({
                 />
               </label>
               <label className="grid gap-1">
-                <span className="text-[11px] font-semibold text-slate-500">Full-pallet price / case</span>
+                <span className="text-[11px] font-semibold text-slate-500">Price per full pallet</span>
                 <input
                   className="field h-9 min-h-9"
                   type="number"
@@ -3753,7 +3765,13 @@ function ProductTierPriceRow({
                   ? `${formatMoney(effective)}/case${cost > 0 ? ` · Atlas ${atlasMargin}%` : ""}`
                   : "Set SRP above"}
               </span>
-              <span className="text-[11px] text-slate-500">{palletCases > 0 ? `Applies at ${palletCases}+ cases.` : "Set pallet configuration to activate full-pallet pricing."}</span>
+              <span className="text-[11px] text-slate-500">
+                {palletCases > 0
+                  ? palletRaw && Number(palletRaw) > 0
+                    ? `${palletCases} cases · ${formatMoney(Number(palletRaw) / palletCases)} per case.`
+                    : `Applies at ${palletCases}+ cases.`
+                  : "Set pallet configuration to activate full-pallet pricing."}
+              </span>
             </div>
           );
         })}
