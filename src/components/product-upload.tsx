@@ -27,7 +27,9 @@ function normalize(row: Record<string, unknown>, index: number): Product {
   const cleanedPalletPricing = cleanPricing(palletPricing);
 
   return {
-    id: `upload-${Date.now()}-${index}`,
+    // The live products table uses a UUID primary key. Temporary text IDs make
+    // the preview look successful but Supabase rejects the insert.
+    id: crypto.randomUUID(),
     sku: get("SKU") || `SKU-${index + 1}`,
     brand: get("brand"),
     upc: get("UPC"),
