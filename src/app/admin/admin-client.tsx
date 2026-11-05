@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 54782)
+Total output lines: 4025
+
 "use client";
 
 import { BarChart3, Check, FileCheck2, ImagePlus, Megaphone, PackageCheck, Settings, Trash2, UsersRound, X } from "lucide-react";
@@ -1052,7 +1055,7 @@ export function SingleProductForm({
   const dimsLabel = (l: string, w: string, h: string) =>
     [l, w, h].some((value) => value.trim() !== "") ? `${l || "?"} x ${w || "?"} x ${h || "?"} in` : "";
 
-  function addProduct() {
+  async function addProduct() {
     if (!showAtlasEconomics && liveMembershipPlan.listingLimit !== null && products.length >= liveMembershipPlan.listingLimit) {
       setMessage(`${liveMembershipPlan.name} allows ${liveMembershipPlan.listingLimit} active listings. Contact Atlas to upgrade before adding another product.`);
       return;
@@ -1107,7 +1110,7 @@ export function SingleProductForm({
     const location = form.stocking === "atlas_hialeah" ? "Atlas Hialeah Gardens hub" : form.stocking === "atlas_orlando" ? "Atlas Orlando hub (future)" : form.pickupAddress || "Supplier warehouse";
 
     const product: Product = {
-      id: `admin-${Date.now()}`,
+      id: crypto.randomUUID(),
       sku: form.sku,
       brand: form.brand,
       upc: form.upc,
@@ -1155,6 +1158,18 @@ export function SingleProductForm({
       spec
     };
 
+    if (showAtlasEconomics) {
+      const response = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ products: [product] })
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) {
+        setMessage(`Product was not published: ${result.error ?? "Unknown database error"}`);
+        return;
+      }
+    }
     addProducts([product]);
     setMessage(`${product.brand} ${product.sku} was ${submittedVerb}.`);
     setForm((current) => ({ ...blankProductForm, supplierName: current.supplierName, stocking: current.stocking, shippingWarehouse: current.shippingWarehouse, fulfillmentMode: current.fulfillmentMode }));
@@ -1253,7 +1268,7 @@ export function SingleProductForm({
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn-secondary" type="button" onClick={saveDraft}>Save draft</button>
-          <button className="btn-primary" type="button" onClick={addProduct}>{submitLabel}</button>
+          <button className="btn-primary" type="button" onClick={() => void addProduct()}>{submitLabel}</button>
         </div>
       </div>
 
@@ -1836,316 +1851,7 @@ function QuoteWorkflowOverview({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase text-slate-500">Route and pricing basis</p>
-                  <p className="font-semibold text-slate-700">{effectiveFulfillment}</p>
-                  <p className="mt-1 text-xs text-slate-600">{adjustment?.hubRouting ?? order.hubRouting ?? financials.recommendedHubRouting}</p>
-                </div>
-                <div className="lg:text-right">
-                  <p className="text-xs font-bold uppercase text-slate-500">Quote total</p>
-                  <p className="text-lg font-black text-atlas-navy">{formatMoney(financials.buyerTotal)}</p>
-                  <p className={`text-xs font-bold ${financials.estimatedProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                    Profit {formatMoney(financials.estimatedProfit)}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function QuoteStatusCard({ label, value, body, tone = "blue" }: { label: string; value: string | number; body: string; tone?: "blue" | "green" | "amber" }) {
-  const toneClass =
-    tone === "green"
-      ? "bg-emerald-50 text-emerald-800"
-      : tone === "amber"
-      ? "bg-amber-50 text-amber-800"
-      : "bg-sky-50 text-atlas-blue";
-
-  return (
-    <div className={`rounded-md p-3 ${toneClass}`}>
-      <p className="text-xs font-bold uppercase">{label}</p>
-      <p className="mt-1 text-2xl font-black">{value}</p>
-      <p className="mt-1 text-xs font-semibold">{body}</p>
-    </div>
-  );
-}
-
-function AdminFlowStep({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <p className="font-black text-atlas-navy">{title}</p>
-      <p className="mt-2 text-sm text-slate-600">{body}</p>
-    </div>
-  );
-}
-
-function QuoteBuilderCard({
-  order,
-  adjustment,
-  pricingSettings,
-  updateQuoteAdjustment
-}: {
-  order: OrderRequest;
-  adjustment?: QuoteAdjustment;
-  pricingSettings: PricingSettings;
-  updateQuoteAdjustment: ReturnType<typeof useAtlasStore>["updateQuoteAdjustment"];
-}) {
-  const financials = calculateQuoteFinancials(order, pricingSettings, adjustment);
-  const effectiveOrder = {
-    ...order,
-    fulfillmentType: adjustment?.fulfillmentType ?? order.fulfillmentType,
-    hubRouting: adjustment?.hubRouting ?? order.hubRouting
-  };
-  const effectivePricingSettings = {
-    ...pricingSettings,
-    caseMarginPercent: adjustment?.caseMarginPercent ?? pricingSettings.caseMarginPercent,
-    palletMarginPercent: adjustment?.palletMarginPercent ?? pricingSettings.palletMarginPercent,
-    supplierDirectFeePercent: adjustment?.supplierDirectFeePercent ?? pricingSettings.supplierDirectFeePercent,
-    localDeliveryFee: adjustment?.localDeliveryFee ?? pricingSettings.localDeliveryFee,
-    pickupFee: adjustment?.pickupFee ?? pricingSettings.pickupFee,
-    freightCoordinationFee: adjustment?.freightCoordinationFee ?? pricingSettings.freightCoordinationFee
-  };
-  const fulfillmentAllocations = allocateFulfillmentByCases(effectiveOrder, financials.fulfillmentFee);
-  const autoPricedPickup =
-    effectiveOrder.fulfillmentType === "Pickup" &&
-    !(order.lineItems ?? []).some((line) => line.product.preferredHub === "Supplier direct");
-  const updateNumber = (key: keyof QuoteAdjustment) => (event: ChangeEvent<HTMLInputElement>) =>
-    updateQuoteAdjustment(order.id, { [key]: Number(event.target.value) });
-  const updateText = (key: keyof QuoteAdjustment) => (event: ChangeEvent<HTMLInputElement>) =>
-    updateQuoteAdjustment(order.id, { [key]: event.target.value });
-  const updateLinePrice = (productId: string, sellPricePerCase: number) => {
-    const existing = adjustment?.lineOverrides ?? [];
-    const nextOverrides = existing.some((override) => override.productId === productId)
-      ? existing.map((override) => (override.productId === productId ? { ...override, sellPricePerCase } : override))
-      : [...existing, { productId, sellPricePerCase }];
-
-    updateQuoteAdjustment(order.id, { lineOverrides: nextOverrides });
-  };
-
-  return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="font-black text-atlas-navy">{order.id} • {order.buyer}</p>
-          <p className="text-sm text-slate-600">
-            {autoPricedPickup
-              ? "Hub pickup is pre-priced from product costs, margins, and hub fees."
-              : "This order needs a quote review before Atlas sends the buyer a final number."}
-          </p>
-        </div>
-        <div className="text-right">
-          <span className={`inline-block rounded-full px-2 py-1 text-xs font-black ${autoPricedPickup ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>
-            {autoPricedPickup ? "Auto-priced pickup" : "Needs quotation"}
-          </span>
-          <p className="text-sm font-bold text-slate-600">Estimated profit</p>
-          <p className={`text-xl font-black ${financials.estimatedProfit >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-            {formatMoney(financials.estimatedProfit)}
-          </p>
-        </div>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
-        <WorkflowStep active title="1. Customer PO" body={`${order.totalCases} cases submitted from catalog`} />
-        <WorkflowStep active title="2. Quote worksheet" body="Review costs, edit line prices, and confirm supplier availability" />
-        <WorkflowStep title="3. Send quote" body="Buyer sees final price, route, fees, and expiration" />
-        <WorkflowStep title="4. Sales order / invoice" body="Accepted quote becomes the order to fulfill and bill" />
-      </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="rounded-lg border border-slate-200 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h4 className="font-black text-atlas-navy">Customer PO → quote worksheet</h4>
-              <p className="mt-1 text-sm text-slate-600">The buyer chose the items and quantities. Atlas can change the sell price per case before sending the quote.</p>
-            </div>
-            <span className="rounded-full bg-atlas-light px-3 py-1 text-xs font-black text-atlas-blue">PO source: catalog cart</span>
-          </div>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-xs">
-              <thead className="text-slate-500">
-                <tr>
-                  <th className="py-2 pr-3">SKU</th>
-                  <th className="py-2 pr-3">Cases</th>
-                  <th className="py-2 pr-3">Cost / case</th>
-                  <th className="py-2 pr-3">Suggested sell / case</th>
-                  <th className="py-2 pr-3">Quote sell / case</th>
-                  <th className="py-2 pr-3">Pricing basis</th>
-                  <th className="py-2 pr-3">Margin</th>
-                  <th className="py-2 pr-3">Line total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {(order.lineItems ?? []).map((line) => {
-                  const lineOverride = adjustment?.lineOverrides?.find((override) => override.productId === line.product.id);
-                  const suggestedLinePricing = calculateLinePricing(line, effectivePricingSettings);
-                  const linePricing = calculateLinePricing(line, effectivePricingSettings, lineOverride);
-                  const pricingBasis =
-                    linePricing.pricingModel === "Manual quote price"
-                      ? "Manual quote price"
-                      : linePricing.pricingModel === "Supplier direct fulfillment fee"
-                      ? "Supplier-direct fee"
-                      : linePricing.palletCases > 0 && linePricing.looseCases > 0
-                        ? "Pallet + loose cases"
-                        : linePricing.palletCases > 0
-                          ? "Full pallet price"
-                          : "Loose case price";
-                  const blendedCasePrice = line.quantity > 0 ? linePricing.revenue / line.quantity : 0;
-                  const suggestedCasePrice = line.quantity > 0 ? suggestedLinePricing.revenue / line.quantity : 0;
-
-                  return (
-                    <tr key={`${order.id}-${line.product.id}-invoice`}>
-                      <td className="py-2 pr-3 font-bold text-atlas-navy">{line.product.sku}</td>
-                      <td className="py-2 pr-3">{line.quantity}</td>
-                      <td className="py-2 pr-3">{formatMoney(line.product.supplierCost)}</td>
-                      <td className="py-2 pr-3">{formatMoney(suggestedCasePrice)}</td>
-                      <td className="py-2 pr-3">
-                        <input
-                          className="field h-9 min-h-9 w-28 text-sm"
-                          min="0"
-                          step="0.01"
-                          type="number"
-                          value={Number(blendedCasePrice.toFixed(2))}
-                          onChange={(event) => updateLinePrice(line.product.id, Number(event.target.value))}
-                          aria-label={`${line.product.sku} quote sell price per case`}
-                        />
-                      </td>
-                      <td className="py-2 pr-3">{pricingBasis}</td>
-                      <td className={`py-2 pr-3 font-bold ${linePricing.margin >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                        {formatMoney(linePricing.margin)}
-                      </td>
-                      <td className="py-2 pr-3 font-black">{formatMoney(linePricing.revenue)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="rounded-lg bg-atlas-light p-4">
-          <h4 className="font-black text-atlas-navy">Final quote preview</h4>
-          <p className="mt-1 text-sm text-slate-600">This is the number Atlas would send after review.</p>
-          <dl className="mt-3 grid gap-2 text-sm">
-            <div className="flex justify-between gap-3"><dt>Products</dt><dd className="font-bold">{formatMoney(financials.productRevenue)}</dd></div>
-            <div className="flex justify-between gap-3"><dt>Fulfillment charged</dt><dd className="font-bold">{formatMoney(financials.fulfillmentFee)}</dd></div>
-            <div className="flex justify-between gap-3"><dt>Discount</dt><dd className="font-bold">-{formatMoney(financials.orderDiscount)}</dd></div>
-            <div className="flex justify-between gap-3 border-t border-slate-300 pt-2 text-lg font-black text-atlas-navy">
-              <dt>Final quote</dt><dd>{formatMoney(financials.buyerTotal)}</dd>
-            </div>
-          </dl>
-          <dl className="mt-4 grid gap-2 border-t border-slate-300 pt-3 text-xs text-slate-600">
-            <div className="flex justify-between gap-3"><dt>Supplier cost</dt><dd>{formatMoney(financials.supplierCost)}</dd></div>
-            <div className="flex justify-between gap-3"><dt>Fulfillment cost</dt><dd>{formatMoney(financials.fulfillmentCost)}</dd></div>
-            <div className="flex justify-between gap-3"><dt>Route seller commission</dt><dd>{formatMoney(financials.routeSellerCommission)}</dd></div>
-            <div className="flex justify-between gap-3 font-black text-atlas-navy"><dt>Estimated profit</dt><dd>{formatMoney(financials.estimatedProfit)}</dd></div>
-          </dl>
-        </div>
-      </div>
-      <PalletPlanPanel order={order} lines={order.lineItems ?? []} settings={pricingSettings} financials={financials} />
-      <div className="mt-4 rounded-lg border border-slate-200 p-4">
-        <h4 className="font-black text-atlas-navy">Adjust this quotation</h4>
-        <p className="mt-1 text-sm text-slate-600">
-          Use these for order-level changes. Use the worksheet above when the change is product-specific.
-        </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-4">
-          <label className="grid gap-2">
-            <span className="label">Fulfillment route</span>
-            <select
-              className="field"
-              value={adjustment?.fulfillmentType ?? order.fulfillmentType}
-              onChange={(event) => updateQuoteAdjustment(order.id, { fulfillmentType: event.target.value as OrderRequest["fulfillmentType"] })}
-            >
-              {fulfillmentTypes.map((type) => (
-                <option key={type}>{type}</option>
-              ))}
-            </select>
-          </label>
-          <NumberField label="Loose case margin %" value={adjustment?.caseMarginPercent ?? pricingSettings.caseMarginPercent} onChange={updateNumber("caseMarginPercent")} />
-          <NumberField label="Full pallet margin %" value={adjustment?.palletMarginPercent ?? pricingSettings.palletMarginPercent} onChange={updateNumber("palletMarginPercent")} />
-          <NumberField label="Supplier direct fee %" value={adjustment?.supplierDirectFeePercent ?? pricingSettings.supplierDirectFeePercent} onChange={updateNumber("supplierDirectFeePercent")} />
-          <NumberField label="Local delivery fee" value={adjustment?.localDeliveryFee ?? pricingSettings.localDeliveryFee} onChange={updateNumber("localDeliveryFee")} />
-          <NumberField label="Pickup fee" value={adjustment?.pickupFee ?? pricingSettings.pickupFee} onChange={updateNumber("pickupFee")} />
-          <NumberField label="Freight coordination fee" value={adjustment?.freightCoordinationFee ?? pricingSettings.freightCoordinationFee} onChange={updateNumber("freightCoordinationFee")} />
-          <NumberField label="Other order fee" value={adjustment?.additionalFee ?? 0} onChange={updateNumber("additionalFee")} />
-          <NumberField label="Order discount" value={adjustment?.orderDiscount ?? 0} onChange={updateNumber("orderDiscount")} />
-        </div>
-      </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <label className="flex items-center gap-3 rounded-md border border-slate-200 bg-atlas-light p-3 text-sm font-bold text-atlas-navy">
-          <input
-            checked={adjustment?.freeDelivery ?? false}
-            type="checkbox"
-            onChange={(event) => updateQuoteAdjustment(order.id, { freeDelivery: event.target.checked })}
-          />
-          Waive delivery / pickup / freight fee for this quote
-        </label>
-        <label className="grid gap-2">
-          <span className="label">Free product / bonus note</span>
-          <input
-            className="field"
-            value={adjustment?.freeProductNote ?? ""}
-            onChange={updateText("freeProductNote")}
-            placeholder="Example: Add 1 bonus case of hand soap"
-          />
-        </label>
-      </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <label className="grid gap-2">
-          <span className="label">Hub route / admin note to buyer</span>
-          <input className="field" value={adjustment?.hubRouting ?? order.hubRouting} onChange={updateText("hubRouting")} />
-        </label>
-        <label className="grid gap-2">
-          <span className="label">Internal margin note</span>
-          <input className="field" value={adjustment?.internalNote ?? ""} onChange={updateText("internalNote")} placeholder="Why this quote was adjusted" />
-        </label>
-      </div>
-      <dl className="mt-4 grid gap-2 text-sm md:grid-cols-4">
-        <div><dt className="font-bold text-slate-600">Sell value</dt><dd>{formatMoney(financials.productRevenue)}</dd></div>
-        <div><dt className="font-bold text-slate-600">Supplier cost</dt><dd>{formatMoney(financials.supplierCost)}</dd></div>
-        <div><dt className="font-bold text-slate-600">Fulfillment charged</dt><dd>{formatMoney(financials.fulfillmentFee)}</dd></div>
-        <div><dt className="font-bold text-slate-600">Discount</dt><dd>{formatMoney(financials.orderDiscount)}</dd></div>
-        <div><dt className="font-bold text-slate-600">Buyer total</dt><dd>{formatMoney(financials.buyerTotal)}</dd></div>
-        <div><dt className="font-bold text-slate-600">Profit margin</dt><dd>{financials.marginPercent.toFixed(1)}%</dd></div>
-      </dl>
-      <div className="mt-4 rounded-lg border border-slate-200 bg-atlas-light p-4">
-        <h4 className="font-black text-atlas-navy">How this order is processed</h4>
-        <div className="mt-3 grid gap-3 md:grid-cols-4">
-          <ProcessStep title="1. Import buyer PO" body="The cart becomes the customer purchase order request. Atlas should not re-key items unless the buyer changes the order." />
-          <ProcessStep title="2. Build quote" body="Admin reviews availability, edits line prices, and applies suggested margins or manual pricing." />
-          <ProcessStep title="3. Route fulfillment" body={`${effectiveOrder.fulfillmentType === "Supplier direct" ? "Supplier ships after Atlas approval." : effectiveOrder.fulfillmentType} ${effectiveOrder.hubRouting ? `• ${effectiveOrder.hubRouting}` : ""}`} />
-          <ProcessStep title="4. Send / convert" body="Once accepted, the quote becomes the sales order and invoice for fulfillment." />
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[940px] text-left text-xs">
-            <thead className="text-slate-500">
-              <tr>
-                <th className="py-2 pr-3">SKU</th>
-                <th className="py-2 pr-3">Cases</th>
-                <th className="py-2 pr-3">Pallet config</th>
-                <th className="py-2 pr-3">Pricing basis</th>
-                <th className="py-2 pr-3">Product sell</th>
-                <th className="py-2 pr-3">Fulfillment share</th>
-                <th className="py-2 pr-3">Line quote</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {(order.lineItems ?? []).map((line) => {
-                const lineOverride = adjustment?.lineOverrides?.find((override) => override.productId === line.product.id);
-                const linePricing = calculateLinePricing(line, effectivePricingSettings, lineOverride);
-                const allocation = fulfillmentAllocations.find((item) => item.productId === line.product.id)?.allocation ?? 0;
-                const pricingBasis =
-                  linePricing.pricingModel === "Manual quote price"
-                    ? "manual quote price"
-                    : linePricing.pricingModel === "Supplier direct fulfillment fee"
-                    ? `${linePricing.supplierDirectCases} supplier-direct cases`
-                    : `${linePricing.palletCases} pallet-priced / ${linePricing.looseCases} loose`;
-
-                return (
-                  <tr key={`${order.id}-${line.product.id}`}>
-                    <td className="py-2 pr-3 font-bold text-atlas-navy">{line.product.sku}</td>
-                    <td className="py-2 pr-3">{line.quantity}</td>
-                    <td className="py-2 pr-3">{line.product.palletConfiguration}</td>
-                    <td className="py-2 pr-3">{pricingBasis}</td>
+                  <p className="text-xs font-bold uppercase text-slate-500">Route …4782 tokens truncated…3">{pricingBasis}</td>
                     <td className="py-2 pr-3">{formatMoney(linePricing.revenue)}</td>
                     <td className="py-2 pr-3">{formatMoney(allocation)}</td>
                     <td className="py-2 pr-3 font-black">{formatMoney(linePricing.revenue + allocation)}</td>
