@@ -165,8 +165,20 @@ export function ProductUpload({
     setMessage(`${products.length} rows parsed. Review validation before submitting.`);
   }
 
-  function submitValidProducts() {
+  async function submitValidProducts() {
     const validProducts = preview.filter((row) => row.errors.length === 0).map((row) => row.product);
+    if (allowSupplierAssignment) {
+      const response = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ products: validProducts })
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) {
+        setMessage(`Products were not published: ${result.error ?? "Unknown database error"}`);
+        return;
+      }
+    }
     addProducts(validProducts);
     setMessage(`${validProducts.length} ${submittedMessage}`);
     setPreview([]);
@@ -199,7 +211,7 @@ export function ProductUpload({
                 {preview.filter((row) => row.errors.length === 0).length} valid / {preview.length} total rows
               </p>
             </div>
-            <button className="btn-primary" type="button" onClick={submitValidProducts}>
+            <button className="btn-primary" type="button" onClick={() => void submitValidProducts()}>
               {submitLabel}
             </button>
           </div>
