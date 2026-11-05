@@ -76,6 +76,8 @@ export type DimWeight = {
 
 /** Rich item-setup spec: unit / inner / master case + pallet + fulfillment. */
 export type ProductSpec = {
+  /** Incomplete product record saved for later. Drafts never enter review or the buyer catalog. */
+  draft?: boolean;
   /** Supplier sets the customer price; Atlas retains the configured marketplace fee. */
   pricingModel?: "marketplace_fee" | "wholesale_margin";
   customerCasePrice?: number;

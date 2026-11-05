@@ -51,7 +51,7 @@ export function AdminClient() {
   const [rejectionNotes, setRejectionNotes] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState("overview");
   const [activeQuoteTab, setActiveQuoteTab] = useState("workflow");
-  const pendingProducts = store.products.filter((product) => product.status === "pending");
+  const pendingProducts = store.products.filter((product) => product.status === "pending" && !product.spec?.draft);
   const documentAlerts = getDocumentAlerts(store.applications);
   const quoteReviewOrders = store.orders.filter((order) => {
     const adjustment = store.quoteAdjustments.find((item) => item.orderId === order.id);
@@ -379,6 +379,7 @@ function ProductAdminPanel({
 }) {
   const [activeProductTab, setActiveProductTab] = useState("manage");
   const approvedCount = products.filter((product) => product.status === "approved").length;
+  const draftCount = products.filter((product) => product.spec?.draft).length;
 
   return (
     <section className="grid gap-4">
@@ -390,9 +391,10 @@ function ProductAdminPanel({
               Add Atlas products directly, upload product sheets, or review supplier-submitted items before they show in the catalog.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center text-xs font-black">
+          <div className="grid grid-cols-4 gap-2 text-center text-xs font-black">
             <QueueCount label="Live" value={approvedCount} tone="green" />
             <QueueCount label="Review" value={pendingProducts.length} tone="amber" />
+            <QueueCount label="Drafts" value={draftCount} />
             <QueueCount label="Total" value={products.length} />
           </div>
         </div>
@@ -532,7 +534,7 @@ function ManageProductRow({
       moq: toNum(form.moq) ?? 1,
       minOrderValue: toNum(form.minOrderValue) ?? 0,
       leadTime: form.leadTime || "Ready now",
-      spec: { casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated }
+      spec: { ...product.spec, casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated }
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -544,7 +546,8 @@ function ManageProductRow({
         <p className="flex items-center gap-2 text-sm font-bold text-atlas-navy">
           <ProductImage product={product} className="h-9 w-9 shrink-0 rounded-md border border-slate-200" iconSize={16} />
           <span>{product.sku}</span>
-          {product.status === "pending" && <span className="badge bg-amber-50 text-amber-800">Pending</span>}
+          {product.spec?.draft && <span className="badge bg-slate-100 text-slate-700">Draft</span>}
+          {product.status === "pending" && !product.spec?.draft && <span className="badge bg-amber-50 text-amber-800">Pending</span>}
           {product.status === "approved" && <span className="badge bg-emerald-50 text-emerald-700">Live</span>}
         </p>
         {confirmDelete ? (
@@ -1159,6 +1162,88 @@ export function SingleProductForm({
     setCopyFromId("");
   }
 
+  function saveDraft() {
+    if (!form.sku.trim() && !form.brand.trim() && !form.productName.trim()) {
+      setMessage("Enter at least a SKU, brand, or product name before saving a draft.");
+      return;
+    }
+
+    const draftCasesPerFloor = toNum(form.palletCasesPerFloor) ?? 0;
+    const draftLayers = toNum(form.palletLayers) ?? 0;
+    const draftPalletCases = draftCasesPerFloor * draftLayers;
+    const customerCasePrice = toNum(form.supplierCost) ?? 0;
+    const customerPalletPrice = toNum(form.supplierPalletCost);
+    const supplierCasePayout = showAtlasEconomics ? customerCasePrice : customerCasePrice * (1 - liveMembershipPlan.caseFee / 100);
+    const heldAtAtlas = form.stocking === "atlas_hialeah" || form.stocking === "atlas_orlando";
+    const consolidatesAtHialeah = form.stocking === "supplier" && form.orderRouting === "hialeah_consolidation";
+    const preferredHub: AtlasHub = form.stocking === "atlas_orlando" ? "Orlando hub" : heldAtAtlas || consolidatesAtHialeah ? "Miami hub" : "Supplier direct";
+    const location = form.stocking === "atlas_hialeah" ? "Atlas Hialeah Gardens hub" : form.stocking === "atlas_orlando" ? "Atlas Orlando hub (future)" : form.pickupAddress || "Supplier warehouse";
+    const palletCaseCount = draftPalletCases || autoCasesPerPallet;
+    const draft: Product = {
+      id: `draft-${Date.now()}`,
+      sku: form.sku.trim() || `DRAFT-${Date.now()}`,
+      brand: form.brand.trim(),
+      upc: form.upc.trim(),
+      productName: form.productName.trim(),
+      description: form.description,
+      category: form.category,
+      subcategory: form.subcategory,
+      unitSize: form.unitSize,
+      imageUrl: form.imageUrl,
+      productDimensions: dimsLabel(form.unitL, form.unitW, form.unitH),
+      unitWeight: form.unitWeight ? `${form.unitWeight} ${form.unitWeightUnit}` : "",
+      casePack: toNum(form.casePack) ?? 0,
+      caseDimensions: dimsLabel(form.caseL, form.caseW, form.caseH),
+      caseWeight: form.caseWeight ? `${form.caseWeight} ${form.caseWeightUnit}` : "",
+      palletConfiguration: draftPalletCases > 0 ? `${draftCasesPerFloor}/floor × ${draftLayers} high = ${draftPalletCases} cases` : "",
+      supplierCost: supplierCasePayout,
+      supplierPalletCost: showAtlasEconomics ? customerPalletPrice : customerPalletPrice ? customerPalletPrice * (1 - liveMembershipPlan.palletFee / 100) : undefined,
+      tierPricing: showAtlasEconomics ? buildTierPricing(form, palletCaseCount) : {
+        case: customerCasePrice > 0 ? { retailer: customerCasePrice, distributor: customerCasePrice } : {},
+        pallet: customerPalletPrice && palletCaseCount > 0 ? { retailer: customerPalletPrice / palletCaseCount, distributor: customerPalletPrice / palletCaseCount } : undefined
+      },
+      suggestedRetail: toNum(form.suggestedRetail) ?? 0,
+      moq: toNum(form.moq) ?? 1,
+      minOrderValue: toNum(form.minOrderValue) ?? 0,
+      leadTime: form.leadTime,
+      inventoryAvailable: toNum(form.inventoryAvailable) ?? 0,
+      location,
+      pickupLocation: form.pickupAddress || location,
+      shippingLocation: form.shippingWarehouse,
+      deliveryRadius: "",
+      preferredHub,
+      routeRecommendation: "Draft — complete product and fulfillment details before publishing.",
+      status: "pending",
+      supplierName: (lockSupplierName ? defaultSupplierName : form.supplierName) || defaultSupplierName,
+      promotion: form.promotion || undefined,
+      spec: {
+        draft: true,
+        pricingModel: showAtlasEconomics ? "wholesale_margin" : "marketplace_fee",
+        customerCasePrice: showAtlasEconomics ? undefined : customerCasePrice || undefined,
+        customerPalletPrice: showAtlasEconomics ? undefined : customerPalletPrice,
+        inventoryLocation: form.stocking === "atlas_hialeah" ? "atlas_hialeah" : form.stocking === "atlas_orlando" ? "atlas_orlando" : "supplier_warehouse",
+        orderRouting: form.stocking === "atlas_hialeah" || form.stocking === "atlas_orlando" ? "atlas_fulfilled" : form.orderRouting as ProductSpec["orderRouting"],
+        unit: dimWeight(form.unitL, form.unitW, form.unitH, form.unitWeight, form.unitWeightUnit),
+        caseDims: dimWeight(form.caseL, form.caseW, form.caseH, form.caseWeight, form.caseWeightUnit),
+        gtinCase: form.gtinCase || undefined,
+        gtinInner: form.gtinInner || undefined,
+        palletCasesPerFloor: toNum(form.palletCasesPerFloor),
+        palletLayers: toNum(form.palletLayers),
+        palletStandardWeight: toNum(form.palletStandardWeight),
+        fulfillmentMode: form.fulfillmentMode as "pickup" | "delivered",
+        shippingWarehouse: form.shippingWarehouse as "Miami hub" | "Orlando hub",
+        pickupAddress: form.pickupAddress || undefined,
+        pickupPhone: form.pickupPhone || undefined
+      }
+    };
+
+    addProducts([draft]);
+    setMessage(`${draft.brand || "Product"} ${draft.sku} was saved as a draft. Complete it later under Manage / edit.`);
+    setForm((current) => ({ ...blankProductForm, supplierName: current.supplierName, stocking: current.stocking, shippingWarehouse: current.shippingWarehouse, fulfillmentMode: current.fulfillmentMode }));
+    setHasInner(false);
+    setCopyFromId("");
+  }
+
   return (
     <section className="panel p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1166,9 +1251,10 @@ export function SingleProductForm({
           <h2 className="text-xl font-black text-atlas-navy">{title}</h2>
           <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
         </div>
-        <button className="btn-primary" type="button" onClick={addProduct}>
-          {submitLabel}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-secondary" type="button" onClick={saveDraft}>Save draft</button>
+          <button className="btn-primary" type="button" onClick={addProduct}>{submitLabel}</button>
+        </div>
       </div>
 
       {copyOptions.length > 0 && (
@@ -3609,7 +3695,7 @@ function CustomerPricingPanel({
     (application) => application.status === "approved" && (application.type === "buyer" || application.type === "route_seller")
   );
   // All products that can be priced (everything except rejected), grouped by category.
-  const pricingProducts = products.filter((product) => product.status !== "rejected");
+  const pricingProducts = products.filter((product) => product.status !== "rejected" && !product.spec?.draft);
   const productsByCategory = Array.from(
     pricingProducts.reduce((map, product) => {
       const key = product.category || "Uncategorized";

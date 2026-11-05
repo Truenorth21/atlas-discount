@@ -246,7 +246,7 @@ export default function SupplierDashboardPage() {
                         onChange={(event) => updateInventory(product.id, Number(event.target.value))}
                       />
                     </td>
-                    <td className="px-5 py-4"><StatusBadge status={product.status} /></td>
+                    <td className="px-5 py-4"><StatusBadge status={product.spec?.draft ? "Draft" : product.status} /></td>
                   </tr>
                 ))}
               </tbody>
