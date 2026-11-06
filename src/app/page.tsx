@@ -84,8 +84,10 @@ export default function HomePage() {
                 <input
                   name="q"
                   className="min-w-0 flex-1 bg-transparent py-2 text-sm text-[#142033] outline-none placeholder:text-[#7b8796]"
-                  placeholder={es ? "Buscar bebidas, snacks, limpieza…" : "Search beverages, snacks, cleaning…"}
+                  placeholder={es ? "Buscar productos o marcas…" : "Search products or brands…"}
+                  list="atlas-home-brands"
                 />
+                <datalist id="atlas-home-brands">{Array.from(new Set(approved.map((product) => product.brand).filter(Boolean))).sort().map((brand) => <option key={brand} value={brand} />)}</datalist>
               </label>
               <button className="rounded-xl bg-[#d82832] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#b91f28]">
                 {es ? "Buscar" : "Search"}
