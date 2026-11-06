@@ -578,6 +578,7 @@ function ManageProductRow({
   const [refrigerated, setRefrigerated] = useState(!!product.spec?.refrigerated);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageMessage, setImageMessage] = useState("");
+  const [pricingMessage, setPricingMessage] = useState("");
 
   function set(field: keyof typeof form) {
     return (event: ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -586,6 +587,12 @@ function ManageProductRow({
     const cpp = toNum(form.casesPerPallet);
     const enteredCasePrice = toNum(form.supplierCost) ?? 0;
     const enteredPalletPrice = toNum(form.palletPrice);
+    const standardPalletPrice = enteredCasePrice * (cpp ?? 0);
+    if (supplierFacing && enteredPalletPrice !== undefined && standardPalletPrice > 0 && enteredPalletPrice >= standardPalletPrice) {
+      setPricingMessage(`Promotional pallet price must be lower than the standard pallet price of ${formatMoney(standardPalletPrice)}.`);
+      return false;
+    }
+    setPricingMessage("");
     const membershipPlan = pricingSettings ? supplierMembershipPlan(pricingSettings, product.supplierName) : undefined;
     const supplierCasePayout = supplierFacing && membershipPlan ? enteredCasePrice * (1 - membershipPlan.caseFee / 100) : enteredCasePrice;
     const supplierPalletPayout = supplierFacing && membershipPlan && enteredPalletPrice !== undefined ? enteredPalletPrice * (1 - membershipPlan.palletFee / 100) : enteredPalletPrice;
@@ -612,11 +619,12 @@ function ManageProductRow({
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
+    return true;
   }
 
   function advanceProduct() {
     // Apply any edits currently visible in the form before changing workflow status.
-    save();
+    if (!save()) return;
     const wasLocalDraft = !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(product.id);
     updateProduct(product.id, {
       id: wasLocalDraft ? crypto.randomUUID() : product.id,
@@ -689,7 +697,8 @@ function ManageProductRow({
         <ManageField label="Units per case" type="number" value={form.casePack} onChange={set("casePack")} />
         <ManageField label="SRP / unit ($)" type="number" value={form.suggestedRetail} onChange={set("suggestedRetail")} placeholder="e.g. 4.99" />
         <ManageField label={supplierFacing ? "Customer price per case ($)" : "Case cost ($)"} type="number" value={form.supplierCost} onChange={set("supplierCost")} />
-        <ManageField label={supplierFacing ? "Customer price per pallet ($)" : "Pallet cost ($)"} type="number" value={form.palletPrice} onChange={set("palletPrice")} placeholder="optional" />
+        {supplierFacing && <label className="grid gap-1"><span className="text-xs font-bold text-slate-600">Standard pallet price (automatic)</span><input className="field h-9 min-h-9 bg-slate-100 font-bold text-slate-600" readOnly value={(toNum(form.supplierCost) ?? 0) > 0 && (toNum(form.casesPerPallet) ?? 0) > 0 ? ((toNum(form.supplierCost) ?? 0) * (toNum(form.casesPerPallet) ?? 0)).toFixed(2) : "Enter case price and cases per pallet"} /></label>}
+        <ManageField label={supplierFacing ? "Promotional full-pallet price ($)" : "Pallet cost ($)"} type="number" value={form.palletPrice} onChange={set("palletPrice")} placeholder={supplierFacing ? "optional discount" : "optional"} />
         <ManageField label="Min order (cases)" type="number" value={form.moq} onChange={set("moq")} />
         <ManageField label="Min order value ($)" type="number" value={form.minOrderValue} onChange={set("minOrderValue")} placeholder="optional" />
         <ManageField label="Cases per pallet" type="number" value={form.casesPerPallet} onChange={set("casesPerPallet")} placeholder="e.g. 40" />
@@ -708,6 +717,7 @@ function ManageProductRow({
         {canPublish && product.status === "pending" && !product.spec?.draft && <button className="btn-primary px-4 py-2 text-sm" type="button" onClick={advanceProduct}>Approve and publish</button>}
         <span className="text-xs text-slate-500">Min order: buyer must reach {form.moq || 1} cases{form.minOrderValue ? ` or ${formatMoney(toNum(form.minOrderValue) ?? 0)}` : ""}.</span>
       </div>
+      {pricingMessage && <p className="mt-3 rounded-md bg-red-50 p-3 text-sm font-bold text-red-700">{pricingMessage}</p>}
     </div>
   );
 }
@@ -1201,9 +1211,13 @@ export function SingleProductForm({
       setMessage("Enter pallet Ti/Hi or complete case dimensions before setting a full pallet price.");
       return;
     }
-
     const customerCasePrice = toNum(form.supplierCost) ?? 0;
     const customerPalletPrice = toNum(form.supplierPalletCost);
+    if (!showAtlasEconomics && customerPalletPrice !== undefined && effectivePalletCases > 0 && customerCasePrice > 0 && customerPalletPrice >= customerCasePrice * effectivePalletCases) {
+      setMessage(`Promotional pallet price must be lower than the standard pallet price of ${formatMoney(customerCasePrice * effectivePalletCases)}.`);
+      return;
+    }
+
     const supplierCasePayout = showAtlasEconomics ? customerCasePrice : customerCasePrice * (1 - liveMembershipPlan.caseFee / 100);
     const spec: ProductSpec = {
       pricingModel: showAtlasEconomics ? "wholesale_margin" : "marketplace_fee",
@@ -1619,13 +1633,14 @@ export function SingleProductForm({
           </div>
         ) : (
           <div className="grid gap-3 md:col-span-3 sm:grid-cols-2">
-            <AdminProductInput label="Customer price per PALLET ($, optional)" type="number" value={form.supplierPalletCost} onChange={updateField("supplierPalletCost")} />
+            <label className="grid gap-1"><span className="text-sm font-bold text-slate-700">Standard pallet price (automatic)</span><input className="input bg-slate-100 font-bold text-slate-600" readOnly value={effectivePalletCases > 0 && (toNum(form.supplierCost) ?? 0) > 0 ? ((toNum(form.supplierCost) ?? 0) * effectivePalletCases).toFixed(2) : "Enter case price and pallet quantity"} /></label>
+            <AdminProductInput label="Promotional full-pallet price ($, optional)" type="number" value={form.supplierPalletCost} onChange={updateField("supplierPalletCost")} />
             <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-slate-600">
               <p className="font-black text-atlas-navy">Full pallet: {effectivePalletCases > 0 ? `${effectivePalletCases} cases` : "set Ti/Hi or case dimensions above"}</p>
               {effectivePalletCases > 0 && toNum(form.supplierPalletCost) ? (
-                <p className="mt-1 font-semibold text-atlas-blue">Equivalent to {formatMoney((toNum(form.supplierPalletCost) ?? 0) / effectivePalletCases)} per case.</p>
+                <p className="mt-1 font-semibold text-atlas-blue">Promotional equivalent: {formatMoney((toNum(form.supplierPalletCost) ?? 0) / effectivePalletCases)} per case.</p>
               ) : (
-                <p className="mt-1">Enter the customer&apos;s total price for one complete pallet. Leave blank to use case price × pallet quantity.</p>
+                <p className="mt-1">Optional: enter a discounted total for buyers purchasing one complete pallet. Leave blank to use the automatic standard price.</p>
               )}
             </div>
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-slate-700 sm:col-span-2">
