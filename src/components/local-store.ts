@@ -43,7 +43,17 @@ function documentId(type: Application["type"], label: string) {
 }
 
 function normalizeApplications(applications: Application[]) {
-  return applications.map((application) => {
+  const prelistedSuppliers = sampleApplications.filter((application) => application.id.startsWith("prelisted-supplier-"));
+  const mergedApplications = [
+    ...applications,
+    ...prelistedSuppliers.filter(
+      (listed) => !applications.some(
+        (application) => application.type === "supplier" && application.companyName.trim().toLowerCase() === listed.companyName.toLowerCase()
+      )
+    )
+  ];
+
+  return mergedApplications.map((application) => {
     const documents = Array.isArray(application.documents)
       ? application.documents
       : [];
