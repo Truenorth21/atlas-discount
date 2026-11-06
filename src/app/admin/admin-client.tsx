@@ -486,12 +486,16 @@ export function ManageProductsList({
   products,
   updateProduct,
   deleteProduct,
-  allowDelete = true
+  allowDelete = true,
+  supplierFacing = false,
+  pricingSettings
 }: {
   products: Product[];
   updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
   deleteProduct?: ReturnType<typeof useAtlasStore>["deleteProduct"];
   allowDelete?: boolean;
+  supplierFacing?: boolean;
+  pricingSettings?: PricingSettings;
 }) {
   const grouped = Array.from(
     products.reduce((map, product) => {
@@ -523,7 +527,7 @@ export function ManageProductsList({
               </div>
               <div className="mt-3 grid gap-3">
                 {items.map((product) => (
-                  <ManageProductRow key={product.id} product={product} updateProduct={updateProduct} deleteProduct={deleteProduct} allowDelete={allowDelete} />
+                  <ManageProductRow key={product.id} product={product} updateProduct={updateProduct} deleteProduct={deleteProduct} allowDelete={allowDelete} supplierFacing={supplierFacing} pricingSettings={pricingSettings} />
                 ))}
               </div>
             </div>
@@ -538,12 +542,16 @@ function ManageProductRow({
   product,
   updateProduct,
   deleteProduct,
-  allowDelete
+  allowDelete,
+  supplierFacing,
+  pricingSettings
 }: {
   product: Product;
   updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
   deleteProduct?: ReturnType<typeof useAtlasStore>["deleteProduct"];
   allowDelete: boolean;
+  supplierFacing: boolean;
+  pricingSettings?: PricingSettings;
 }) {
   const [form, setForm] = useState({
     brand: product.brand,
@@ -552,7 +560,8 @@ function ManageProductRow({
     unitSize: product.unitSize,
     imageUrl: product.imageUrl ?? "",
     casePack: String(product.casePack || 1),
-    supplierCost: product.supplierCost ? String(product.supplierCost) : "",
+    supplierCost: String(supplierFacing ? (product.spec?.customerCasePrice ?? product.tierPricing?.case?.retailer ?? product.supplierCost ?? "") : (product.supplierCost ?? "")),
+    palletPrice: String(supplierFacing ? (product.spec?.customerPalletPrice ?? "") : (product.supplierPalletCost ?? "")),
     suggestedRetail: product.suggestedRetail ? String(product.suggestedRetail) : "",
     inventoryAvailable: String(product.inventoryAvailable ?? 0),
     moq: String(product.moq || 1),
@@ -571,6 +580,11 @@ function ManageProductRow({
   }
   function save() {
     const cpp = toNum(form.casesPerPallet);
+    const enteredCasePrice = toNum(form.supplierCost) ?? 0;
+    const enteredPalletPrice = toNum(form.palletPrice);
+    const membershipPlan = pricingSettings ? supplierMembershipPlan(pricingSettings, product.supplierName) : undefined;
+    const supplierCasePayout = supplierFacing && membershipPlan ? enteredCasePrice * (1 - membershipPlan.caseFee / 100) : enteredCasePrice;
+    const supplierPalletPayout = supplierFacing && membershipPlan && enteredPalletPrice !== undefined ? enteredPalletPrice * (1 - membershipPlan.palletFee / 100) : enteredPalletPrice;
     updateProduct(product.id, {
       brand: form.brand.trim() || product.brand,
       productName: form.productName.trim() || product.productName,
@@ -578,13 +592,19 @@ function ManageProductRow({
       unitSize: form.unitSize.trim(),
       imageUrl: form.imageUrl.trim(),
       casePack: toNum(form.casePack) ?? 1,
-      supplierCost: toNum(form.supplierCost) ?? 0,
+      supplierCost: supplierCasePayout,
+      supplierPalletCost: supplierPalletPayout,
+      tierPricing: supplierFacing ? {
+        ...product.tierPricing,
+        case: { retailer: enteredCasePrice, distributor: enteredCasePrice },
+        pallet: enteredPalletPrice !== undefined && cpp && cpp > 0 ? { retailer: enteredPalletPrice / cpp, distributor: enteredPalletPrice / cpp } : product.tierPricing?.pallet
+      } : product.tierPricing,
       suggestedRetail: toNum(form.suggestedRetail) ?? 0,
       inventoryAvailable: toNum(form.inventoryAvailable) ?? 0,
       moq: toNum(form.moq) ?? 1,
       minOrderValue: toNum(form.minOrderValue) ?? 0,
       leadTime: form.leadTime || "Ready now",
-      spec: { ...product.spec, casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated }
+      spec: { ...product.spec, casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated, customerCasePrice: supplierFacing ? enteredCasePrice : product.spec?.customerCasePrice, customerPalletPrice: supplierFacing ? enteredPalletPrice : product.spec?.customerPalletPrice }
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -651,7 +671,8 @@ function ManageProductRow({
         </div>
         <ManageField label="Units per case" type="number" value={form.casePack} onChange={set("casePack")} />
         <ManageField label="SRP / unit ($)" type="number" value={form.suggestedRetail} onChange={set("suggestedRetail")} placeholder="e.g. 4.99" />
-        <ManageField label="Case cost ($)" type="number" value={form.supplierCost} onChange={set("supplierCost")} />
+        <ManageField label={supplierFacing ? "Customer price per case ($)" : "Case cost ($)"} type="number" value={form.supplierCost} onChange={set("supplierCost")} />
+        <ManageField label={supplierFacing ? "Customer price per pallet ($)" : "Pallet cost ($)"} type="number" value={form.palletPrice} onChange={set("palletPrice")} placeholder="optional" />
         <ManageField label="Min order (cases)" type="number" value={form.moq} onChange={set("moq")} />
         <ManageField label="Min order value ($)" type="number" value={form.minOrderValue} onChange={set("minOrderValue")} placeholder="optional" />
         <ManageField label="Cases per pallet" type="number" value={form.casesPerPallet} onChange={set("casesPerPallet")} placeholder="e.g. 40" />
