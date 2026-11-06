@@ -37,8 +37,33 @@ export async function POST(request: Request) {
   const service = createServiceClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
+
+  const supplierNames = Array.from(new Set(
+    body.products
+      .map((product) => product.supplierName?.trim())
+      .filter((name): name is string => Boolean(name) && name !== "Atlas Admin")
+  ));
+  const supplierIds = new Map<string, string>();
+
+  if (supplierNames.length > 0) {
+    const { data: suppliers, error: supplierError } = await service
+      .from("supplier_profiles")
+      .select("id, legal_name")
+      .in("legal_name", supplierNames);
+    if (supplierError) return NextResponse.json({ error: supplierError.message }, { status: 400 });
+    for (const supplier of suppliers ?? []) supplierIds.set(supplier.legal_name, supplier.id);
+
+    const missing = supplierNames.filter((name) => !supplierIds.has(name));
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: `Create or approve the supplier account before assigning products: ${missing.join(", ")}.` },
+        { status: 400 }
+      );
+    }
+  }
+
   const { error } = await service.from("products").upsert(
-    body.products.map((product) => productToRow(product, null)),
+    body.products.map((product) => productToRow(product, supplierIds.get(product.supplierName?.trim() ?? "") ?? null)),
     { onConflict: "id" }
   );
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
