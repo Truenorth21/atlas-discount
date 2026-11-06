@@ -378,6 +378,19 @@ function ProductAdminPanel({
   deleteProduct: ReturnType<typeof useAtlasStore>["deleteProduct"];
 }) {
   const [activeProductTab, setActiveProductTab] = useState("manage");
+  const [selectedSupplier, setSelectedSupplier] = useState("");
+  const supplierOptions = Array.from(
+    new Set([
+      ...supplierNames,
+      ...products
+        .map((product) => product.supplierName)
+        .filter((name) => Boolean(name) && name !== "Atlas Admin" && name !== "Current Supplier")
+    ])
+  ).sort((a, b) => a.localeCompare(b));
+  const supplierProducts = selectedSupplier
+    ? products.filter((product) => product.supplierName === selectedSupplier)
+    : [];
+  const supplierPendingProducts = supplierProducts.filter((product) => product.status === "pending" && !product.spec?.draft);
   const approvedCount = products.filter((product) => product.status === "approved").length;
   const draftCount = products.filter((product) => product.spec?.draft).length;
 
@@ -388,7 +401,7 @@ function ProductAdminPanel({
           <div>
             <h2 className="text-xl font-black text-atlas-navy">Product management</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Add Atlas products directly, upload product sheets, or review supplier-submitted items before they show in the catalog.
+              Select a supplier to see and edit only that supplier&apos;s products. Atlas appears here only if Atlas has its own supplier record and products.
             </p>
           </div>
           <div className="grid grid-cols-4 gap-2 text-center text-xs font-black">
@@ -398,6 +411,18 @@ function ProductAdminPanel({
             <QueueCount label="Total" value={products.length} />
           </div>
         </div>
+        <label className="mt-4 grid max-w-xl gap-2">
+          <span className="text-xs font-black uppercase tracking-wide text-atlas-blue">Supplier workspace</span>
+          <select className="field" value={selectedSupplier} onChange={(event) => setSelectedSupplier(event.target.value)}>
+            <option value="">Select a supplier…</option>
+            {supplierOptions.map((supplier) => (
+              <option key={supplier} value={supplier}>{supplier}</option>
+            ))}
+          </select>
+          <span className="text-xs text-slate-500">
+            {selectedSupplier ? `${supplierProducts.length} products assigned to ${selectedSupplier}.` : "Choose a supplier before managing, adding, uploading, or approving products."}
+          </span>
+        </label>
         <div className="mt-4 flex flex-wrap gap-2 rounded-md bg-atlas-light p-2">
           {[
             ["manage", "Manage / edit"],
@@ -417,29 +442,34 @@ function ProductAdminPanel({
         </div>
       </div>
 
-      {activeProductTab === "manage" && (
-        <ManageProductsList products={products} updateProduct={updateProduct} deleteProduct={deleteProduct} />
+      {!selectedSupplier && (
+        <section className="panel p-5 text-sm text-slate-600">Select a supplier above to open its product workspace.</section>
       )}
-      {activeProductTab === "upload" && (
+      {selectedSupplier && activeProductTab === "manage" && (
+        <ManageProductsList products={supplierProducts} updateProduct={updateProduct} deleteProduct={deleteProduct} />
+      )}
+      {selectedSupplier && activeProductTab === "upload" && (
         <ProductUpload
+          key={selectedSupplier}
           defaultStatus="approved"
-          supplierName="Atlas Admin"
-          allowSupplierAssignment
+          supplierName={selectedSupplier}
           submitLabel="Publish valid rows"
           submittedMessage="valid products published to the catalog."
         />
       )}
-      {activeProductTab === "single" && (
+      {selectedSupplier && activeProductTab === "single" && (
         <SingleProductForm
+          key={selectedSupplier}
           addProducts={addProducts}
-          products={products}
-          supplierOptions={Array.from(new Set([...supplierNames, ...products.map((product) => product.supplierName).filter((name) => Boolean(name) && name !== "Atlas Admin")]))}
+          products={supplierProducts}
+          supplierOptions={supplierOptions}
+          defaultSupplierName={selectedSupplier}
           pricingSettings={pricingSettings}
         />
       )}
-      {activeProductTab === "approvals" && (
+      {selectedSupplier && activeProductTab === "approvals" && (
         <ProductApprovalsList
-          pendingProducts={pendingProducts}
+          pendingProducts={supplierPendingProducts}
           pricingSettings={pricingSettings}
           updateProductStatus={updateProductStatus}
         />
@@ -448,14 +478,16 @@ function ProductAdminPanel({
   );
 }
 
-function ManageProductsList({
+export function ManageProductsList({
   products,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  allowDelete = true
 }: {
   products: Product[];
   updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
-  deleteProduct: ReturnType<typeof useAtlasStore>["deleteProduct"];
+  deleteProduct?: ReturnType<typeof useAtlasStore>["deleteProduct"];
+  allowDelete?: boolean;
 }) {
   const grouped = Array.from(
     products.reduce((map, product) => {
@@ -487,7 +519,7 @@ function ManageProductsList({
               </div>
               <div className="mt-3 grid gap-3">
                 {items.map((product) => (
-                  <ManageProductRow key={product.id} product={product} updateProduct={updateProduct} deleteProduct={deleteProduct} />
+                  <ManageProductRow key={product.id} product={product} updateProduct={updateProduct} deleteProduct={deleteProduct} allowDelete={allowDelete} />
                 ))}
               </div>
             </div>
@@ -501,14 +533,20 @@ function ManageProductsList({
 function ManageProductRow({
   product,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  allowDelete
 }: {
   product: Product;
   updateProduct: ReturnType<typeof useAtlasStore>["updateProduct"];
-  deleteProduct: ReturnType<typeof useAtlasStore>["deleteProduct"];
+  deleteProduct?: ReturnType<typeof useAtlasStore>["deleteProduct"];
+  allowDelete: boolean;
 }) {
   const [form, setForm] = useState({
     brand: product.brand,
+    productName: product.productName,
+    description: product.description,
+    unitSize: product.unitSize,
+    casePack: String(product.casePack || 1),
     supplierCost: product.supplierCost ? String(product.supplierCost) : "",
     suggestedRetail: product.suggestedRetail ? String(product.suggestedRetail) : "",
     inventoryAvailable: String(product.inventoryAvailable ?? 0),
@@ -528,6 +566,10 @@ function ManageProductRow({
     const cpp = toNum(form.casesPerPallet);
     updateProduct(product.id, {
       brand: form.brand.trim() || product.brand,
+      productName: form.productName.trim() || product.productName,
+      description: form.description.trim(),
+      unitSize: form.unitSize.trim(),
+      casePack: toNum(form.casePack) ?? 1,
       supplierCost: toNum(form.supplierCost) ?? 0,
       suggestedRetail: toNum(form.suggestedRetail) ?? 0,
       inventoryAvailable: toNum(form.inventoryAvailable) ?? 0,
@@ -550,24 +592,28 @@ function ManageProductRow({
           {product.status === "pending" && !product.spec?.draft && <span className="badge bg-amber-50 text-amber-800">Pending</span>}
           {product.status === "approved" && <span className="badge bg-emerald-50 text-emerald-700">Live</span>}
         </p>
-        {confirmDelete ? (
+        {allowDelete && confirmDelete ? (
           <span className="flex items-center gap-2 text-sm">
             <span className="font-bold text-atlas-red">Delete {product.brand}?</span>
-            <button className="rounded-md bg-atlas-red px-3 py-1.5 text-xs font-bold text-white" type="button" onClick={() => deleteProduct(product.id)}>
+            <button className="rounded-md bg-atlas-red px-3 py-1.5 text-xs font-bold text-white" type="button" onClick={() => deleteProduct?.(product.id)}>
               Yes, delete
             </button>
             <button className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-600" type="button" onClick={() => setConfirmDelete(false)}>
               Cancel
             </button>
           </span>
-        ) : (
+        ) : allowDelete ? (
           <button className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-atlas-red" type="button" onClick={() => setConfirmDelete(true)} aria-label={`Delete ${product.brand}`}>
             <Trash2 size={16} />
           </button>
-        )}
+        ) : null}
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <ManageField label="Product name" value={form.brand} onChange={set("brand")} />
+        <ManageField label="Brand" value={form.brand} onChange={set("brand")} />
+        <ManageField label="Product name" value={form.productName} onChange={set("productName")} />
+        <ManageField label="Description" value={form.description} onChange={set("description")} />
+        <ManageField label="Unit size" value={form.unitSize} onChange={set("unitSize")} />
+        <ManageField label="Units per case" type="number" value={form.casePack} onChange={set("casePack")} />
         <ManageField label="SRP / unit ($)" type="number" value={form.suggestedRetail} onChange={set("suggestedRetail")} placeholder="e.g. 4.99" />
         <ManageField label="Case cost ($)" type="number" value={form.supplierCost} onChange={set("supplierCost")} />
         <ManageField label="Min order (cases)" type="number" value={form.moq} onChange={set("moq")} />
