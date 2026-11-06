@@ -166,10 +166,14 @@ export function AdminClient() {
                         <StatusBadge status={application.status} />
                       </div>
                       <h3 className="mt-3 text-lg font-black">{application.companyName}</h3>
-                      <p className="text-sm text-slate-600">{application.contactName} • {application.email} • {application.phone}</p>
+                      <p className="text-sm text-slate-600">
+                        {application.id.startsWith("prelisted-supplier-")
+                          ? "Pre-listed by Atlas · Supplier has not registered yet"
+                          : `${application.contactName} • ${application.email} • ${application.phone}`}
+                      </p>
                       <RoutePreferenceCard application={application} applications={store.applications} />
                     </div>
-                    <div className="flex gap-2">
+                    {!application.id.startsWith("prelisted-supplier-") && <div className="flex gap-2">
                       <button
                         className="btn-secondary px-3"
                         type="button"
@@ -192,7 +196,7 @@ export function AdminClient() {
                       >
                         <X size={16} />
                       </button>
-                    </div>
+                    </div>}
                   </div>
                 </article>
               ))}
