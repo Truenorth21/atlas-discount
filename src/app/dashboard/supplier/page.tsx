@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { Boxes, MapPin, Megaphone, Truck, Wallet } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
-import { SingleProductForm } from "@/app/admin/admin-client";
+import { ManageProductsList, SingleProductForm } from "@/app/admin/admin-client";
 import { StatusBadge } from "@/components/status-badge";
 import { useAtlasStore } from "@/components/local-store";
 import { saveSupplierPayment } from "@/app/register/actions";
@@ -20,8 +20,10 @@ import type { Application, Product, SupplierFulfillmentRules } from "@/lib/types
 
 export default function SupplierDashboardPage() {
   const { t } = useI18n();
-  const { store, setStore, addProducts, addPromotionSubmission, updateProduct } = useAtlasStore();
+  const { store, addProducts, addPromotionSubmission, updateProduct } = useAtlasStore();
   const [promo, setPromo] = useState(t("noPromotionSubmitted"));
+  const [identity, setIdentity] = useState<{ isAdmin: boolean; companyName: string } | null>(null);
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const adPlacements = [
     "Weekly deals email",
     "Sponsored category",
@@ -30,18 +32,39 @@ export default function SupplierDashboardPage() {
     "Closeout listing",
     "WhatsApp promotion"
   ];
-  const supplierApplication = store.applications.find((application) => application.type === "supplier");
-  const companyName = supplierApplication?.companyName ?? "Current Supplier";
+  const supplierApplications = store.applications
+    .filter((application) => application.type === "supplier")
+    .sort((a, b) => a.companyName.localeCompare(b.companyName));
+
+  useEffect(() => {
+    fetch("/api/session", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (data) setIdentity({ isAdmin: Boolean(data.isAdmin), companyName: String(data.companyName ?? "") });
+      })
+      .catch(() => setIdentity(null));
+  }, []);
+
+  useEffect(() => {
+    if (!identity) return;
+    if (identity.isAdmin) {
+      if (!supplierApplications.some((application) => application.id === selectedSupplierId)) {
+        setSelectedSupplierId(supplierApplications[0]?.id ?? "");
+      }
+      return;
+    }
+    const ownApplication = supplierApplications.find((application) => application.companyName === identity.companyName);
+    setSelectedSupplierId(ownApplication?.id ?? "");
+  }, [identity, selectedSupplierId, store.applications]);
+
+  const supplierApplication = identity?.isAdmin
+    ? supplierApplications.find((application) => application.id === selectedSupplierId)
+    : supplierApplications.find((application) => application.companyName === identity?.companyName);
+  const companyName = supplierApplication?.companyName ?? identity?.companyName ?? "Current Supplier";
   const membership = supplierMembershipPlan(store.pricingSettings, companyName);
   const membershipAssignment = (store.pricingSettings.supplierMemberships ?? []).find((item) => item.supplierName === companyName);
-  // Scope to the signed-in supplier's own products — matches how uploads are tagged
-  // (supplierName = the supplier's company). Legacy demo names kept as a fallback.
-  const supplierProducts = store.products.filter(
-    (product) =>
-      product.supplierName === companyName ||
-      product.supplierName === "Current Supplier" ||
-      product.supplierName === "Harborline Brands"
-  );
+  // The server-verified identity locks vendors to their company. Only admins can change the selected supplier.
+  const supplierProducts = store.products.filter((product) => product.supplierName === companyName);
   const documentAlerts = getDocumentAlerts(store.applications, "supplier");
   const assignment = supplierApplication
     ? (store.pricingSettings.supplierAssignments ?? []).find((a) => a.supplierId === supplierApplication.id)
@@ -49,10 +72,7 @@ export default function SupplierDashboardPage() {
   const fulfillment = fulfillmentTiers.find((t) => t.id === (assignment?.fulfillmentTier ?? defaultFulfillmentTierId)) ?? fulfillmentTiers[0];
 
   function updateInventory(id: string, inventoryAvailable: number) {
-    setStore((current) => ({
-      ...current,
-      products: current.products.map((product) => (product.id === id ? { ...product, inventoryAvailable } : product))
-    }));
+    updateProduct(id, { inventoryAvailable });
   }
 
   function submitPromotion(event: FormEvent<HTMLFormElement>) {
@@ -72,6 +92,10 @@ export default function SupplierDashboardPage() {
     event.currentTarget.reset();
   }
 
+  if (!identity) {
+    return <><Nav /><main className="atlas-container py-8"><section className="panel p-6 text-sm font-semibold text-slate-600">Loading your supplier workspace…</section></main></>;
+  }
+
   return (
     <>
       <Nav />
@@ -85,6 +109,19 @@ export default function SupplierDashboardPage() {
             </Link>
           }
         />
+        {identity?.isAdmin && (
+          <section className="panel mt-6 p-5">
+            <p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Admin supplier workspace</p>
+            <h2 className="mt-1 text-xl font-black text-atlas-navy">Select the supplier to manage</h2>
+            <p className="mt-1 text-sm text-slate-600">The entire dashboard—including products, fulfillment, advertising, and payment details—follows this supplier selection.</p>
+            <select className="field mt-4 max-w-xl" value={selectedSupplierId} onChange={(event) => setSelectedSupplierId(event.target.value)}>
+              <option value="">Select a supplier…</option>
+              {supplierApplications.map((application) => (
+                <option key={application.id} value={application.id}>{application.companyName}</option>
+              ))}
+            </select>
+          </section>
+        )}
         <div className="mt-6 grid gap-6 lg:grid-cols-[390px_1fr]">
         <aside className="grid h-fit gap-5">
           <div className="panel p-5">
@@ -103,7 +140,7 @@ export default function SupplierDashboardPage() {
               See advertising rates
             </Link>
           </div>
-          <ProductUpload />
+          <ProductUpload key={companyName} supplierName={companyName} defaultStatus="pending" />
           {documentAlerts.length > 0 && (
             <div className="panel p-5">
               <h2 className="text-xl font-black text-atlas-navy">{t("documentAlerts")}</h2>
@@ -191,6 +228,7 @@ export default function SupplierDashboardPage() {
           submitLabel="Submit for review"
           submittedVerb="submitted to Atlas for review"
         />
+        <ManageProductsList products={supplierProducts} updateProduct={updateProduct} allowDelete={false} />
         <section className="panel p-5">
           <h2 className="text-xl font-black text-atlas-navy">How buyers can receive your products</h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-600">Choose one or more options for each product. Buyers only see options that qualify for their order quantity and destination ZIP.</p>
