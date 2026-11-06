@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { Boxes, MapPin, Megaphone, Truck, Wallet } from "lucide-react";
+import { Boxes, CheckCircle2, CircleAlert, CreditCard, FileText, MapPin, Megaphone, PackagePlus, Truck, Wallet } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductUpload } from "@/components/product-upload";
 import { ManageProductsList, SingleProductForm } from "@/app/admin/admin-client";
@@ -24,6 +24,9 @@ export default function SupplierDashboardPage() {
   const [promo, setPromo] = useState(t("noPromotionSubmitted"));
   const [identity, setIdentity] = useState<{ isAdmin: boolean; companyName: string } | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [activeTab, setActiveTab] = useState<"overview" | "products" | "fulfillment" | "promotions" | "payments" | "account">("overview");
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [showPlans, setShowPlans] = useState(false);
   const adPlacements = [
     "Weekly deals email",
     "Sponsored category",
@@ -70,6 +73,20 @@ export default function SupplierDashboardPage() {
     ? (store.pricingSettings.supplierAssignments ?? []).find((a) => a.supplierId === supplierApplication.id)
     : undefined;
   const fulfillment = fulfillmentTiers.find((t) => t.id === (assignment?.fulfillmentTier ?? defaultFulfillmentTierId)) ?? fulfillmentTiers[0];
+  const activeProducts = supplierProducts.filter((product) => product.status === "approved" && !product.spec?.draft).length;
+  const pendingProducts = supplierProducts.filter((product) => product.status === "pending" && !product.spec?.draft).length;
+  const draftProducts = supplierProducts.filter((product) => product.spec?.draft).length;
+  const configuredFulfillment = supplierProducts.filter((product) => Boolean(product.spec?.fulfillment)).length;
+  const promotionSubmissions = store.promotionSubmissions.filter((item) => item.supplierName === companyName || item.supplierName === "Current Supplier");
+  const isPrelisted = Boolean(supplierApplication?.id.startsWith("prelisted-supplier-"));
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "products", label: `Products (${supplierProducts.length})` },
+    { id: "fulfillment", label: "Fulfillment" },
+    { id: "promotions", label: "Promotions" },
+    { id: "payments", label: "Payments" },
+    { id: "account", label: "Account & documents" }
+  ] as const;
 
   function updateInventory(id: string, inventoryAvailable: number) {
     updateProduct(id, { inventoryAvailable });
@@ -96,207 +113,54 @@ export default function SupplierDashboardPage() {
     return <><Nav /><main className="atlas-container py-8"><section className="panel p-6 text-sm font-semibold text-slate-600">Loading your supplier workspace…</section></main></>;
   }
 
-  return (
-    <>
-      <Nav />
-      <main className="atlas-container py-8">
-        <DashboardHero
-          title={t("supplierDashboard")}
-          subtitle={t("supplierDashboardBody")}
-          action={
-            <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-white px-6 py-2.5 text-sm font-black text-atlas-navy transition hover:bg-sky-50" href="/sell">
-              See advertising rates
-            </Link>
-          }
-        />
-        {identity?.isAdmin && (
-          <section className="panel mt-6 p-5">
-            <p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Admin supplier workspace</p>
-            <h2 className="mt-1 text-xl font-black text-atlas-navy">Select the supplier to manage</h2>
-            <p className="mt-1 text-sm text-slate-600">The entire dashboard—including products, fulfillment, advertising, and payment details—follows this supplier selection.</p>
-            <select className="field mt-4 max-w-xl" value={selectedSupplierId} onChange={(event) => setSelectedSupplierId(event.target.value)}>
-              <option value="">Select a supplier…</option>
-              {supplierApplications.map((application) => (
-                <option key={application.id} value={application.id}>{application.companyName}</option>
-              ))}
-            </select>
-          </section>
-        )}
-        <div className="mt-6 grid gap-6 lg:grid-cols-[390px_1fr]">
-        <aside className="grid h-fit gap-5">
-          <div className="panel p-5">
-            <p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Grow your sales</p>
-            <h2 className="mt-1 text-xl font-black text-atlas-navy">Listing is free</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              You have {supplierProducts.length} {supplierProducts.length === 1 ? "product" : "products"} on Atlas. Drive demand with
-              supplier-funded placements — featured slots, weekly deals, category sponsorships, and more. Pay only for what you run.
-            </p>
-            <div className="mt-3 rounded-md bg-atlas-light p-3 text-sm">
-              <p className="font-black text-atlas-navy">Fulfillment: {fulfillment.name}</p>
-              <p className="mt-0.5 text-xs text-slate-600">{fulfillment.blurb}</p>
-            </div>
-            <div className="mt-3 rounded-md bg-sky-50 p-3 text-sm"><p className="font-black text-atlas-navy">Membership: {membership.name}</p><p className="mt-0.5 text-xs text-slate-600">{membership.caseFee}% case · {membership.palletFee}% pallet · {membership.promotionFee}% promotional fee</p></div>
-            <Link className="btn-secondary mt-3 w-fit rounded-full" href="/sell">
-              See advertising rates
-            </Link>
-          </div>
-          <ProductUpload key={companyName} supplierName={companyName} defaultStatus="pending" />
-          {documentAlerts.length > 0 && (
-            <div className="panel p-5">
-              <h2 className="text-xl font-black text-atlas-navy">{t("documentAlerts")}</h2>
-              <div className="mt-3 grid gap-2">
-                {documentAlerts.map(({ document, expiration }) => (
-                  <div key={document.id} className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
-                    <p className="font-bold text-atlas-navy">{document.label}</p>
-                    <p className={expiration.tone === "danger" ? "font-semibold text-red-700" : "font-semibold text-amber-800"}>
-                      {expiration.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {supplierApplication && (
-            <div className="panel p-5">
-              <h2 className="text-xl font-black text-atlas-navy">{t("documentStatusLabel")}</h2>
-              <div className="mt-3 grid gap-2">
-                {supplierApplication.documents.map((document) => (
-                  <div key={document.id} className="rounded-md bg-atlas-light p-3 text-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-bold text-atlas-navy">{document.label}</p>
-                        <p className="text-slate-600">{document.fileName ?? t("noFileUploaded")}</p>
-                        {document.rejectionReason && (
-                          <p className="mt-1 font-semibold text-red-700">{document.rejectionReason}</p>
-                        )}
-                      </div>
-                      <StatusBadge status={document.status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <form className="panel p-6" onSubmit={submitPromotion}>
-            <h2 className="flex items-center gap-2 text-xl font-black">
-              <Megaphone className="text-atlas-blue" />
-              Request advertising
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">This sends a request—it does not immediately charge you or activate an ad. Atlas confirms availability, dates, final price, and the promised placement before scheduling.</p>
-            <label className="mt-4 grid gap-2">
-              <span className="label">{t("placementLabel")}</span>
-              <select className="field" name="placement" required>
-                {adPlacements.map((placement) => (
-                  <option key={placement}>{placement}</option>
-                ))}
-              </select>
-            </label>
-            <label className="mt-3 grid gap-2"><span className="label">Product to promote</span><select className="field" name="promotionProduct" required><option value="">Select a product…</option>{supplierProducts.map((product) => <option key={product.id} value={`${product.brand} · ${product.productName}`}>{product.brand} · {product.productName}</option>)}</select></label>
-            <textarea className="field mt-3 min-h-24" name="promotion" placeholder={t("promotionPlaceholder")} />
-            <button className="btn-primary mt-3 w-full" type="submit">Submit advertising request</button>
-            <p className="mt-3 text-xs leading-5 text-slate-500">Workflow: request → Atlas approval → booking and invoice → payment → scheduled → live and verified → results reported.</p>
-            <p className="mt-3 text-sm font-semibold text-atlas-blue">{promo}</p>
-          </form>
-          {store.promotionSubmissions.filter((item) => item.supplierName === companyName || item.supplierName === "Current Supplier").length > 0 && <div className="panel p-5"><h2 className="text-lg font-black text-atlas-navy">Your advertising requests</h2><div className="mt-3 grid gap-2">{store.promotionSubmissions.filter((item) => item.supplierName === companyName || item.supplierName === "Current Supplier").map((item) => <div key={item.id} className="rounded-md border border-slate-200 p-3 text-sm"><div className="flex items-center justify-between gap-3"><div><p className="font-black text-atlas-navy">{item.placement}</p><p className="text-xs text-slate-500">{item.productName || "Product pending selection"}</p></div><StatusBadge status={item.status} /></div></div>)}</div></div>}
-        </aside>
-        <div className="grid h-fit gap-6">
-        <SupplierPaymentCard application={supplierApplication} companyName={companyName} />
-        <section className="panel overflow-hidden">
-          <div className="bg-atlas-navy p-5 text-white"><p className="text-xs font-black uppercase tracking-widest text-sky-300">How Atlas routing works</p><h2 className="mt-1 text-2xl font-black">You keep inventory until Atlas releases an order.</h2></div>
-          <div className="grid gap-4 p-5 md:grid-cols-3">
-            <div><p className="text-sm font-black text-atlas-blue">1 · Atlas approves</p><p className="mt-1 text-sm leading-6 text-slate-600">A buyer request is not permission to ship. Atlas confirms the order and sends you a release number, quantities, labels, and routing instructions.</p></div>
-            <div><p className="text-sm font-black text-atlas-blue">2 · You route released goods</p><p className="mt-1 text-sm leading-6 text-slate-600">Send them to Atlas Hialeah Gardens for paid consolidation, ship with Atlas-issued documents, or prepare an authorized pickup—according to the product setup.</p></div>
-            <div><p className="text-sm font-black text-atlas-blue">3 · Atlas protects the relationship</p><p className="mt-1 text-sm leading-6 text-slate-600">Consolidation orders do not expose the buyer. Direct shipments reveal only fulfillment-required information and cannot include supplier marketing or invoices.</p></div>
-          </div>
-          <div className="border-t border-slate-200 bg-sky-50 px-5 py-3 text-xs font-semibold text-slate-700">Hialeah Gardens consolidation may include receiving, pallet-building, storage, delivery, or freight fees. Atlas confirms applicable charges before release.</div>
+  return <><Nav /><main className="atlas-container py-8">
+    <DashboardHero title={identity.isAdmin ? `Supplier workspace · ${companyName}` : t("supplierDashboard")} subtitle={identity.isAdmin ? "Manage this supplier’s products, fulfillment, promotions, payments, and onboarding." : "Manage products, fulfillment, promotions, and account setup."} />
+
+    {identity.isAdmin && <section className="sticky top-2 z-20 mt-6 rounded-xl border-2 border-atlas-blue bg-white p-4 shadow-lg">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Atlas admin mode</p><p className="font-black text-atlas-navy">You are managing this supplier on behalf of Atlas.</p></div>
+        <div className="flex min-w-[280px] flex-wrap items-center gap-2"><select className="field flex-1" value={selectedSupplierId} onChange={(event) => { setSelectedSupplierId(event.target.value); setActiveTab("overview"); }}><option value="">Select a supplier…</option>{supplierApplications.map((application) => <option key={application.id} value={application.id}>{application.companyName}</option>)}</select><span className={`badge ${isPrelisted ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{isPrelisted ? "Pre-listed · not registered" : supplierApplication?.status ?? "Unknown"}</span></div>
+      </div>
+    </section>}
+
+    <nav className="mt-6 flex gap-2 overflow-x-auto rounded-xl border border-slate-200 bg-white p-2" aria-label="Supplier workspace sections">
+      {tabs.map((tab) => <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`min-h-11 whitespace-nowrap rounded-lg px-4 text-sm font-black ${activeTab === tab.id ? "bg-atlas-navy text-white" : "text-atlas-navy hover:bg-atlas-light"}`}>{tab.label}</button>)}
+    </nav>
+
+    <div className="mt-6 grid gap-6">
+      {activeTab === "overview" && <>
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <WorkspaceMetric label="Active products" value={activeProducts} detail={`${pendingProducts} pending · ${draftProducts} drafts`} />
+          <WorkspaceMetric label="Fulfillment ready" value={`${configuredFulfillment}/${supplierProducts.length}`} detail="Products with buyer delivery options" />
+          <WorkspaceMetric label="Membership" value={membership.name} detail={`${membership.caseFee}% case · ${membership.palletFee}% pallet fee`} />
+          <WorkspaceMetric label="Account status" value={isPrelisted ? "Not registered" : supplierApplication?.status ?? "Unknown"} detail={isPrelisted ? "Atlas can prepare listings now" : "Supplier onboarding record"} />
         </section>
-        <section className="panel p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide text-atlas-blue">Annual supplier membership</p><h2 className="mt-1 text-2xl font-black text-atlas-navy">Start free. Upgrade as your Atlas sales grow.</h2><p className="mt-1 text-sm text-slate-600">Paid plans last 12 months after payment is confirmed. Expired or unpaid plans automatically return to Free rates.</p></div>{membershipAssignment?.expiresAt && <div className="rounded-md bg-atlas-light px-3 py-2 text-sm"><p className="font-black text-atlas-navy">{membership.name}</p><p className="text-xs text-slate-500">Through {membershipAssignment.expiresAt}</p></div>}</div>
-          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">{supplierMembershipPlans.map((plan) => <div key={plan.id} className={`rounded-xl border-2 p-4 ${plan.id === membership.id ? "border-atlas-blue bg-sky-50" : "border-slate-200 bg-white"}`}><div className="flex items-center justify-between"><h3 className="text-lg font-black text-atlas-navy">{plan.name}</h3>{plan.id === membership.id && <span className="badge bg-atlas-blue text-white">Current</span>}</div><p className="mt-1 text-2xl font-black text-atlas-navy">${plan.annualPrice}<span className="text-xs font-semibold text-slate-500"> / year</span></p><ul className="mt-3 grid gap-1 text-xs text-slate-600"><li><strong>{plan.caseFee}%</strong> standard case fee</li><li><strong>{plan.palletFee}%</strong> full-pallet fee</li><li><strong>{plan.promotionFee}%</strong> promotional fee</li><li>{plan.listingLimit ?? "Unlimited"} active listings</li><li>${plan.adCredit} annual ad credit</li><li>{plan.consolidationDiscount}% Hialeah consolidation discount</li><li>{plan.support} support</li></ul></div>)}</div>
-          <p className="mt-4 rounded-md bg-atlas-light p-3 text-xs leading-5 text-slate-600">Plan upgrades are activated by Atlas after annual payment is confirmed. The fee rate in effect when Atlas confirms an order is the rate used for that order.</p>
+        <section className="grid gap-6 lg:grid-cols-[1.25fr_.75fr]">
+          <div className="panel p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black uppercase text-atlas-blue">Next actions</p><h2 className="mt-1 text-xl font-black text-atlas-navy">Finish the supplier setup</h2></div><button className="btn-primary" type="button" onClick={() => { setActiveTab("products"); setShowProductForm(true); }}><PackagePlus size={17} /> Add product</button></div><div className="mt-5 grid gap-3"><ChecklistItem complete={supplierProducts.length > 0} title="Add the first product" body="Enter one product or upload the guided spreadsheet." /><ChecklistItem complete={configuredFulfillment > 0} title="Configure fulfillment" body="Set pickup, included pallet delivery, or paid shipping per product." /><ChecklistItem complete={!isPrelisted} title="Connect the supplier account" body={isPrelisted ? "Supplier has not registered. Atlas may continue preparing listings." : "Supplier account is connected to this workspace."} /><ChecklistItem complete={Boolean(supplierApplication?.remitTo)} title="Set payment details" body="Required before Atlas can remit supplier proceeds." /></div></div>
+          <div className="panel p-5"><p className="text-xs font-black uppercase text-atlas-blue">How Atlas routing works</p><h2 className="mt-1 text-xl font-black text-atlas-navy">Inventory stays with the supplier until release.</h2><ol className="mt-4 grid gap-3 text-sm text-slate-600"><li><strong className="text-atlas-navy">1. Atlas approves</strong><br />Atlas confirms the buyer order and issues routing instructions.</li><li><strong className="text-atlas-navy">2. Supplier routes goods</strong><br />Send to Hialeah, ship direct, or prepare an authorized pickup.</li><li><strong className="text-atlas-navy">3. Atlas protects the relationship</strong><br />Only fulfillment-required buyer information is shared.</li></ol></div>
         </section>
-        <SingleProductForm
-          addProducts={addProducts}
-          products={supplierProducts}
-          defaultSupplierName={companyName}
-          lockSupplierName
-          defaultStatus="pending"
-          showAtlasEconomics={false}
-          pricingSettings={store.pricingSettings}
-          title="Add one product"
-          subtitle="Add a single product, or start from a copy of one you already listed and change only what differs (SKU, name, UPC). New products go to Atlas for review."
-          submitLabel="Submit for review"
-          submittedVerb="submitted to Atlas for review"
-        />
-        <ManageProductsList products={supplierProducts} updateProduct={updateProduct} allowDelete={false} />
-        <section className="panel p-5">
-          <h2 className="text-xl font-black text-atlas-navy">How buyers can receive your products</h2>
-          <p className="mt-1 max-w-3xl text-sm text-slate-600">Choose one or more options for each product. Buyers only see options that qualify for their order quantity and destination ZIP.</p>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-xs font-black uppercase text-atlas-blue">1 · Pickup</p><p className="mt-1 font-black text-atlas-navy">Buyer collects the order</p><p className="mt-1 text-xs leading-5 text-slate-600">Enter the authorized warehouse address and when the order will be ready. No shipping charge.</p></div>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-black uppercase text-emerald-700">2 · Included delivery</p><p className="mt-1 font-black text-atlas-navy">You deliver full pallets</p><p className="mt-1 text-xs leading-5 text-slate-600">Use only when delivery is already included in your pallet price. Set the ZIP area and minimum pallets.</p></div>
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-black uppercase text-amber-700">3 · Paid shipping</p><p className="mt-1 font-black text-atlas-navy">Buyer pays shipping</p><p className="mt-1 text-xs leading-5 text-slate-600">Define where you ship, the method, rate basis, price, and lead time. Atlas adds it at checkout.</p></div>
-          </div>
-          <div className="mt-4 grid gap-4">
-            {supplierProducts.map((product) => (
-              <FulfillmentRulesEditor key={product.id} product={product} onSave={(rules) => updateProduct(product.id, { spec: { ...(product.spec ?? {}), fulfillment: rules } })} />
-            ))}
-            {!supplierProducts.length && <p className="rounded-md bg-atlas-light p-4 text-sm text-slate-600">Add a product before configuring fulfillment.</p>}
-          </div>
-        </section>
-        <section className="panel overflow-hidden">
-          <div className="border-b border-slate-200 p-5">
-            <h2 className="text-xl font-black text-atlas-navy">Your products</h2>
-            <p className="mt-1 text-sm text-slate-600">Inventory, status, and details for items you&apos;ve listed.</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1160px] text-left text-sm">
-              <thead className="bg-atlas-light text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-5 py-3">SKU</th>
-                  <th className="px-5 py-3">{t("brandLabel")}</th>
-                  <th className="px-5 py-3">{t("productHeader")}</th>
-                  <th className="px-5 py-3">Customer case price</th>
-                  <th className="px-5 py-3">{t("hub")}</th>
-                  <th className="px-5 py-3">{t("dimensions")}</th>
-                  <th className="px-5 py-3">{t("inventory")}</th>
-                  <th className="px-5 py-3">{t("status")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {supplierProducts.map((product) => (
-                  <tr key={product.id}>
-                    <td className="px-5 py-4 font-bold">{product.sku}</td>
-                    <td className="px-5 py-4">{product.brand}</td>
-                    <td className="px-5 py-4">{product.description}</td>
-                    <td className="px-5 py-4">${(product.spec?.customerCasePrice ?? product.supplierCost).toFixed(2)}</td>
-                    <td className="px-5 py-4">{product.preferredHub ?? "Orlando hub"}</td>
-                    <td className="px-5 py-4">
-                      <p>{t("dimProduct")}: {product.productDimensions || t("notProvided")}</p>
-                      <p>{t("dimCase")}: {product.caseDimensions || t("notProvided")}</p>
-                      <p>{t("dimPallet")}: {product.palletConfiguration || t("notProvided")}</p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <input
-                        className="field w-28"
-                        type="number"
-                        value={product.inventoryAvailable}
-                        onChange={(event) => updateInventory(product.id, Number(event.target.value))}
-                      />
-                    </td>
-                    <td className="px-5 py-4"><StatusBadge status={product.spec?.draft ? "Draft" : product.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-        </div>
-        </div>
-      </main>
-    </>
-  );
+      </>}
+
+      {activeTab === "products" && <><section className="panel p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase text-atlas-blue">Product catalog</p><h2 className="mt-1 text-2xl font-black text-atlas-navy">Products for {companyName}</h2><p className="mt-1 text-sm text-slate-600">Add, upload, edit, save drafts, and submit listings for review from one place.</p></div><button className="btn-primary" type="button" onClick={() => setShowProductForm((value) => !value)}><PackagePlus size={17} />{showProductForm ? "Close product form" : "Add one product"}</button></div></section>
+        <ProductUpload key={companyName} supplierName={companyName} defaultStatus="pending" />
+        {showProductForm && <SingleProductForm addProducts={addProducts} products={supplierProducts} defaultSupplierName={companyName} lockSupplierName defaultStatus="pending" showAtlasEconomics={false} progressiveSteps pricingSettings={store.pricingSettings} title="Add product" subtitle="Complete the five short steps, save a draft at any point, or submit it to Atlas for review." submitLabel="Submit for review" submittedVerb="submitted to Atlas for review" />}
+        <ManageProductsList products={supplierProducts} updateProduct={updateProduct} allowDelete={false} /></>}
+
+      {activeTab === "fulfillment" && <section className="grid gap-5"><div className="panel p-5"><p className="text-xs font-black uppercase text-atlas-blue">Buyer delivery choices</p><h2 className="mt-1 text-2xl font-black text-atlas-navy">Configure fulfillment by product</h2><p className="mt-1 text-sm text-slate-600">Only eligible options appear at checkout based on the supplier, product quantity, and destination ZIP.</p><div className="mt-4 grid gap-3 md:grid-cols-3"><FulfillmentSummary tone="blue" title="Warehouse pickup" body="Buyer collects from an authorized location." /><FulfillmentSummary tone="green" title="Included pallet delivery" body="Supplier delivery is included in the full-pallet price." /><FulfillmentSummary tone="amber" title="Paid shipping" body="Atlas adds the supplier-defined shipping charge at checkout." /></div></div>{supplierProducts.map((product) => <FulfillmentRulesEditor key={product.id} product={product} onSave={(rules) => updateProduct(product.id, { spec: { ...(product.spec ?? {}), fulfillment: rules } })} />)}{!supplierProducts.length && <EmptyAction title="Add a product before configuring fulfillment" action="Go to products" onClick={() => setActiveTab("products")} />}</section>}
+
+      {activeTab === "promotions" && <section className="grid gap-5 lg:grid-cols-[1fr_.9fr]">{supplierProducts.length ? <form className="panel p-6" onSubmit={submitPromotion}><h2 className="flex items-center gap-2 text-xl font-black"><Megaphone className="text-atlas-blue" />Request advertising</h2><p className="mt-2 text-sm text-slate-600">Atlas confirms availability, dates, price, and placement before anything is charged or activated.</p><label className="mt-4 grid gap-2"><span className="label">{t("placementLabel")}</span><select className="field" name="placement" required>{adPlacements.map((placement) => <option key={placement}>{placement}</option>)}</select></label><label className="mt-3 grid gap-2"><span className="label">Product to promote</span><select className="field" name="promotionProduct" required><option value="">Select a product…</option>{supplierProducts.map((product) => <option key={product.id} value={`${product.brand} · ${product.productName}`}>{product.brand} · {product.productName}</option>)}</select></label><textarea className="field mt-3 min-h-24" name="promotion" placeholder={t("promotionPlaceholder")} /><button className="btn-primary mt-3" type="submit">Submit advertising request</button><p className="mt-3 text-sm font-semibold text-atlas-blue">{promo}</p></form> : <EmptyAction title="Add a product before requesting advertising" action="Add product" onClick={() => { setActiveTab("products"); setShowProductForm(true); }} />}<div className="panel p-5"><h2 className="text-xl font-black text-atlas-navy">Advertising requests</h2><p className="mt-1 text-sm text-slate-600">Request → approval → invoice → scheduled → live → results.</p><div className="mt-4 grid gap-2">{promotionSubmissions.map((item) => <div key={item.id} className="rounded-md border border-slate-200 p-3 text-sm"><div className="flex items-center justify-between gap-3"><div><p className="font-black text-atlas-navy">{item.placement}</p><p className="text-xs text-slate-500">{item.productName}</p></div><StatusBadge status={item.status} /></div></div>)}{!promotionSubmissions.length && <p className="rounded-md bg-atlas-light p-4 text-sm text-slate-600">No advertising requests yet.</p>}</div></div></section>}
+
+      {activeTab === "payments" && <SupplierPaymentCard application={supplierApplication} companyName={companyName} />}
+
+      {activeTab === "account" && <section className="grid gap-6 lg:grid-cols-2"><div className="panel p-5"><h2 className="flex items-center gap-2 text-xl font-black text-atlas-navy"><FileText size={20} className="text-atlas-blue" />Documents and onboarding</h2>{isPrelisted ? <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">This company was pre-listed by Atlas and has not registered. Product drafts may be prepared now; documents and payment setup begin after registration.</p> : <div className="mt-4 grid gap-2">{supplierApplication?.documents.map((document) => <div key={document.id} className="flex items-start justify-between gap-3 rounded-md bg-atlas-light p-3 text-sm"><div><p className="font-bold text-atlas-navy">{document.label}</p><p className="text-slate-600">{document.fileName ?? t("noFileUploaded")}</p></div><StatusBadge status={document.status} /></div>)}{!supplierApplication?.documents.length && <p className="text-sm text-slate-600">No documents have been submitted.</p>}</div>}{documentAlerts.length > 0 && <p className="mt-3 text-sm font-bold text-amber-700">{documentAlerts.length} document alert{documentAlerts.length === 1 ? "" : "s"} need attention.</p>}</div><div className="panel p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase text-atlas-blue">Annual membership</p><h2 className="mt-1 text-xl font-black text-atlas-navy">{membership.name} plan</h2><p className="mt-1 text-sm text-slate-600">{membership.caseFee}% case fee · {membership.palletFee}% pallet fee · {membership.promotionFee}% promotion fee</p>{membershipAssignment?.expiresAt && <p className="mt-1 text-xs text-slate-500">Active through {membershipAssignment.expiresAt}</p>}</div><CreditCard className="text-atlas-blue" /></div><button className="btn-secondary mt-4" type="button" onClick={() => setShowPlans((value) => !value)}>{showPlans ? "Hide plan comparison" : "Compare annual plans"}</button>{showPlans && <div className="mt-4 grid gap-3 sm:grid-cols-2">{supplierMembershipPlans.map((plan) => <div key={plan.id} className={`rounded-xl border-2 p-3 ${plan.id === membership.id ? "border-atlas-blue bg-sky-50" : "border-slate-200"}`}><div className="flex justify-between gap-2"><p className="font-black text-atlas-navy">{plan.name}</p><p className="font-black">${plan.annualPrice}/yr</p></div><p className="mt-2 text-xs text-slate-600">{plan.caseFee}% case · {plan.palletFee}% pallet · {plan.listingLimit ?? "Unlimited"} listings</p></div>)}</div>}<p className="mt-4 rounded-md bg-atlas-light p-3 text-xs text-slate-600">Atlas activates upgrades after annual payment is confirmed.</p></div></section>}
+    </div>
+  </main></>;
 }
+
+function WorkspaceMetric({ label, value, detail }: { label: string; value: string | number; detail: string }) { return <div className="panel p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-2xl font-black capitalize text-atlas-navy">{value}</p><p className="mt-1 text-xs text-slate-600">{detail}</p></div>; }
+function ChecklistItem({ complete, title, body }: { complete: boolean; title: string; body: string }) { return <div className="flex gap-3 rounded-lg border border-slate-200 p-3">{complete ? <CheckCircle2 className="shrink-0 text-emerald-600" size={21} /> : <CircleAlert className="shrink-0 text-amber-600" size={21} />}<div><p className="font-black text-atlas-navy">{title}</p><p className="text-sm text-slate-600">{body}</p></div></div>; }
+function FulfillmentSummary({ tone, title, body }: { tone: "blue" | "green" | "amber"; title: string; body: string }) { const color = tone === "green" ? "border-emerald-200 bg-emerald-50" : tone === "amber" ? "border-amber-200 bg-amber-50" : "border-sky-200 bg-sky-50"; return <div className={`rounded-xl border p-4 ${color}`}><p className="font-black text-atlas-navy">{title}</p><p className="mt-1 text-xs text-slate-600">{body}</p></div>; }
+function EmptyAction({ title, action, onClick }: { title: string; action: string; onClick: () => void }) { return <div className="panel p-6 text-center"><p className="font-black text-atlas-navy">{title}</p><button className="btn-primary mt-3" type="button" onClick={onClick}>{action}</button></div>; }
 
 function FulfillmentRulesEditor({ product, onSave }: { product: Product; onSave: (rules: SupplierFulfillmentRules) => void }) {
   const existing = product.spec?.fulfillment;
