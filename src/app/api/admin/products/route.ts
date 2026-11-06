@@ -53,13 +53,9 @@ export async function POST(request: Request) {
     if (supplierError) return NextResponse.json({ error: supplierError.message }, { status: 400 });
     for (const supplier of suppliers ?? []) supplierIds.set(supplier.legal_name, supplier.id);
 
-    const missing = supplierNames.filter((name) => !supplierIds.has(name));
-    if (missing.length > 0) {
-      return NextResponse.json(
-        { error: `Create or approve the supplier account before assigning products: ${missing.join(", ")}.` },
-        { status: 400 }
-      );
-    }
+    // Atlas may pre-list a supplier and enter products before that company has
+    // created login credentials. Those products retain supplier_name and use a
+    // null profile id until registration connects the account.
   }
 
   const { error } = await service.from("products").upsert(
