@@ -1015,6 +1015,7 @@ export function SingleProductForm({
   submitLabel = "Publish product",
   submittedVerb = "published to the catalog",
   showAtlasEconomics = true,
+  progressiveSteps = false,
   pricingSettings
 }: {
   addProducts: ReturnType<typeof useAtlasStore>["addProducts"];
@@ -1029,6 +1030,8 @@ export function SingleProductForm({
   submittedVerb?: string;
   /** Atlas-only cost/margin/channel pricing. Hidden for supplier-facing use. */
   showAtlasEconomics?: boolean;
+  /** Break the long supplier form into a guided five-step workflow. */
+  progressiveSteps?: boolean;
   pricingSettings: PricingSettings;
 }) {
   const [form, setForm] = useState({ ...blankProductForm, supplierName: defaultSupplierName });
@@ -1036,6 +1039,7 @@ export function SingleProductForm({
   const [message, setMessage] = useState("");
   const [copyFromId, setCopyFromId] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   const copyOptions = [...products].sort((a, b) => `${a.brand} ${a.productName}`.localeCompare(`${b.brand} ${b.productName}`));
 
@@ -1315,7 +1319,7 @@ export function SingleProductForm({
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn-secondary" type="button" onClick={saveDraft}>Save draft</button>
-          <button className="btn-primary" type="button" onClick={() => void addProduct()}>{submitLabel}</button>
+          {(!progressiveSteps || currentStep === 5) && <button className="btn-primary" type="button" onClick={() => void addProduct()}>{submitLabel}</button>}
         </div>
       </div>
 
@@ -1341,7 +1345,12 @@ export function SingleProductForm({
         </div>
       )}
 
+      {progressiveSteps && <div className="mt-5 grid grid-cols-5 gap-2" aria-label="Product setup progress">
+        {["Basics", "Case & pallet", "Pricing", "Inventory", "Location"].map((label, index) => <button key={label} type="button" onClick={() => setCurrentStep(index + 1)} className={`rounded-lg px-2 py-3 text-xs font-black ${currentStep === index + 1 ? "bg-atlas-navy text-white" : currentStep > index + 1 ? "bg-emerald-50 text-emerald-800" : "bg-atlas-light text-slate-600"}`}><span className="block text-[10px] uppercase opacity-70">Step {index + 1}</span>{label}</button>)}
+      </div>}
+
       <div className="mt-5 grid gap-4 md:grid-cols-3">
+        <div className={progressiveSteps && currentStep !== 1 ? "hidden" : "contents"}>
         <ProductSectionHeading>Identifiers</ProductSectionHeading>
         <AdminProductInput label="SKU *" value={form.sku} onChange={updateField("sku")} />
         <AdminProductInput label="Brand *" value={form.brand} onChange={updateField("brand")} />
@@ -1410,7 +1419,9 @@ export function SingleProductForm({
           <span className="text-sm font-bold text-slate-700">Description</span>
           <textarea className="input min-h-20" value={form.description} onChange={updateField("description")} />
         </label>
+        </div>
 
+        <div className={progressiveSteps && currentStep !== 2 ? "hidden" : "contents"}>
         <ProductSectionHeading>Each / unit</ProductSectionHeading>
         <DimRow label="Unit dimensions" l={form.unitL} w={form.unitW} h={form.unitH} onL={updateField("unitL")} onW={updateField("unitW")} onH={updateField("unitH")} />
         <WeightInput label="Unit weight" value={form.unitWeight} unit={form.unitWeightUnit} onValue={updateField("unitWeight")} onUnit={updateField("unitWeightUnit")} />
@@ -1454,7 +1465,9 @@ export function SingleProductForm({
             Add case dimensions above and Atlas will auto-compute cases-per-pallet — or enter Ti/Hi to set it manually.
           </div>
         )}
+        </div>
 
+        <div className={progressiveSteps && currentStep !== 5 ? "hidden" : "contents"}>
         <ProductSectionHeading>Inventory location &amp; order routing</ProductSectionHeading>
         <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-slate-700 md:col-span-3"><p className="font-black text-atlas-navy">These are two different questions.</p><p><strong>Inventory location</strong> is where the product sits before an order. <strong>Order routing</strong> is what happens only after Atlas approves and releases the order.</p></div>
         <label className="grid gap-1">
@@ -1490,7 +1503,9 @@ export function SingleProductForm({
             </label>
           </>
         )}
+        </div>
 
+        <div className={progressiveSteps && currentStep !== 3 ? "hidden" : "contents"}>
         <ProductSectionHeading>Pricing</ProductSectionHeading>
         <AdminProductInput label={showAtlasEconomics ? "Case cost to Atlas (for margin)" : "Customer price per CASE ($)"} type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
         <AdminProductInput label="Suggested retail per UNIT ($)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
@@ -1548,14 +1563,18 @@ export function SingleProductForm({
             </div>
           </div>
         )}
+        </div>
 
+        <div className={progressiveSteps && currentStep !== 4 ? "hidden" : "contents"}>
         <ProductSectionHeading>Stock &amp; order minimum</ProductSectionHeading>
         <AdminProductInput label="Min order (cases)" type="number" value={form.moq} onChange={updateField("moq")} />
         <AdminProductInput label="Min order value ($, optional)" type="number" value={form.minOrderValue} onChange={updateField("minOrderValue")} />
         <AdminProductInput label="Inventory available" type="number" value={form.inventoryAvailable} onChange={updateField("inventoryAvailable")} />
         <AdminProductInput label="Lead time" value={form.leadTime} onChange={updateField("leadTime")} />
         <AdminProductInput label="Promotion label" value={form.promotion} onChange={updateField("promotion")} />
+        </div>
       </div>
+      {progressiveSteps && <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-4"><button className="btn-secondary" type="button" disabled={currentStep === 1} onClick={() => setCurrentStep((step) => Math.max(1, step - 1))}>Back</button><p className="text-sm font-bold text-slate-500">Step {currentStep} of 5</p>{currentStep < 5 ? <button className="btn-primary" type="button" onClick={() => setCurrentStep((step) => Math.min(5, step + 1))}>Continue</button> : <button className="btn-primary" type="button" onClick={() => void addProduct()}>{submitLabel}</button>}</div>}
       {message && <p className="mt-4 rounded-md bg-sky-50 p-3 text-sm font-bold text-atlas-blue">{message}</p>}
     </section>
   );
