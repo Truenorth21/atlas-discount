@@ -415,6 +415,39 @@ export const sampleProducts: Product[] = [
 
 export const sampleApplications: Application[] = [
   {
+    id: "prelisted-supplier-true-north-trading",
+    type: "supplier",
+    companyName: "True North Trading",
+    contactName: "Not registered",
+    email: "",
+    phone: "",
+    status: "pending",
+    documents: [],
+    submittedAt: "2026-11-06"
+  },
+  {
+    id: "prelisted-supplier-h-and-b",
+    type: "supplier",
+    companyName: "H&B",
+    contactName: "Not registered",
+    email: "",
+    phone: "",
+    status: "pending",
+    documents: [],
+    submittedAt: "2026-11-06"
+  },
+  {
+    id: "prelisted-supplier-fl-distribution-group",
+    type: "supplier",
+    companyName: "FL Distribution Group",
+    contactName: "Not registered",
+    email: "",
+    phone: "",
+    status: "pending",
+    documents: [],
+    submittedAt: "2026-11-06"
+  },
+  {
     id: "app-201",
     type: "buyer",
     companyName: "Value Corner Markets",
