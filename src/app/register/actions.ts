@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { ADMIN_EMAIL, appUrl, emailLayout, esc, sendEmail } from "@/lib/email";
 import type { UserRole } from "@/lib/types";
 import { SUPPLIER_AGREEMENT_VERSION } from "@/lib/supplier-agreement";
@@ -89,7 +90,7 @@ export async function registerUser(formData: FormData) {
     });
 
     if (role === "supplier") {
-      await supabase!.from("supplier_profiles").upsert({
+      const { data: supplierProfile } = await supabase!.from("supplier_profiles").upsert({
         profile_id: userId,
         legal_name: companyName,
         status: "pending",
@@ -102,7 +103,22 @@ export async function registerUser(formData: FormData) {
           phone: String(formData.get("warehousePhone") || ""),
           hours: String(formData.get("warehouseHours") || "")
         }
-      });
+      }).select("id").single();
+
+      // Products may have been entered by Atlas before the supplier registered.
+      // Attach those records now so the supplier can edit them under normal RLS.
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      if (supplierProfile?.id && serviceKey && supabaseUrl) {
+        const service = createServiceClient(supabaseUrl, serviceKey, {
+          auth: { persistSession: false, autoRefreshToken: false }
+        });
+        await service
+          .from("products")
+          .update({ supplier_profile_id: supplierProfile.id })
+          .is("supplier_profile_id", null)
+          .ilike("supplier_name", companyName.trim());
+      }
     }
 
     if (role === "route_seller") {
