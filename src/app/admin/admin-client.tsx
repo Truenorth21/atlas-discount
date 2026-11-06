@@ -488,6 +488,7 @@ export function ManageProductsList({
   deleteProduct,
   allowDelete = true,
   supplierFacing = false,
+  canPublish = false,
   pricingSettings
 }: {
   products: Product[];
@@ -495,6 +496,7 @@ export function ManageProductsList({
   deleteProduct?: ReturnType<typeof useAtlasStore>["deleteProduct"];
   allowDelete?: boolean;
   supplierFacing?: boolean;
+  canPublish?: boolean;
   pricingSettings?: PricingSettings;
 }) {
   const grouped = Array.from(
@@ -527,7 +529,7 @@ export function ManageProductsList({
               </div>
               <div className="mt-3 grid gap-3">
                 {items.map((product) => (
-                  <ManageProductRow key={product.id} product={product} updateProduct={updateProduct} deleteProduct={deleteProduct} allowDelete={allowDelete} supplierFacing={supplierFacing} pricingSettings={pricingSettings} />
+                  <ManageProductRow key={product.id} product={product} updateProduct={updateProduct} deleteProduct={deleteProduct} allowDelete={allowDelete} supplierFacing={supplierFacing} canPublish={canPublish} pricingSettings={pricingSettings} />
                 ))}
               </div>
             </div>
@@ -544,6 +546,7 @@ function ManageProductRow({
   deleteProduct,
   allowDelete,
   supplierFacing,
+  canPublish,
   pricingSettings
 }: {
   product: Product;
@@ -551,6 +554,7 @@ function ManageProductRow({
   deleteProduct?: ReturnType<typeof useAtlasStore>["deleteProduct"];
   allowDelete: boolean;
   supplierFacing: boolean;
+  canPublish: boolean;
   pricingSettings?: PricingSettings;
 }) {
   const [form, setForm] = useState({
@@ -605,6 +609,19 @@ function ManageProductRow({
       minOrderValue: toNum(form.minOrderValue) ?? 0,
       leadTime: form.leadTime || "Ready now",
       spec: { ...product.spec, casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated, customerCasePrice: supplierFacing ? enteredCasePrice : product.spec?.customerCasePrice, customerPalletPrice: supplierFacing ? enteredPalletPrice : product.spec?.customerPalletPrice }
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  }
+
+  function advanceProduct() {
+    // Apply any edits currently visible in the form before changing workflow status.
+    save();
+    const wasLocalDraft = !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(product.id);
+    updateProduct(product.id, {
+      id: wasLocalDraft ? crypto.randomUUID() : product.id,
+      status: canPublish ? "approved" : "pending",
+      spec: { ...product.spec, draft: false }
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -687,6 +704,8 @@ function ManageProductRow({
         <button className="btn-secondary px-4 py-2 text-sm" type="button" onClick={save}>
           {saved ? "Saved" : "Save changes"}
         </button>
+        {product.spec?.draft && <button className="btn-primary px-4 py-2 text-sm" type="button" onClick={advanceProduct}>{canPublish ? "Publish product" : "Submit for review"}</button>}
+        {canPublish && product.status === "pending" && !product.spec?.draft && <button className="btn-primary px-4 py-2 text-sm" type="button" onClick={advanceProduct}>Approve and publish</button>}
         <span className="text-xs text-slate-500">Min order: buyer must reach {form.moq || 1} cases{form.minOrderValue ? ` or ${formatMoney(toNum(form.minOrderValue) ?? 0)}` : ""}.</span>
       </div>
     </div>
@@ -1299,7 +1318,7 @@ export function SingleProductForm({
     const location = form.stocking === "atlas_hialeah" ? "Atlas Hialeah Gardens hub" : form.stocking === "atlas_orlando" ? "Atlas Orlando hub (future)" : form.pickupAddress || "Supplier warehouse";
     const palletCaseCount = draftPalletCases || autoCasesPerPallet;
     const draft: Product = {
-      id: `draft-${Date.now()}`,
+      id: crypto.randomUUID(),
       sku: form.sku.trim() || `DRAFT-${Date.now()}`,
       brand: form.brand.trim(),
       upc: form.upc.trim(),
