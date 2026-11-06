@@ -550,6 +550,7 @@ function ManageProductRow({
     productName: product.productName,
     description: product.description,
     unitSize: product.unitSize,
+    imageUrl: product.imageUrl ?? "",
     casePack: String(product.casePack || 1),
     supplierCost: product.supplierCost ? String(product.supplierCost) : "",
     suggestedRetail: product.suggestedRetail ? String(product.suggestedRetail) : "",
@@ -562,6 +563,8 @@ function ManageProductRow({
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [refrigerated, setRefrigerated] = useState(!!product.spec?.refrigerated);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageMessage, setImageMessage] = useState("");
 
   function set(field: keyof typeof form) {
     return (event: ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -573,6 +576,7 @@ function ManageProductRow({
       productName: form.productName.trim() || product.productName,
       description: form.description.trim(),
       unitSize: form.unitSize.trim(),
+      imageUrl: form.imageUrl.trim(),
       casePack: toNum(form.casePack) ?? 1,
       supplierCost: toNum(form.supplierCost) ?? 0,
       suggestedRetail: toNum(form.suggestedRetail) ?? 0,
@@ -584,6 +588,19 @@ function ManageProductRow({
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
+  }
+
+  async function replaceImage(file: File) {
+    setUploadingImage(true);
+    setImageMessage("");
+    const { url, error } = await uploadProductImage(file);
+    if (error) {
+      setImageMessage(`Image upload failed: ${error}`);
+    } else if (url) {
+      setForm((current) => ({ ...current, imageUrl: url }));
+      setImageMessage("New image is ready. Select Save changes to apply it.");
+    }
+    setUploadingImage(false);
   }
 
   return (
@@ -617,6 +634,21 @@ function ManageProductRow({
         <ManageField label="Product name" value={form.productName} onChange={set("productName")} />
         <ManageField label="Description" value={form.description} onChange={set("description")} />
         <ManageField label="Unit size" value={form.unitSize} onChange={set("unitSize")} />
+        <div className="grid gap-1 sm:col-span-2 lg:col-span-4">
+          <span className="text-xs font-bold text-slate-600">Product picture</span>
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-atlas-light p-3">
+            {form.imageUrl ? <img src={form.imageUrl} alt="Product preview" className="h-20 w-20 rounded-lg border border-slate-200 bg-white object-contain" /> : <span className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-slate-400"><ImagePlus size={22} /></span>}
+            <div className="grid min-w-[240px] flex-1 gap-2 sm:grid-cols-[1fr_auto]">
+              <input className="field" value={form.imageUrl} onChange={set("imageUrl")} placeholder="Paste an image URL or upload a file" />
+              <label className="btn-secondary cursor-pointer whitespace-nowrap">
+                {uploadingImage ? "Uploading…" : form.imageUrl ? "Replace picture" : "Upload picture"}
+                <input className="sr-only" type="file" accept="image/*" disabled={uploadingImage} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceImage(file); }} />
+              </label>
+            </div>
+            {form.imageUrl && <button className="text-xs font-bold text-red-700 underline" type="button" onClick={() => { setForm((current) => ({ ...current, imageUrl: "" })); setImageMessage("Picture will be removed when you save changes."); }}>Remove picture</button>}
+            {imageMessage && <p className={`w-full text-xs font-bold ${imageMessage.includes("failed") ? "text-red-700" : "text-atlas-blue"}`}>{imageMessage}</p>}
+          </div>
+        </div>
         <ManageField label="Units per case" type="number" value={form.casePack} onChange={set("casePack")} />
         <ManageField label="SRP / unit ($)" type="number" value={form.suggestedRetail} onChange={set("suggestedRetail")} placeholder="e.g. 4.99" />
         <ManageField label="Case cost ($)" type="number" value={form.supplierCost} onChange={set("supplierCost")} />
