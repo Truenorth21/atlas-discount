@@ -579,24 +579,27 @@ function ManageProductRow({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageMessage, setImageMessage] = useState("");
   const [pricingMessage, setPricingMessage] = useState("");
+  const [savingProduct, setSavingProduct] = useState(false);
 
   function set(field: keyof typeof form) {
     return (event: ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [field]: event.target.value }));
   }
-  function save() {
+  function buildProduct(id = product.id, status = product.status, draft = product.spec?.draft): Product | null {
     const cpp = toNum(form.casesPerPallet);
     const enteredCasePrice = toNum(form.supplierCost) ?? 0;
     const enteredPalletPrice = toNum(form.palletPrice);
     const standardPalletPrice = enteredCasePrice * (cpp ?? 0);
     if (supplierFacing && enteredPalletPrice !== undefined && standardPalletPrice > 0 && enteredPalletPrice >= standardPalletPrice) {
       setPricingMessage(`Promotional pallet price must be lower than the standard pallet price of ${formatMoney(standardPalletPrice)}.`);
-      return false;
+      return null;
     }
     setPricingMessage("");
     const membershipPlan = pricingSettings ? supplierMembershipPlan(pricingSettings, product.supplierName) : undefined;
     const supplierCasePayout = supplierFacing && membershipPlan ? enteredCasePrice * (1 - membershipPlan.caseFee / 100) : enteredCasePrice;
     const supplierPalletPayout = supplierFacing && membershipPlan && enteredPalletPrice !== undefined ? enteredPalletPrice * (1 - membershipPlan.palletFee / 100) : enteredPalletPrice;
-    updateProduct(product.id, {
+    return { ...product,
+      id,
+      status,
       brand: form.brand.trim() || product.brand,
       productName: form.productName.trim() || product.productName,
       description: form.description.trim(),
@@ -615,24 +618,58 @@ function ManageProductRow({
       moq: toNum(form.moq) ?? 1,
       minOrderValue: toNum(form.minOrderValue) ?? 0,
       leadTime: form.leadTime || "Ready now",
-      spec: { ...product.spec, casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated, customerCasePrice: supplierFacing ? enteredCasePrice : product.spec?.customerCasePrice, customerPalletPrice: supplierFacing ? enteredPalletPrice : product.spec?.customerPalletPrice }
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1800);
-    return true;
+      spec: { ...product.spec, draft, casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated, customerCasePrice: supplierFacing ? enteredCasePrice : product.spec?.customerCasePrice, customerPalletPrice: supplierFacing ? enteredPalletPrice : product.spec?.customerPalletPrice }
+    };
   }
 
-  function advanceProduct() {
-    // Apply any edits currently visible in the form before changing workflow status.
-    if (!save()) return;
-    const wasLocalDraft = !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(product.id);
-    updateProduct(product.id, {
-      id: wasLocalDraft ? crypto.randomUUID() : product.id,
-      status: canPublish ? "approved" : "pending",
-      spec: { ...product.spec, draft: false }
+  async function persist(candidate: Product, create = false) {
+    const response = await fetch(create ? "/api/admin/products" : `/api/products/${candidate.id}`, {
+      method: create ? "POST" : "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(create ? { products: [candidate] } : { product: candidate })
     });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1800);
+    const result = await response.json() as { error?: string };
+    if (!response.ok) throw new Error(result.error ?? "The shared catalog could not be updated.");
+  }
+
+  async function save() {
+    const existingSharedId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(product.id);
+    const candidate = buildProduct(!existingSharedId && canPublish ? crypto.randomUUID() : product.id);
+    if (!candidate) return false;
+    const sharedId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate.id);
+    setSavingProduct(true);
+    setImageMessage("");
+    try {
+      if (sharedId) await persist(candidate, !existingSharedId && canPublish);
+      updateProduct(product.id, candidate);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1800);
+      return true;
+    } catch (error) {
+      setImageMessage(error instanceof Error ? `Product was not saved: ${error.message}` : "Product was not saved to the shared catalog.");
+      return false;
+    } finally {
+      setSavingProduct(false);
+    }
+  }
+
+  async function advanceProduct() {
+    const sharedId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(product.id);
+    const nextId = sharedId ? product.id : crypto.randomUUID();
+    const candidate = buildProduct(nextId, canPublish ? "approved" : "pending", false);
+    if (!candidate) return;
+    setSavingProduct(true);
+    setImageMessage("");
+    try {
+      await persist(candidate, canPublish && (!sharedId || product.spec?.draft === true));
+      updateProduct(product.id, candidate);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1800);
+    } catch (error) {
+      setImageMessage(error instanceof Error ? `Product was not published: ${error.message}` : "Product was not published to the shared catalog.");
+    } finally {
+      setSavingProduct(false);
+    }
   }
 
   async function replaceImage(file: File) {
@@ -710,11 +747,11 @@ function ManageProductRow({
         </label>
       </div>
       <div className="mt-3 flex items-center gap-3">
-        <button className="btn-secondary px-4 py-2 text-sm" type="button" onClick={save}>
-          {saved ? "Saved" : "Save changes"}
+        <button className="btn-secondary px-4 py-2 text-sm" type="button" disabled={savingProduct} onClick={() => void save()}>
+          {savingProduct ? "Saving…" : saved ? "Saved to live catalog" : "Save changes"}
         </button>
-        {product.spec?.draft && <button className="btn-primary px-4 py-2 text-sm" type="button" onClick={advanceProduct}>{canPublish ? "Publish product" : "Submit for review"}</button>}
-        {canPublish && product.status === "pending" && !product.spec?.draft && <button className="btn-primary px-4 py-2 text-sm" type="button" onClick={advanceProduct}>Approve and publish</button>}
+        {product.spec?.draft && <button className="btn-primary px-4 py-2 text-sm" type="button" disabled={savingProduct} onClick={() => void advanceProduct()}>{canPublish ? "Publish product" : "Submit for review"}</button>}
+        {canPublish && product.status === "pending" && !product.spec?.draft && <button className="btn-primary px-4 py-2 text-sm" type="button" disabled={savingProduct} onClick={() => void advanceProduct()}>Approve and publish</button>}
         <span className="text-xs text-slate-500">Min order: buyer must reach {form.moq || 1} cases{form.minOrderValue ? ` or ${formatMoney(toNum(form.minOrderValue) ?? 0)}` : ""}.</span>
       </div>
       {pricingMessage && <p className="mt-3 rounded-md bg-red-50 p-3 text-sm font-bold text-red-700">{pricingMessage}</p>}
