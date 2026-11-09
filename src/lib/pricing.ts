@@ -352,9 +352,10 @@ export function calculateLinePricing(
     const looseCases = line.quantity - palletCases;
     const revenue = palletCases * palletUnit + looseCases * casePrice;
     const isPromotion = Boolean(line.product.promotion?.trim());
+    const hasPromotionalPalletPrice = Boolean(line.product.spec?.customerPalletPrice);
     const membership = supplierMembershipPlan(settings, line.product.supplierName);
     const standardFee = (isPromotion ? membership.promotionFee : membership.caseFee) / 100;
-    const palletFee = (isPromotion ? membership.promotionFee : membership.palletFee) / 100;
+    const palletFee = (isPromotion || hasPromotionalPalletPrice ? membership.promotionFee : membership.palletFee) / 100;
     const atlasFee = marketplace ? looseCases * casePrice * standardFee + palletCases * palletUnit * palletFee : 0;
     const supplierCost = marketplace ? revenue - atlasFee : line.product.supplierCost * line.quantity;
 
