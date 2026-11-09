@@ -670,7 +670,10 @@ function ManageProductRow({
     setSavingProduct(true);
     setImageMessage("");
     try {
-      await persist(candidate, canPublish && (!sharedId || product.spec?.draft === true));
+      // A legacy browser draft is created in the shared catalog by Save changes.
+      // Once it has a UUID, publishing must update that record instead of trying
+      // to insert the same UUID again.
+      await persist(candidate, !sharedId);
       if (product.imageUrl && product.imageUrl !== candidate.imageUrl) await deleteProductImage(product.imageUrl);
       updateProduct(product.id, candidate);
       setSaved(true);
