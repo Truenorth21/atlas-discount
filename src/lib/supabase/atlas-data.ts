@@ -487,13 +487,13 @@ type OrderRow = {
 type OrderItemRow = { order_request_id: string; product_id: string; quantity: number };
 
 /** Persists a buyer's quote/order request and its line items. */
-export async function saveOrderRequest(order: OrderRequest): Promise<void> {
+export async function saveOrderRequest(order: OrderRequest): Promise<string | null> {
   const supabase = createClient();
-  if (!supabase) return;
+  if (!supabase) return null;
 
   const { data: userData } = await supabase.auth.getUser();
   const buyerId = userData.user?.id;
-  if (!buyerId) return;
+  if (!buyerId) return null;
 
   const { data: buyerProfile } = await supabase
     .from("profiles")
@@ -515,7 +515,7 @@ export async function saveOrderRequest(order: OrderRequest): Promise<void> {
     .select("id")
     .single();
 
-  if (error || !data) return;
+  if (error || !data) return null;
 
   // Only persist items that reference real Supabase products (UUID ids).
   const items = (order.lineItems ?? []).filter((line) => isUuid(line.product.id));
@@ -524,6 +524,7 @@ export async function saveOrderRequest(order: OrderRequest): Promise<void> {
       .from("order_request_items")
       .insert(items.map((line) => ({ order_request_id: data.id, product_id: line.product.id, quantity: line.quantity })));
   }
+  return data.id;
 }
 
 /** Loads order/quote requests with their line items for the admin queue. */
