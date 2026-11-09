@@ -293,6 +293,19 @@ export async function loadSharedAtlasData() {
   const supabase = createClient();
   if (!supabase) return {};
 
+  // Use the same-origin public endpoint first so catalog loading is consistent
+  // across Safari privacy modes and browsers that restrict client storage.
+  let publicRows: ProductRow[] = [];
+  try {
+    const response = await fetch("/api/catalog/products", { cache: "no-store" });
+    if (response.ok) {
+      const payload = await response.json() as { products?: ProductRow[] };
+      publicRows = payload.products ?? [];
+    }
+  } catch {
+    // The direct Supabase view query below remains as the fallback.
+  }
+
   // Buyers and visitors read the catalog view (sell prices computed in the database,
   // supplier cost never leaves the server). Admin/supplier sessions also get raw
   // table rows via RLS; those override the view rows so internal tools keep cost data.
@@ -303,6 +316,7 @@ export async function loadSharedAtlasData() {
   ]);
 
   const merged = new Map<string, ProductRow>();
+  for (const row of publicRows) merged.set(row.id, row);
   for (const row of (viewRows as ProductRow[] | null) ?? []) merged.set(row.id, row);
   for (const row of (tableRows as ProductRow[] | null) ?? []) merged.set(row.id, row);
   const products = merged.size > 0 ? Array.from(merged.values()).map(productFromRow) : undefined;
