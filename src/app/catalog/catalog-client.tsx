@@ -24,9 +24,9 @@ const categoryLabels: Record<string, string> = {
   "Closeout / Special buys": "Closeouts",
 };
 
-export default function CatalogClient({ isAuthenticated, userId, userRole, isApproved = false }: { isAuthenticated: boolean; userId?: string; userRole?: string; isApproved?: boolean }) {
+export default function CatalogClient({ isAuthenticated, userId, userRole, isApproved = false, pricingTierId = "retailer" }: { isAuthenticated: boolean; userId?: string; userRole?: string; isApproved?: boolean; pricingTierId?: string }) {
   const { t } = useI18n();
-  const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, verifyDocuments, toggleFavorite, reorder, setCurrentTier } = useAtlasStore();
+  const { store, addToCart, addOrder, removeFromCart, updateCartQuantity, toggleFavorite, reorder, setCurrentTier } = useAtlasStore();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(searchParams.get("q") || "");
   const [category, setCategory] = useState(searchParams.get("category") || "All");
@@ -39,9 +39,8 @@ export default function CatalogClient({ isAuthenticated, userId, userRole, isApp
   const [submittedId, setSubmittedId] = useState<string | null>(null);
 
   const isAdminPreview = userRole === "admin";
-  const canSeePricing = (isAuthenticated && (isApproved || store.documentsVerified)) || isAdminPreview;
-  const accountEntry = userId ? (store.pricingSettings.accountPricing ?? []).find((entry) => entry.accountId === userId) : undefined;
-  const buyerTierId = accountEntry?.tierId ?? (userRole === "route_seller" ? "retailer" : store.currentTierId);
+  const canSeePricing = (isAuthenticated && isApproved) || isAdminPreview;
+  const buyerTierId = isAdminPreview ? store.currentTierId : pricingTierId;
   const pricingContext: PricingContext | undefined = canSeePricing ? { tierId: buyerTierId, accountId: userId } : undefined;
 
   const approvedProducts = store.products.filter((product) => product.status === "approved");
@@ -99,15 +98,15 @@ export default function CatalogClient({ isAuthenticated, userId, userRole, isApp
     setCartOpen(true);
   }
 
-  function submitOrder() {
+  async function submitOrder() {
     if (!isAuthenticated) {
       window.location.href = "/login?next=/catalog";
       return;
     }
     if (!store.cart.length || minimumIssues.length || !allSuppliersEligible) return;
-    const id = `Q-${Math.floor(1000 + Math.random() * 9000)}`;
     const pickupOnly = selectedFulfillment.every((item) => item.option.id === "pickup");
-    addOrder({ ...draftOrder, id, estimatedValue: orderTotal, status: "Ready to confirm" });
+    const saved = await addOrder({ ...draftOrder, id: "pending", estimatedValue: orderTotal, status: "Ready to confirm" });
+    const id = saved.id;
     void notifyOrderSubmitted({ id, totalCases, estimatedValue: orderTotal, fulfillmentType: "Supplier-specific fulfillment", pickup: pickupOnly });
     setSubmittedId(id);
   }
@@ -138,7 +137,7 @@ export default function CatalogClient({ isAuthenticated, userId, userRole, isApp
         </section>
 
         <div className="atlas-container py-7">
-          {!isAuthenticated ? <AccessNotice body={t("signInToSeePricing")} action={t("signIn")} href="/login?next=/catalog" /> : !store.documentsVerified && !isAdminPreview ? <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><span>{t("docsHidden")}</span><button className="font-black text-atlas-blue underline" type="button" onClick={verifyDocuments}>{t("markDemoDocs")}</button></div> : null}
+          {!isAuthenticated ? <AccessNotice body={t("signInToSeePricing")} action={t("signIn")} href="/login?next=/catalog" /> : !isApproved && !isAdminPreview ? <div className="mb-5 border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><span>{t("docsHidden")} Atlas will unlock pricing after account approval.</span></div> : null}
 
           {lastOrder && isAuthenticated && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border border-sky-200 bg-sky-50 p-4"><div><p className="font-black text-atlas-navy">{t("buyAgain")}</p><p className="text-xs text-slate-600">Rebuild your most recent wholesale order in one click.</p></div><button type="button" className="btn-primary" onClick={() => { reorder(lastOrder); setCartOpen(true); }}>{t("addAllToCart")}</button></div>}
 
