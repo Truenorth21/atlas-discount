@@ -593,8 +593,13 @@ function ManageProductRow({
     const customerCasePrice = supplierFacing && membershipPlan ? supplierCasePrice / (1 - membershipPlan.caseFee / 100) : supplierCasePrice;
     const customerPalletPrice = promotionalCustomerPalletPrice;
     const standardPalletPrice = customerCasePrice * (cpp ?? 0);
+    const minimumPromotionalPrice = membershipPlan && cpp ? (supplierCasePrice * cpp) / (1 - membershipPlan.promotionFee / 100) : 0;
     if (supplierFacing && customerPalletPrice !== undefined && standardPalletPrice > 0 && customerPalletPrice >= standardPalletPrice) {
       setPricingMessage(`Promotional customer pallet price must be lower than the standard customer pallet price of ${formatMoney(standardPalletPrice)}.`);
+      return null;
+    }
+    if (supplierFacing && customerPalletPrice !== undefined && minimumPromotionalPrice > 0 && customerPalletPrice < minimumPromotionalPrice) {
+      setPricingMessage(`Promotional customer pallet price must be at least ${formatMoney(minimumPromotionalPrice)} so your payout never falls below ${formatMoney(supplierCasePrice)} per case.`);
       return null;
     }
     setPricingMessage("");
@@ -741,7 +746,7 @@ function ManageProductRow({
         {supplierFacing && membershipPlan && <label className="grid gap-1"><span className="text-xs font-bold text-slate-600">Customer price per case (automatic)</span><input className="field h-9 min-h-9 bg-sky-50 font-black text-atlas-blue" readOnly value={(toNum(form.supplierCost) ?? 0) > 0 ? ((toNum(form.supplierCost) ?? 0) / (1 - membershipPlan.caseFee / 100)).toFixed(2) : "Enter your case price"} /></label>}
         {supplierFacing && membershipPlan && <label className="grid gap-1"><span className="text-xs font-bold text-slate-600">Standard customer pallet price (automatic)</span><input className="field h-9 min-h-9 bg-slate-100 font-bold text-slate-600" readOnly value={(toNum(form.supplierCost) ?? 0) > 0 && (toNum(form.casesPerPallet) ?? 0) > 0 ? (((toNum(form.supplierCost) ?? 0) / (1 - membershipPlan.caseFee / 100)) * (toNum(form.casesPerPallet) ?? 0)).toFixed(2) : "Enter case price and cases per pallet"} /></label>}
         <ManageField label={supplierFacing ? "Promotional customer pallet price ($, optional)" : "Pallet cost ($)"} type="number" value={form.palletPrice} onChange={set("palletPrice")} placeholder={supplierFacing ? "final discounted customer price" : "optional"} />
-        {supplierFacing && membershipPlan && toNum(form.palletPrice) !== undefined && <label className="grid gap-1"><span className="text-xs font-bold text-slate-600">Your promotional pallet payout after {membershipPlan.promotionFee}% fee</span><input className="field h-9 min-h-9 bg-emerald-50 font-black text-emerald-700" readOnly value={((toNum(form.palletPrice) ?? 0) * (1 - membershipPlan.promotionFee / 100)).toFixed(2)} /></label>}
+        {supplierFacing && membershipPlan && toNum(form.palletPrice) !== undefined && <label className="grid gap-1"><span className="text-xs font-bold text-slate-600">Your promotional pallet payout after {membershipPlan.promotionFee}% fee</span><input className={`field h-9 min-h-9 font-black ${(toNum(form.palletPrice) ?? 0) * (1 - membershipPlan.promotionFee / 100) >= (toNum(form.supplierCost) ?? 0) * (toNum(form.casesPerPallet) ?? 0) ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`} readOnly value={((toNum(form.palletPrice) ?? 0) * (1 - membershipPlan.promotionFee / 100)).toFixed(2)} /></label>}
         <ManageField label="Min order (cases)" type="number" value={form.moq} onChange={set("moq")} />
         <ManageField label="Min order value ($)" type="number" value={form.minOrderValue} onChange={set("minOrderValue")} placeholder="optional" />
         <ManageField label="Cases per pallet" type="number" value={form.casesPerPallet} onChange={set("casesPerPallet")} placeholder="e.g. 40" />
@@ -1263,6 +1268,13 @@ export function SingleProductForm({
       setMessage(`Promotional pallet price must be lower than the standard pallet price of ${formatMoney(customerCasePrice * effectivePalletCases)}.`);
       return;
     }
+    const minimumPromotionalPrice = !showAtlasEconomics && effectivePalletCases > 0
+      ? (supplierCasePrice * effectivePalletCases) / (1 - liveMembershipPlan.promotionFee / 100)
+      : 0;
+    if (!showAtlasEconomics && customerPalletPrice !== undefined && minimumPromotionalPrice > 0 && customerPalletPrice < minimumPromotionalPrice) {
+      setMessage(`Promotional customer pallet price must be at least ${formatMoney(minimumPromotionalPrice)} so your payout stays at or above ${formatMoney(supplierCasePrice)} per case.`);
+      return;
+    }
 
     const spec: ProductSpec = {
       pricingModel: showAtlasEconomics ? "wholesale_margin" : "marketplace_fee",
@@ -1693,7 +1705,7 @@ export function SingleProductForm({
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-slate-700 sm:col-span-2">
               <p className="font-black text-atlas-navy">Enter what you want to receive. Atlas adds the marketplace fee to calculate the customer price.</p>
               <p className="mt-1">{liveMembershipPlan.name} case fee: {liveMembershipPlan.caseFee}% · Customer case price: {formatMoney((toNum(form.supplierCost) ?? 0) / (1 - liveMembershipPlan.caseFee / 100))}</p>
-              {toNum(form.supplierPalletCost) ? <p className="mt-1">Promotional fee: {liveMembershipPlan.promotionFee}% · Your promotional pallet payout: {formatMoney((toNum(form.supplierPalletCost) ?? 0) * (1 - liveMembershipPlan.promotionFee / 100))}</p> : null}
+              {toNum(form.supplierPalletCost) ? <><p className="mt-1">Promotional fee: {liveMembershipPlan.promotionFee}% · Your promotional pallet payout: {formatMoney((toNum(form.supplierPalletCost) ?? 0) * (1 - liveMembershipPlan.promotionFee / 100))}</p><p className="mt-1 font-bold">Minimum allowed promotional customer price: {effectivePalletCases > 0 ? formatMoney(((toNum(form.supplierCost) ?? 0) * effectivePalletCases) / (1 - liveMembershipPlan.promotionFee / 100)) : "set pallet quantity first"}. This protects your {formatMoney(toNum(form.supplierCost) ?? 0)} per-case price.</p></> : null}
             </div>
           </div>
         )}
