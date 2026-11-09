@@ -641,8 +641,13 @@ function ManageProductRow({
       headers: { "content-type": "application/json" },
       body: JSON.stringify(adminUpsert || create ? { products: [candidate] } : { product: candidate })
     });
-    const result = await response.json() as { error?: string };
-    if (!response.ok) throw new Error(result.error ?? "The shared catalog could not be updated.");
+    const responseText = await response.text();
+    let result: { error?: string } = {};
+    if (responseText) {
+      try { result = JSON.parse(responseText) as { error?: string }; }
+      catch { result = { error: responseText }; }
+    }
+    if (!response.ok) throw new Error(result.error ?? `The shared catalog returned ${response.status}.`);
   }
 
   async function save() {
