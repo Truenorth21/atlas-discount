@@ -25,22 +25,21 @@ export default function RouteSellerDashboardPage() {
     addToCart(product);
     setAdded(product.brand);
   }
-  const demoSeller = store.routeSellers[0];
   const routeSeller = identity ? {
     id: identity.userId, name: identity.name, program: identity.program, territory: identity.territory,
     assignedHub: identity.assignedHub, productLane: identity.productLane, status: identity.status,
     monthlySales: 0, activeAccounts: 0, routeStops: [] as string[]
-  } : demoSeller;
+  } : { id: "loading", name: "Atlas Rep", program: "Independent Seller" as const, territory: "Loading…", assignedHub: "Miami hub" as const, productLane: "Loading…", status: "pending" as const, monthlySales: 0, activeAccounts: 0, routeStops: [] as string[] };
   const referralLink = identity && typeof window !== "undefined" ? `${window.location.origin}/register/buyer?rep=${encodeURIComponent(identity.referralCode)}` : "";
   const commissionPct = store.pricingSettings.routeSellerCommissionPercent ?? 10;
   const estMonthlyCommission = Math.round((routeSeller.monthlySales * commissionPct) / 100);
-  const documentAlerts = getDocumentAlerts(store.applications, "route_seller");
-  const routeApplication = store.applications.find((application) => application.type === "route_seller");
+  const routeApplication = identity ? store.applications.find((application) => application.id === identity.userId) : undefined;
+  const documentAlerts = routeApplication ? getDocumentAlerts([routeApplication], "route_seller") : [];
   const approvedProducts = store.products.filter((product) => product.status === "approved");
   const suggestedProducts = approvedProducts.slice(0, 3);
   const routeStaples = approvedProducts.slice(0, 4);
   const promoted = approvedProducts.find((product) => product.promotion);
-  const leaderboard = identity ? [routeSeller] : [...store.routeSellers].sort((a, b) => b.monthlySales - a.monthlySales);
+  const leaderboard = [routeSeller];
   const insights = [
     ...(promoted ? [`${promoted.brand} ${t("insightRestockSuffix")}`] : []),
     t("insightReorder"),
