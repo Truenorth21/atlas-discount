@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { productToRow } from "@/lib/supabase/atlas-data";
+import { productToRow } from "@/lib/supabase/product-row";
 import type { Product } from "@/lib/types";
 
 export async function POST(request: Request) {
