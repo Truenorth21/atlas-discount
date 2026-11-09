@@ -8,7 +8,7 @@ import { AtlasMark } from "@/components/atlas-logo";
 import { ProductImage } from "@/components/product-image";
 import { useAtlasStore } from "@/components/local-store";
 import { useI18n } from "@/lib/i18n";
-import { atlasCaseSellPrice, formatMoney } from "@/lib/pricing";
+import { buyerCasePrice, formatMoney } from "@/lib/pricing";
 import { loadCurrentRouteSeller } from "@/lib/route-seller-client";
 
 type SheetLine = { productId: string; yourPrice: number };
@@ -30,7 +30,7 @@ export default function DealSheetPage() {
 
   function wholesale(productId: string) {
     const product = store.products.find((item) => item.id === productId);
-    return product ? atlasCaseSellPrice(product.supplierCost, store.pricingSettings) : 0;
+    return product ? buyerCasePrice({ settings: store.pricingSettings, product, tierId: "retailer" }) : 0;
   }
 
   function toggle(productId: string) {
@@ -45,7 +45,7 @@ export default function DealSheetPage() {
 
   function setPrice(productId: string, yourPrice: number) {
     setLines((current) =>
-      current.map((line) => (line.productId === productId ? { ...line, yourPrice: Math.max(0, yourPrice) } : line))
+      current.map((line) => (line.productId === productId ? { ...line, yourPrice: Math.max(wholesale(productId), yourPrice) } : line))
     );
   }
 
