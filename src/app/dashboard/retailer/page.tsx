@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, RotateCcw, ShoppingBasket } from "lucide-react";
 import { Nav } from "@/components/nav";
@@ -12,19 +12,25 @@ import { getDocumentAlerts } from "@/lib/documents";
 import { formatMoney } from "@/lib/pricing";
 import { useI18n } from "@/lib/i18n";
 import type { Product } from "@/lib/types";
+import { loadAdminOrders } from "@/lib/supabase/atlas-data";
+import type { OrderRequest } from "@/lib/types";
 
 export default function RetailerDashboardPage() {
   const { t } = useI18n();
   const { store, addToCart } = useAtlasStore();
   const [added, setAdded] = useState<string | null>(null);
+  const [accountOrders, setAccountOrders] = useState<OrderRequest[]>([]);
+  const [userId, setUserId] = useState("");
+  useEffect(() => { void loadAdminOrders().then((orders) => { if (orders) setAccountOrders(orders); }); }, []);
+  useEffect(() => { void fetch("/api/session", { cache: "no-store" }).then((response) => response.json()).then((session) => setUserId(String(session.userId ?? ""))).catch(() => undefined); }, []);
   const favoriteProducts = store.products.filter((product) => store.favorites.includes(product.id));
   function addAndConfirm(product: Product) {
     addToCart(product);
     setAdded(product.brand);
   }
   const buyAgain = store.products.filter((product) => product.status === "approved").slice(0, 3);
-  const documentAlerts = getDocumentAlerts(store.applications, "buyer");
-  const buyerApplication = store.applications.find((application) => application.type === "buyer");
+  const buyerApplication = userId ? store.applications.find((application) => application.id === userId && application.type === "buyer") : undefined;
+  const documentAlerts = buyerApplication ? getDocumentAlerts([buyerApplication], "buyer") : [];
   const approvedDocs = buyerApplication?.documents.filter((document) => document.status === "approved").length ?? 0;
   const totalDocs = buyerApplication?.documents.length ?? 0;
 
@@ -94,7 +100,7 @@ export default function RetailerDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {store.orders.map((order) => (
+                  {accountOrders.map((order) => (
                     <tr key={order.id}>
                       <td className="px-5 py-4 font-bold">
                         <Link className="text-atlas-blue underline" href={`/quotes/${order.id}`}>
@@ -108,6 +114,7 @@ export default function RetailerDashboardPage() {
                       <td className="px-5 py-4"><StatusBadge status={order.status} /></td>
                     </tr>
                   ))}
+                  {!accountOrders.length && <tr><td className="px-5 py-6 text-slate-500" colSpan={6}>No order requests yet.</td></tr>}
                 </tbody>
               </table>
             </div>
