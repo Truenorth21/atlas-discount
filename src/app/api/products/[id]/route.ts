@@ -13,8 +13,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!serviceKey || !supabaseUrl) return NextResponse.json({ error: "Server-side product saving is not configured." }, { status: 503 });
-  const service = createServiceClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const service = serviceKey && supabaseUrl
+    ? createServiceClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    : session;
 
   const [{ data: profile }, { data: existing }] = await Promise.all([
     service.from("profiles").select("role,status").eq("id", user.id).maybeSingle(),
