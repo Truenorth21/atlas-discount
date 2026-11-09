@@ -9,7 +9,7 @@ import { ProductImage } from "@/components/product-image";
 import { StatusBadge } from "@/components/status-badge";
 import { notifyApplicationDecision } from "./actions";
 import { useAtlasStore } from "@/components/local-store";
-import { uploadProductImage } from "@/lib/supabase/upload";
+import { deleteProductImage, uploadProductImage } from "@/lib/supabase/upload";
 import { getDocumentAlerts, getExpirationState } from "@/lib/documents";
 import {
   allocateFulfillmentByCases,
@@ -513,9 +513,9 @@ export function ManageProductsList({
     <section className="panel p-5">
       <h2 className="text-lg font-black text-atlas-navy">Manage products</h2>
       <p className="mt-1 max-w-3xl text-sm text-slate-600">
-        Edit any product&apos;s order rules and pallet, or remove it. <span className="font-bold">Min cases</span> and
+        Open a product to edit its details, pricing, images, order rules, and pallet settings. <span className="font-bold">Min cases</span> and
         <span className="font-bold"> min order value</span> are per product — a buyer must meet either one. <span className="font-bold">Cases per pallet</span> can
-        differ for every item. Prices are set in the Product prices tab.
+        differ for every item. Customer case and promotional pallet prices are edited with each product.
       </p>
       {products.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">No products yet. Use &ldquo;Add one product&rdquo;.</p>
@@ -580,6 +580,7 @@ function ManageProductRow({
   const [imageMessage, setImageMessage] = useState("");
   const [pricingMessage, setPricingMessage] = useState("");
   const [savingProduct, setSavingProduct] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   function set(field: keyof typeof form) {
     return (event: ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -641,6 +642,7 @@ function ManageProductRow({
     setImageMessage("");
     try {
       if (sharedId) await persist(candidate, !existingSharedId && canPublish);
+      if (product.imageUrl && product.imageUrl !== candidate.imageUrl) await deleteProductImage(product.imageUrl);
       updateProduct(product.id, candidate);
       setSaved(true);
       setTimeout(() => setSaved(false), 1800);
@@ -662,6 +664,7 @@ function ManageProductRow({
     setImageMessage("");
     try {
       await persist(candidate, canPublish && (!sharedId || product.spec?.draft === true));
+      if (product.imageUrl && product.imageUrl !== candidate.imageUrl) await deleteProductImage(product.imageUrl);
       updateProduct(product.id, candidate);
       setSaved(true);
       setTimeout(() => setSaved(false), 1800);
@@ -695,7 +698,7 @@ function ManageProductRow({
           {product.status === "pending" && !product.spec?.draft && <span className="badge bg-amber-50 text-amber-800">Pending</span>}
           {product.status === "approved" && <span className="badge bg-emerald-50 text-emerald-700">Live</span>}
         </p>
-        {allowDelete && confirmDelete ? (
+        <span className="ml-auto flex items-center gap-2"><button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={() => setExpanded((value) => !value)}>{expanded ? "Close" : "Edit product"}</button>{allowDelete && confirmDelete ? (
           <span className="flex items-center gap-2 text-sm">
             <span className="font-bold text-atlas-red">Delete {product.brand}?</span>
             <button className="rounded-md bg-atlas-red px-3 py-1.5 text-xs font-bold text-white" type="button" onClick={() => deleteProduct?.(product.id)}>
@@ -709,8 +712,9 @@ function ManageProductRow({
           <button className="rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-atlas-red" type="button" onClick={() => setConfirmDelete(true)} aria-label={`Delete ${product.brand}`}>
             <Trash2 size={16} />
           </button>
-        ) : null}
+        ) : null}</span>
       </div>
+      {expanded && <>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <ManageField label="Brand" value={form.brand} onChange={set("brand")} />
         <ManageField label="Product name" value={form.productName} onChange={set("productName")} />
@@ -755,6 +759,7 @@ function ManageProductRow({
         <span className="text-xs text-slate-500">Min order: buyer must reach {form.moq || 1} cases{form.minOrderValue ? ` or ${formatMoney(toNum(form.minOrderValue) ?? 0)}` : ""}.</span>
       </div>
       {pricingMessage && <p className="mt-3 rounded-md bg-red-50 p-3 text-sm font-bold text-red-700">{pricingMessage}</p>}
+      </>}
     </div>
   );
 }
