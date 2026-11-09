@@ -68,7 +68,7 @@ export default function SupplierDashboardPage() {
   const membershipAssignment = (store.pricingSettings.supplierMemberships ?? []).find((item) => item.supplierName === companyName);
   // The server-verified identity locks vendors to their company. Only admins can change the selected supplier.
   const supplierProducts = store.products.filter((product) => product.supplierName === companyName);
-  const documentAlerts = getDocumentAlerts(store.applications, "supplier");
+  const documentAlerts = supplierApplication ? getDocumentAlerts([supplierApplication], "supplier") : [];
   const assignment = supplierApplication
     ? (store.pricingSettings.supplierAssignments ?? []).find((a) => a.supplierId === supplierApplication.id)
     : undefined;
