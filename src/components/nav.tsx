@@ -178,7 +178,7 @@ export function Nav() {
 
         {/* Primary shopping menu */}
         <nav className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-atlas-navy">
-          <Link className="hover:text-atlas-blue" href="/catalog">{t("navDeals")}</Link>
+          <Link className="hover:text-atlas-blue" href="/deals">{t("navDeals")}</Link>
           <div className="relative">
             <button
               type="button"
