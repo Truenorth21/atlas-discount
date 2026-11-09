@@ -25,6 +25,11 @@ async function adminRoleFromProfile(supabase: ReturnType<typeof createServerClie
   return data?.role === "admin" && data.status === "approved";
 }
 
+async function profileRole(supabase: ReturnType<typeof createServerClient>, userId: string) {
+  const { data } = await supabase.from("profiles").select("role,status").eq("id", userId).maybeSingle();
+  return data as { role?: string; status?: string } | null;
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
   const pathname = request.nextUrl.pathname;
@@ -82,6 +87,22 @@ export async function updateSession(request: NextRequest) {
     redirectUrl.search = "";
     if (!user) redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  if (user && pathname.startsWith("/dashboard/")) {
+    const profile = await profileRole(supabase, user.id);
+    const role = userRole(user) === "admin" ? "admin" : profile?.role;
+    const allowed =
+      role === "admin" ||
+      (pathname.startsWith("/dashboard/retailer") && role === "buyer") ||
+      (pathname.startsWith("/dashboard/supplier") && role === "supplier") ||
+      (pathname.startsWith("/dashboard/route-seller") && role === "route_seller");
+    if (!allowed) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = role === "supplier" ? "/dashboard/supplier" : role === "route_seller" ? "/dashboard/route-seller" : "/dashboard/retailer";
+      redirectUrl.search = "";
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   if (user && isPublic && pathname === "/login") {
