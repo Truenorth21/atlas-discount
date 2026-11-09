@@ -356,8 +356,9 @@ export function calculateLinePricing(
     const membership = supplierMembershipPlan(settings, line.product.supplierName);
     const standardFee = (isPromotion ? membership.promotionFee : membership.caseFee) / 100;
     const palletFee = (isPromotion || hasPromotionalPalletPrice ? membership.promotionFee : membership.palletFee) / 100;
-    const atlasFee = marketplace ? looseCases * casePrice * standardFee + palletCases * palletUnit * palletFee : 0;
-    const supplierCost = marketplace ? revenue - atlasFee : line.product.supplierCost * line.quantity;
+    const calculatedAtlasFee = marketplace ? looseCases * casePrice * standardFee + palletCases * palletUnit * palletFee : 0;
+    const protectedSupplierPayout = line.product.supplierCost * line.quantity;
+    const supplierCost = marketplace ? Math.max(revenue - calculatedAtlasFee, protectedSupplierPayout) : protectedSupplierPayout;
 
     if (line.product.preferredHub === "Supplier direct") {
       return {
