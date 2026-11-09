@@ -385,9 +385,11 @@ export function useAtlasStore() {
         }
         return { ...current, cart };
       }),
-    addOrder: (order: OrderRequest) => {
-      void saveOrderRequest(order);
-      commit((current) => ({ ...current, orders: [order, ...current.orders], cart: [] }));
+    addOrder: async (order: OrderRequest) => {
+      const persistedId = await saveOrderRequest(order);
+      const saved = { ...order, id: persistedId ?? `local-${crypto.randomUUID()}` };
+      commit((current) => ({ ...current, orders: [saved, ...current.orders], cart: [] }));
+      return saved;
     },
     updatePricingSettings: (pricingSettings: PricingSettings) => {
       void saveSharedPricingSettings(pricingSettings);
