@@ -84,7 +84,8 @@ export async function registerUser(formData: FormData) {
               city: String(formData.get("businessCity") || ""),
               state: String(formData.get("businessState") || ""),
               zip: String(formData.get("businessZip") || ""),
-              referralCode: String(formData.get("referralCode") || "").trim().toUpperCase().slice(0, 32) || undefined
+              referralCode: String(formData.get("referralCode") || "").trim().toUpperCase().slice(0, 32) || undefined,
+              newsletterOptIn: formData.get("newsletterOptIn") === "on"
             }
           : role === "supplier" ? { agreementAcceptance: supplierAgreement } : null
     });
@@ -126,7 +127,7 @@ export async function registerUser(formData: FormData) {
         profile_id: userId,
         program: String(formData.get("routeProgram") || "Independent Seller"),
         territory: String(formData.get("routeTerritory") || "Pending Atlas assignment"),
-        assigned_hub: String(formData.get("routeHub") || "Miami hub"),
+        assigned_hub: String(formData.get("routeHub") || "Miami hub").toLowerCase().includes("orlando") ? "Orlando hub" : "Miami hub",
         product_lane: String(formData.get("productLane") || "Pending Atlas assignment"),
         status: "pending"
       });
