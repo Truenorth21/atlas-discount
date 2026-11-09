@@ -357,7 +357,11 @@ export function calculateLinePricing(
     const standardFee = (isPromotion ? membership.promotionFee : membership.caseFee) / 100;
     const palletFee = (isPromotion || hasPromotionalPalletPrice ? membership.promotionFee : membership.palletFee) / 100;
     const looseCaseFee = isPromotion ? looseCases * line.product.supplierCost * standardFee : looseCases * casePrice * standardFee;
-    const promotionalPalletFee = palletCases * line.product.supplierCost * palletFee;
+    const promotionalPalletBase = palletCases * line.product.supplierCost;
+    const promotionalPalletBaseFee = promotionalPalletBase * palletFee;
+    const promotionalPalletRevenue = palletCases * palletUnit;
+    const promotionalPalletSurplus = Math.max(0, promotionalPalletRevenue - promotionalPalletBase - promotionalPalletBaseFee);
+    const promotionalPalletFee = promotionalPalletBaseFee + promotionalPalletSurplus / 2;
     const standardPalletFee = palletCases * palletUnit * palletFee;
     const calculatedAtlasFee = marketplace ? looseCaseFee + (isPromotion || hasPromotionalPalletPrice ? promotionalPalletFee : standardPalletFee) : 0;
     const protectedSupplierPayout = line.product.supplierCost * line.quantity;
