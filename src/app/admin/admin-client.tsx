@@ -631,10 +631,15 @@ function ManageProductRow({
   }
 
   async function persist(candidate: Product, create = false) {
-    const response = await fetch(create ? "/api/admin/products" : `/api/products/${candidate.id}`, {
-      method: create ? "POST" : "PUT",
+    // Admins use the upsert endpoint for both new and existing products. This
+    // avoids a Safari URL-pattern failure observed on the dynamic PUT route and
+    // keeps the admin workflow atomic. Supplier-owned edits still use the
+    // ownership-checked product endpoint.
+    const adminUpsert = canPublish;
+    const response = await fetch(adminUpsert || create ? "/api/admin/products" : `/api/products/${candidate.id}`, {
+      method: adminUpsert || create ? "POST" : "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(create ? { products: [candidate] } : { product: candidate })
+      body: JSON.stringify(adminUpsert || create ? { products: [candidate] } : { product: candidate })
     });
     const result = await response.json() as { error?: string };
     if (!response.ok) throw new Error(result.error ?? "The shared catalog could not be updated.");
