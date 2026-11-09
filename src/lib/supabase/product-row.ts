@@ -24,7 +24,6 @@ export function productToRow(product: Product, supplierProfileId?: string | null
     case_weight: product.caseWeight,
     pallet_configuration: product.palletConfiguration,
     supplier_cost: product.supplierCost,
-    supplier_pallet_cost: product.supplierPalletCost ?? null,
     tier_pricing: product.tierPricing ?? { case: {} },
     suggested_retail: product.suggestedRetail,
     moq: product.moq,
