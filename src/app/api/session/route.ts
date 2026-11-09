@@ -27,6 +27,7 @@ export async function GET() {
 
   return NextResponse.json({
     authenticated: true,
+    userId: user.id,
     isAdmin: Boolean(isAdmin),
     role: profile?.role ?? metadataRole,
     companyName: profile?.company_name ?? user.user_metadata?.company_name ?? ""
