@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ArrowLeft, MapPin } from "lucide-react";
 import { Nav } from "@/components/nav";
 import { ProductImage } from "@/components/product-image";
@@ -9,13 +10,19 @@ import { useAtlasStore } from "@/components/local-store";
 import { calculateLinePricing, calculateQuoteFinancials, formatMoney } from "@/lib/pricing";
 import { planOrderPallets } from "@/lib/pallets";
 import { useI18n } from "@/lib/i18n";
+import { loadAdminOrders } from "@/lib/supabase/atlas-data";
+import type { OrderRequest } from "@/lib/types";
 
 export function QuoteDetailClient({ id, isAdmin = false }: { id: string; isAdmin?: boolean }) {
   const { t } = useI18n();
   const { store } = useAtlasStore();
-  const order = store.orders.find((item) => item.id === id);
+  const [remoteOrder, setRemoteOrder] = useState<OrderRequest | undefined>();
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { void loadAdminOrders().then((orders) => { setRemoteOrder(orders?.find((item) => item.id === id)); setLoaded(true); }); }, [id]);
+  const order = remoteOrder ?? store.orders.find((item) => item.id === id);
   const adjustment = store.quoteAdjustments.find((item) => item.orderId === id);
 
+  if (!order && !loaded) return <><Nav /><main className="atlas-container py-8"><div className="panel p-6 font-bold text-slate-600">Loading order…</div></main></>;
   if (!order) {
     return (
       <>
