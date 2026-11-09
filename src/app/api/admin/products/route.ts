@@ -5,6 +5,7 @@ import { productToRow } from "@/lib/supabase/atlas-data";
 import type { Product } from "@/lib/types";
 
 export async function POST(request: Request) {
+  try {
   const sessionClient = await createClient();
   if (!sessionClient) return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
 
@@ -63,5 +64,9 @@ export async function POST(request: Request) {
   );
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  return NextResponse.json({ count: body.products.length });
+    return NextResponse.json({ count: body.products.length });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected product publishing failure.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
