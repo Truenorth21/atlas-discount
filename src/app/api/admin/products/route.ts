@@ -25,18 +25,17 @@ export async function POST(request: Request) {
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!serviceKey || !supabaseUrl) {
-    return NextResponse.json({ error: "Server-side product publishing is not configured." }, { status: 503 });
-  }
 
   const body = await request.json() as { products?: Product[] };
   if (!Array.isArray(body.products) || body.products.length === 0) {
     return NextResponse.json({ error: "No products were supplied." }, { status: 400 });
   }
 
-  const service = createServiceClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
+  // Prefer the service role when configured. The authenticated admin client is
+  // a safe fallback and remains subject to the database's admin RLS policies.
+  const service = serviceKey && supabaseUrl
+    ? createServiceClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    : sessionClient;
 
   const supplierNames = Array.from(new Set(
     body.products
