@@ -1743,7 +1743,7 @@ export function SingleProductForm({
         <ProductSectionHeading>Stock &amp; order minimum</ProductSectionHeading>
         <AdminProductInput label="Min order (cases)" type="number" value={form.moq} onChange={updateField("moq")} />
         <AdminProductInput label="Min order value ($, optional)" type="number" value={form.minOrderValue} onChange={updateField("minOrderValue")} />
-        <label className="grid gap-1"><span className="text-sm font-bold text-slate-700">Inventory available (cases)</span><input className="input" type="number" value={form.inventoryAvailable} onChange={updateField("inventoryAvailable")} /><span className="text-xs text-slate-500">Use 0 when inventory is not tracked or the product is available to order.</span></label>
+        <label className="grid gap-1"><span className="text-sm font-bold text-slate-700">Inventory available (cases)</span><input className="input" type="number" value={form.inventoryAvailable} onChange={updateField("inventoryAvailable")} /><span className="text-xs text-slate-500">Products with 0 inventory stay saved but are hidden from the buyer catalog.</span></label>
         <AdminProductInput label="Lead time" value={form.leadTime} onChange={updateField("leadTime")} />
         <AdminProductInput label="Promotion label" value={form.promotion} onChange={updateField("promotion")} />
         </div>
