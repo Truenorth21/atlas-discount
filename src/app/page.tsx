@@ -45,7 +45,9 @@ export default function HomePage() {
   const { store } = useAtlasStore();
   const { language } = useI18n();
   const es = language === "es";
-  const approved = store.products.filter((product) => product.status === "approved");
+  const approved = store.products.filter(
+    (product) => product.status === "approved" && product.inventoryAvailable > 0
+  );
   const featured = [
     ...approved.filter((product) => product.placements?.homepageFeatured),
     ...approved,
