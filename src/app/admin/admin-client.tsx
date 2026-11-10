@@ -388,7 +388,7 @@ function ProductAdminPanel({
       ...supplierNames,
       ...products
         .map((product) => product.supplierName)
-        .filter((name) => Boolean(name) && name !== "Atlas Admin" && name !== "Current Supplier")
+        .filter((name) => Boolean(name) && name !== "Current Supplier")
     ])
   ).sort((a, b) => a.localeCompare(b));
   const supplierProducts = selectedSupplier
