@@ -43,7 +43,9 @@ export default function CatalogClient({ isAuthenticated, userId, userRole, isApp
   const buyerTierId = isAdminPreview ? store.currentTierId : pricingTierId;
   const pricingContext: PricingContext | undefined = canSeePricing ? { tierId: buyerTierId, accountId: userId } : undefined;
 
-  const approvedProducts = store.products.filter((product) => product.status === "approved");
+  const approvedProducts = store.products.filter(
+    (product) => product.status === "approved" && product.inventoryAvailable > 0
+  );
   const brands = ["All", ...Array.from(new Set(approvedProducts.map((product) => product.brand).filter(Boolean))).sort()];
 
   const products = useMemo(() => {
