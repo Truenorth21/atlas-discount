@@ -1055,7 +1055,7 @@ const blankProductForm = {
   unitL: "", unitW: "", unitH: "", unitWeight: "", unitWeightUnit: "lb",
   innerPack: "", innerL: "", innerW: "", innerH: "", innerWeight: "", innerWeightUnit: "lb",
   casePack: "1", caseL: "", caseW: "", caseH: "", caseWeight: "", caseWeightUnit: "lb",
-  palletCasesPerFloor: "", palletLayers: "", palletStandardWeight: "40",
+  casesPerPallet: "", palletCasesPerFloor: "", palletLayers: "", palletStandardWeight: "40",
   stocking: "supplier", orderRouting: "hialeah_consolidation", shippingWarehouse: "Miami hub", fulfillmentMode: "delivered", pickupAddress: "", pickupPhone: "",
   supplierCost: "", supplierPalletCost: "", suggestedRetail: "", moq: "1", minOrderValue: "", leadTime: "", inventoryAvailable: "0",
   priceRetailer: "", priceDistributor: "", repCommissionPct: "",
@@ -1129,6 +1129,7 @@ function formFromProduct(product: Product): typeof blankProductForm {
     caseH: numToStr(spec?.caseDims?.height),
     caseWeight: numToStr(spec?.caseDims?.weight),
     caseWeightUnit: spec?.caseDims?.weightUnit ?? "lb",
+    casesPerPallet: numToStr(spec?.casesPerPallet ?? palletCases),
     palletCasesPerFloor: numToStr(spec?.palletCasesPerFloor),
     palletLayers: numToStr(spec?.palletLayers),
     palletStandardWeight: numToStr(spec?.palletStandardWeight) || "40",
@@ -1191,6 +1192,7 @@ export function SingleProductForm({
   const [copyFromId, setCopyFromId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [advancedPackaging, setAdvancedPackaging] = useState(false);
 
   const copyOptions = [...products].sort((a, b) => `${a.brand} ${a.productName}`.localeCompare(`${b.brand} ${b.productName}`));
 
@@ -1233,13 +1235,14 @@ export function SingleProductForm({
   const casesPerFloor = toNum(form.palletCasesPerFloor) ?? 0;
   const palletLayers = toNum(form.palletLayers) ?? 0;
   const totalCases = casesPerFloor * palletLayers;
+  const enteredCasesPerPallet = toNum(form.casesPerPallet) ?? 0;
   // Auto cases-per-pallet derived from the case dimensions + weight (used when Ti/Hi
   // aren't entered). Mirrors the planner so the admin sees the same number.
   const autoCasesPerPallet = cppFromDims(
     { spec: { caseDims: { length: toNum(form.caseL), width: toNum(form.caseW), height: toNum(form.caseH), weight: toNum(form.caseWeight), weightUnit: form.caseWeightUnit as "lb" | "oz" } } } as Product,
     {}
   );
-  const effectivePalletCases = totalCases || autoCasesPerPallet;
+  const effectivePalletCases = enteredCasesPerPallet || totalCases || autoCasesPerPallet;
   const caseWeightRaw = toNum(form.caseWeight);
   const caseWeightLb = caseWeightRaw === undefined ? undefined : form.caseWeightUnit === "oz" ? caseWeightRaw / 16 : caseWeightRaw;
   const palletProductWeight = caseWeightLb !== undefined ? caseWeightLb * totalCases : undefined;
@@ -1264,16 +1267,6 @@ export function SingleProductForm({
     }
     if (!form.sku || !form.brand || !form.productName || !form.category) {
       setMessage("Please fill in at least SKU, brand, product name, and category.");
-      return;
-    }
-    // Case dimensions + weight are required — they drive pallet planning and freight.
-    const missingCaseDims =
-      !((toNum(form.caseL) ?? 0) > 0) ||
-      !((toNum(form.caseW) ?? 0) > 0) ||
-      !((toNum(form.caseH) ?? 0) > 0) ||
-      !((toNum(form.caseWeight) ?? 0) > 0);
-    if (missingCaseDims) {
-      setMessage("Case dimensions (L × W × H) and case weight are required — they let Atlas plan pallets and freight automatically.");
       return;
     }
     if ((toNum(form.palletPriceRetailer) || toNum(form.palletPriceDistributor)) && effectivePalletCases <= 0) {
@@ -1310,6 +1303,7 @@ export function SingleProductForm({
       caseDims: dimWeight(form.caseL, form.caseW, form.caseH, form.caseWeight, form.caseWeightUnit),
       gtinCase: form.gtinCase || undefined,
       gtinInner: hasInner ? form.gtinInner || undefined : undefined,
+      casesPerPallet: effectivePalletCases > 0 ? effectivePalletCases : undefined,
       palletCasesPerFloor: toNum(form.palletCasesPerFloor),
       palletLayers: toNum(form.palletLayers),
       palletStandardWeight: toNum(form.palletStandardWeight),
@@ -1341,7 +1335,9 @@ export function SingleProductForm({
       caseDimensions: dimsLabel(form.caseL, form.caseW, form.caseH),
       caseWeight: form.caseWeight ? `${form.caseWeight} ${form.caseWeightUnit}` : "",
       palletConfiguration:
-        totalCases > 0
+        enteredCasesPerPallet > 0
+          ? `${enteredCasesPerPallet} cases / pallet`
+          : totalCases > 0
           ? `${casesPerFloor}/floor × ${palletLayers} high = ${totalCases} cases${palletTotalWeight !== undefined ? ` • ~${Math.round(palletTotalWeight)} lb` : ""}`
           : "",
       supplierCost: supplierCasePrice,
@@ -1409,7 +1405,8 @@ export function SingleProductForm({
     const consolidatesAtHialeah = form.stocking === "supplier" && form.orderRouting === "hialeah_consolidation";
     const preferredHub: AtlasHub = form.stocking === "atlas_orlando" ? "Orlando hub" : heldAtAtlas || consolidatesAtHialeah ? "Miami hub" : "Supplier direct";
     const location = form.stocking === "atlas_hialeah" ? "Atlas Hialeah Gardens hub" : form.stocking === "atlas_orlando" ? "Atlas Orlando hub (future)" : form.pickupAddress || "Supplier warehouse";
-    const palletCaseCount = draftPalletCases || autoCasesPerPallet;
+    const draftEnteredCases = toNum(form.casesPerPallet) ?? 0;
+    const palletCaseCount = draftEnteredCases || draftPalletCases || autoCasesPerPallet;
     const draft: Product = {
       id: crypto.randomUUID(),
       sku: form.sku.trim() || `DRAFT-${Date.now()}`,
@@ -1426,7 +1423,7 @@ export function SingleProductForm({
       casePack: toNum(form.casePack) ?? 0,
       caseDimensions: dimsLabel(form.caseL, form.caseW, form.caseH),
       caseWeight: form.caseWeight ? `${form.caseWeight} ${form.caseWeightUnit}` : "",
-      palletConfiguration: draftPalletCases > 0 ? `${draftCasesPerFloor}/floor × ${draftLayers} high = ${draftPalletCases} cases` : "",
+      palletConfiguration: draftEnteredCases > 0 ? `${draftEnteredCases} cases / pallet` : draftPalletCases > 0 ? `${draftCasesPerFloor}/floor × ${draftLayers} high = ${draftPalletCases} cases` : "",
       supplierCost: supplierCasePrice,
       supplierPalletCost: showAtlasEconomics ? promotionalCustomerPalletPrice : promotionalCustomerPalletPrice !== undefined ? supplierCasePrice * palletCaseCount + Math.max(0, promotionalCustomerPalletPrice - supplierCasePrice * palletCaseCount * (1 + liveMembershipPlan.promotionFee / 100)) / 2 : undefined,
       tierPricing: showAtlasEconomics ? buildTierPricing(form, palletCaseCount) : {
@@ -1458,6 +1455,7 @@ export function SingleProductForm({
         caseDims: dimWeight(form.caseL, form.caseW, form.caseH, form.caseWeight, form.caseWeightUnit),
         gtinCase: form.gtinCase || undefined,
         gtinInner: form.gtinInner || undefined,
+        casesPerPallet: palletCaseCount > 0 ? palletCaseCount : undefined,
         palletCasesPerFloor: toNum(form.palletCasesPerFloor),
         palletLayers: toNum(form.palletLayers),
         palletStandardWeight: toNum(form.palletStandardWeight),
@@ -1484,7 +1482,7 @@ export function SingleProductForm({
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn-secondary" type="button" onClick={saveDraft}>Save draft</button>
-          {(!progressiveSteps || currentStep === 5) && <button className="btn-primary" type="button" onClick={() => void addProduct()}>{submitLabel}</button>}
+          {(!progressiveSteps || currentStep === 3) && <button className="btn-primary" type="button" onClick={() => void addProduct()}>{submitLabel}</button>}
         </div>
       </div>
 
@@ -1510,8 +1508,8 @@ export function SingleProductForm({
         </div>
       )}
 
-      {progressiveSteps && <div className="mt-5 grid grid-cols-5 gap-2" aria-label="Product setup progress">
-        {["Basics", "Case & pallet", "Pricing", "Inventory", "Location"].map((label, index) => <button key={label} type="button" onClick={() => setCurrentStep(index + 1)} className={`rounded-lg px-2 py-3 text-xs font-black ${currentStep === index + 1 ? "bg-atlas-navy text-white" : currentStep > index + 1 ? "bg-emerald-50 text-emerald-800" : "bg-atlas-light text-slate-600"}`}><span className="block text-[10px] uppercase opacity-70">Step {index + 1}</span>{label}</button>)}
+      {progressiveSteps && <div className="mt-5 grid grid-cols-3 gap-2" aria-label="Product setup progress">
+        {["Product", "Quantity & pricing", "Fulfillment"].map((label, index) => <button key={label} type="button" onClick={() => setCurrentStep(index + 1)} className={`rounded-lg px-2 py-3 text-xs font-black ${currentStep === index + 1 ? "bg-atlas-navy text-white" : currentStep > index + 1 ? "bg-emerald-50 text-emerald-800" : "bg-atlas-light text-slate-600"}`}><span className="block text-[10px] uppercase opacity-70">Step {index + 1}</span>{label}</button>)}
       </div>}
 
       <div className="mt-5 grid gap-4 md:grid-cols-3">
@@ -1587,6 +1585,15 @@ export function SingleProductForm({
         </div>
 
         <div className={progressiveSteps && currentStep !== 2 ? "hidden" : "contents"}>
+        <ProductSectionHeading>Case &amp; pallet essentials</ProductSectionHeading>
+        <AdminProductInput label="Units per case" type="number" value={form.casePack} onChange={updateField("casePack")} />
+        <AdminProductInput label="Cases per pallet" type="number" value={form.casesPerPallet} onChange={updateField("casesPerPallet")} />
+        <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-slate-700">
+          <p className="font-black text-atlas-navy">That is enough for standard pallet pricing.</p>
+          <p className="mt-1">Dimensions, weight, inner packs and Ti/Hi can be added later when Atlas needs freight planning.</p>
+        </div>
+        <button className="btn-secondary w-fit md:col-span-3" type="button" onClick={() => setAdvancedPackaging((open) => !open)}>{advancedPackaging ? "Hide advanced packaging" : "Add advanced packaging details (optional)"}</button>
+        <div className={advancedPackaging ? "contents" : "hidden"}>
         <ProductSectionHeading>Each / unit</ProductSectionHeading>
         <DimRow label="Unit dimensions" l={form.unitL} w={form.unitW} h={form.unitH} onL={updateField("unitL")} onW={updateField("unitW")} onH={updateField("unitH")} />
         <WeightInput label="Unit weight" value={form.unitWeight} unit={form.unitWeightUnit} onValue={updateField("unitWeight")} onUnit={updateField("unitWeightUnit")} />
@@ -1605,9 +1612,8 @@ export function SingleProductForm({
         )}
 
         <ProductSectionHeading>Master case</ProductSectionHeading>
-        <AdminProductInput label="Case pack (units)" type="number" value={form.casePack} onChange={updateField("casePack")} />
-        <DimRow label="Case dimensions (required)" l={form.caseL} w={form.caseW} h={form.caseH} onL={updateField("caseL")} onW={updateField("caseW")} onH={updateField("caseH")} />
-        <WeightInput label="Case weight (required)" value={form.caseWeight} unit={form.caseWeightUnit} onValue={updateField("caseWeight")} onUnit={updateField("caseWeightUnit")} />
+        <DimRow label="Case dimensions (optional)" l={form.caseL} w={form.caseW} h={form.caseH} onL={updateField("caseL")} onW={updateField("caseW")} onH={updateField("caseH")} />
+        <WeightInput label="Case weight (optional)" value={form.caseWeight} unit={form.caseWeightUnit} onValue={updateField("caseWeight")} onUnit={updateField("caseWeightUnit")} />
 
         <ProductSectionHeading>Pallet configuration (optional)</ProductSectionHeading>
         <AdminProductInput label="Cases per floor (Ti)" type="number" value={form.palletCasesPerFloor} onChange={updateField("palletCasesPerFloor")} />
@@ -1627,12 +1633,13 @@ export function SingleProductForm({
           </div>
         ) : (
           <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800 md:col-span-3">
-            Add case dimensions above and Atlas will auto-compute cases-per-pallet — or enter Ti/Hi to set it manually.
+            Enter cases per pallet above. Ti/Hi and dimensions are optional freight-planning details.
           </div>
         )}
         </div>
+        </div>
 
-        <div className={progressiveSteps && currentStep !== 5 ? "hidden" : "contents"}>
+        <div className={progressiveSteps && currentStep !== 3 ? "hidden" : "contents"}>
         <ProductSectionHeading>Inventory location &amp; order routing</ProductSectionHeading>
         <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-slate-700 md:col-span-3"><p className="font-black text-atlas-navy">These are two different questions.</p><p><strong>Inventory location</strong> is where the product sits before an order. <strong>Order routing</strong> is what happens only after Atlas approves and releases the order.</p></div>
         <label className="grid gap-1">
@@ -1670,7 +1677,7 @@ export function SingleProductForm({
         )}
         </div>
 
-        <div className={progressiveSteps && currentStep !== 3 ? "hidden" : "contents"}>
+        <div className={progressiveSteps && currentStep !== 2 ? "hidden" : "contents"}>
         <ProductSectionHeading>Pricing</ProductSectionHeading>
         <AdminProductInput label={showAtlasEconomics ? "Case cost to Atlas (for margin)" : "Your price per CASE — before Atlas fee ($)"} type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
         <AdminProductInput label="Suggested retail per UNIT ($)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
@@ -1716,7 +1723,7 @@ export function SingleProductForm({
             <label className="grid gap-1"><span className="text-sm font-bold text-slate-700">Standard customer pallet price (automatic)</span><input className="input bg-slate-100 font-bold text-slate-600" readOnly value={effectivePalletCases > 0 && (toNum(form.supplierCost) ?? 0) > 0 ? (((toNum(form.supplierCost) ?? 0) / (1 - liveMembershipPlan.caseFee / 100)) * effectivePalletCases).toFixed(2) : "Enter case price and pallet quantity"} /></label>
             <AdminProductInput label="Promotional customer pallet price ($, optional)" type="number" value={form.supplierPalletCost} onChange={updateField("supplierPalletCost")} />
             <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-slate-600">
-              <p className="font-black text-atlas-navy">Full pallet: {effectivePalletCases > 0 ? `${effectivePalletCases} cases` : "set Ti/Hi or case dimensions above"}</p>
+              <p className="font-black text-atlas-navy">Full pallet: {effectivePalletCases > 0 ? `${effectivePalletCases} cases` : "enter cases per pallet above"}</p>
               {effectivePalletCases > 0 && toNum(form.supplierPalletCost) ? (
                 <p className="mt-1 font-semibold text-atlas-blue">Final customer price: {formatMoney(toNum(form.supplierPalletCost) ?? 0)} · {formatMoney((toNum(form.supplierPalletCost) ?? 0) / effectivePalletCases)} per case.</p>
               ) : (
@@ -1732,16 +1739,16 @@ export function SingleProductForm({
         )}
         </div>
 
-        <div className={progressiveSteps && currentStep !== 4 ? "hidden" : "contents"}>
+        <div className={progressiveSteps && currentStep !== 2 ? "hidden" : "contents"}>
         <ProductSectionHeading>Stock &amp; order minimum</ProductSectionHeading>
         <AdminProductInput label="Min order (cases)" type="number" value={form.moq} onChange={updateField("moq")} />
         <AdminProductInput label="Min order value ($, optional)" type="number" value={form.minOrderValue} onChange={updateField("minOrderValue")} />
-        <AdminProductInput label="Inventory available" type="number" value={form.inventoryAvailable} onChange={updateField("inventoryAvailable")} />
+        <label className="grid gap-1"><span className="text-sm font-bold text-slate-700">Inventory available (cases)</span><input className="input" type="number" value={form.inventoryAvailable} onChange={updateField("inventoryAvailable")} /><span className="text-xs text-slate-500">Use 0 when inventory is not tracked or the product is available to order.</span></label>
         <AdminProductInput label="Lead time" value={form.leadTime} onChange={updateField("leadTime")} />
         <AdminProductInput label="Promotion label" value={form.promotion} onChange={updateField("promotion")} />
         </div>
       </div>
-      {progressiveSteps && <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-4"><button className="btn-secondary" type="button" disabled={currentStep === 1} onClick={() => setCurrentStep((step) => Math.max(1, step - 1))}>Back</button><p className="text-sm font-bold text-slate-500">Step {currentStep} of 5</p>{currentStep < 5 ? <button className="btn-primary" type="button" onClick={() => setCurrentStep((step) => Math.min(5, step + 1))}>Continue</button> : <button className="btn-primary" type="button" onClick={() => void addProduct()}>{submitLabel}</button>}</div>}
+      {progressiveSteps && <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-4"><button className="btn-secondary" type="button" disabled={currentStep === 1} onClick={() => setCurrentStep((step) => Math.max(1, step - 1))}>Back</button><p className="text-sm font-bold text-slate-500">Step {currentStep} of 3</p>{currentStep < 3 ? <button className="btn-primary" type="button" onClick={() => setCurrentStep((step) => Math.min(3, step + 1))}>Continue</button> : <button className="btn-primary" type="button" onClick={() => void addProduct()}>{submitLabel}</button>}</div>}
       {message && <p className="mt-4 rounded-md bg-sky-50 p-3 text-sm font-bold text-atlas-blue">{message}</p>}
     </section>
   );
