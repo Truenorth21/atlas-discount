@@ -80,6 +80,8 @@ export type ProductSpec = {
   draft?: boolean;
   /** Supplier sets the customer price; Atlas retains the configured marketplace fee. */
   pricingModel?: "marketplace_fee" | "wholesale_margin";
+  /** Admin-set marketplace commission override for this product (percentage points). */
+  marketplaceFeePercent?: number;
   customerCasePrice?: number;
   /** Total customer price for one full pallet. */
   customerPalletPrice?: number;
