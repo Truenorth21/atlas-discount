@@ -572,6 +572,7 @@ function ManageProductRow({
     minOrderValue: product.minOrderValue ? String(product.minOrderValue) : "",
     casesPerPallet: String(productPalletSize(product) || ""),
     leadTime: product.leadTime ?? ""
+    , marketplaceFeePercent: product.spec?.marketplaceFeePercent !== undefined ? String(product.spec.marketplaceFeePercent) : ""
   });
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -582,6 +583,7 @@ function ManageProductRow({
   const [savingProduct, setSavingProduct] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const membershipPlan = pricingSettings ? supplierMembershipPlan(pricingSettings, product.supplierName) : undefined;
+  const effectiveCaseFee = toNum(form.marketplaceFeePercent) ?? membershipPlan?.caseFee ?? 0;
 
   function set(field: keyof typeof form) {
     return (event: ChangeEvent<HTMLInputElement>) => setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -590,7 +592,7 @@ function ManageProductRow({
     const cpp = toNum(form.casesPerPallet);
     const supplierCasePrice = toNum(form.supplierCost) ?? 0;
     const promotionalCustomerPalletPrice = toNum(form.palletPrice);
-    const customerCasePrice = supplierFacing && membershipPlan ? supplierCasePrice / (1 - membershipPlan.caseFee / 100) : supplierCasePrice;
+    const customerCasePrice = supplierFacing && membershipPlan ? supplierCasePrice / (1 - effectiveCaseFee / 100) : supplierCasePrice;
     const customerPalletPrice = promotionalCustomerPalletPrice;
     const standardPalletPrice = customerCasePrice * (cpp ?? 0);
     const promotionalFeeAmount = membershipPlan && cpp ? supplierCasePrice * cpp * (membershipPlan.promotionFee / 100) : 0;
@@ -626,7 +628,7 @@ function ManageProductRow({
       moq: toNum(form.moq) ?? 1,
       minOrderValue: toNum(form.minOrderValue) ?? 0,
       leadTime: form.leadTime || "Ready now",
-      spec: { ...product.spec, draft, casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated, customerCasePrice: supplierFacing ? customerCasePrice : product.spec?.customerCasePrice, customerPalletPrice: supplierFacing ? customerPalletPrice : product.spec?.customerPalletPrice }
+      spec: { ...product.spec, draft, casesPerPallet: cpp && cpp > 0 ? cpp : undefined, refrigerated, marketplaceFeePercent: canPublish && form.marketplaceFeePercent.trim() !== "" ? effectiveCaseFee : product.spec?.marketplaceFeePercent, customerCasePrice: supplierFacing ? customerCasePrice : product.spec?.customerCasePrice, customerPalletPrice: supplierFacing ? customerPalletPrice : product.spec?.customerPalletPrice }
     };
   }
 
@@ -759,8 +761,9 @@ function ManageProductRow({
         <ManageField label="Cases per pallet" type="number" value={form.casesPerPallet} onChange={set("casesPerPallet")} placeholder="e.g. 40" />
         <ManageField label="SRP / unit ($)" type="number" value={form.suggestedRetail} onChange={set("suggestedRetail")} placeholder="e.g. 4.99" />
         <ManageField label={supplierFacing ? "Your price per case — before Atlas fee ($)" : "Case cost ($)"} type="number" value={form.supplierCost} onChange={set("supplierCost")} />
-        {supplierFacing && membershipPlan && <label className="grid gap-1"><span className="text-xs font-bold text-slate-600">Customer price per case (automatic)</span><input className="field h-9 min-h-9 bg-sky-50 font-black text-atlas-blue" readOnly value={(toNum(form.supplierCost) ?? 0) > 0 ? ((toNum(form.supplierCost) ?? 0) / (1 - membershipPlan.caseFee / 100)).toFixed(2) : "Enter your case price"} /></label>}
-        {supplierFacing && membershipPlan && <label className="grid gap-1"><span className="text-xs font-bold text-slate-600">Standard customer pallet price (automatic)</span><input className="field h-9 min-h-9 bg-slate-100 font-bold text-slate-600" readOnly value={(toNum(form.supplierCost) ?? 0) > 0 && (toNum(form.casesPerPallet) ?? 0) > 0 ? (((toNum(form.supplierCost) ?? 0) / (1 - membershipPlan.caseFee / 100)) * (toNum(form.casesPerPallet) ?? 0)).toFixed(2) : "Enter case price and cases per pallet"} /></label>}
+        {supplierFacing && canPublish && <ManageField label="Atlas commission override (%)" type="number" value={form.marketplaceFeePercent} onChange={set("marketplaceFeePercent")} placeholder={`${membershipPlan?.caseFee ?? 0}% plan default`} />}
+        {supplierFacing && membershipPlan && <label className="grid gap-1"><span className="text-xs font-bold text-slate-600">Customer price per case (automatic · {effectiveCaseFee}% fee)</span><input className="field h-9 min-h-9 bg-sky-50 font-black text-atlas-blue" readOnly value={(toNum(form.supplierCost) ?? 0) > 0 ? ((toNum(form.supplierCost) ?? 0) / (1 - effectiveCaseFee / 100)).toFixed(2) : "Enter your case price"} /></label>}
+        {supplierFacing && membershipPlan && <label className="grid gap-1"><span className="text-xs font-bold text-slate-600">Standard customer pallet price (automatic)</span><input className="field h-9 min-h-9 bg-slate-100 font-bold text-slate-600" readOnly value={(toNum(form.supplierCost) ?? 0) > 0 && (toNum(form.casesPerPallet) ?? 0) > 0 ? (((toNum(form.supplierCost) ?? 0) / (1 - effectiveCaseFee / 100)) * (toNum(form.casesPerPallet) ?? 0)).toFixed(2) : "Enter case price and cases per pallet"} /></label>}
         <ManageField label={supplierFacing ? "Promotional customer pallet price ($, optional)" : "Pallet cost ($)"} type="number" value={form.palletPrice} onChange={set("palletPrice")} placeholder={supplierFacing ? "final discounted customer price" : "optional"} />
         {supplierFacing && membershipPlan && toNum(form.palletPrice) !== undefined && (() => { const base = (toNum(form.supplierCost) ?? 0) * (toNum(form.casesPerPallet) ?? 0); const fee = base * membershipPlan.promotionFee / 100; const minimum = base + fee; const surplus = Math.max(0, (toNum(form.palletPrice) ?? 0) - minimum); const half = surplus / 2; return <section className="grid gap-3 rounded-xl border-2 border-sky-200 bg-sky-50 p-4 sm:col-span-2 lg:col-span-4"><div><p className="text-sm font-black text-atlas-navy">Promotional pallet split</p><p className="text-xs text-slate-600">The supplier base and Atlas promotional fee establish the minimum. Anything above it is divided equally.</p></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><SplitMetric label="Vendor protected base" value={formatMoney(base)} tone="green" /><SplitMetric label={`Atlas base fee (${membershipPlan.promotionFee}%)`} value={formatMoney(fee)} tone="amber" /><SplitMetric label="Extra above minimum" value={`${formatMoney(surplus)} · ${formatMoney(half)} each`} tone="blue" /><SplitMetric label="Vendor final payout" value={formatMoney(base + half)} tone="green" /><SplitMetric label="Atlas final earnings" value={formatMoney(fee + half)} tone="amber" /></div><p className={`text-xs font-bold ${(toNum(form.palletPrice) ?? 0) >= minimum ? "text-emerald-700" : "text-red-700"}`}>Minimum promotional customer price: {formatMoney(minimum)}.</p></section>; })()}
         <ManageField label="Min order (cases)" type="number" value={form.moq} onChange={set("moq")} />
@@ -1060,7 +1063,7 @@ const blankProductForm = {
   supplierCost: "", supplierPalletCost: "", suggestedRetail: "", moq: "1", minOrderValue: "", leadTime: "", inventoryAvailable: "0",
   priceRetailer: "", priceDistributor: "", repCommissionPct: "",
   palletPriceRetailer: "", palletPriceDistributor: "",
-  supplierName: "Atlas Admin", promotion: ""
+  supplierName: "Atlas Admin", promotion: "", marketplaceFeePercent: ""
 };
 
 const toNum = (value: string) => {
@@ -1152,6 +1155,7 @@ function formFromProduct(product: Product): typeof blankProductForm {
     palletPriceDistributor: numToStr(tier?.pallet?.distributor && palletCases > 0 ? tier.pallet.distributor * palletCases : undefined),
     supplierName: product.supplierName ?? "Atlas Admin",
     promotion: product.promotion ?? ""
+    , marketplaceFeePercent: numToStr(spec?.marketplaceFeePercent)
   };
 }
 
@@ -1168,6 +1172,7 @@ export function SingleProductForm({
   submittedVerb = "published to the catalog",
   showAtlasEconomics = true,
   progressiveSteps = false,
+  allowFeeOverride = false,
   pricingSettings
 }: {
   addProducts: ReturnType<typeof useAtlasStore>["addProducts"];
@@ -1184,6 +1189,8 @@ export function SingleProductForm({
   showAtlasEconomics?: boolean;
   /** Break the long supplier form into a guided five-step workflow. */
   progressiveSteps?: boolean;
+  /** Admin-only: permits a product-specific marketplace commission. */
+  allowFeeOverride?: boolean;
   pricingSettings: PricingSettings;
 }) {
   const [form, setForm] = useState({ ...blankProductForm, supplierName: defaultSupplierName });
@@ -1249,6 +1256,7 @@ export function SingleProductForm({
   const palletStandard = toNum(form.palletStandardWeight) ?? 0;
   const palletTotalWeight = palletProductWeight !== undefined ? palletProductWeight + palletStandard : undefined;
   const liveMembershipPlan = supplierMembershipPlan(pricingSettings, (lockSupplierName ? defaultSupplierName : form.supplierName) || defaultSupplierName);
+  const effectiveCaseFee = allowFeeOverride && toNum(form.marketplaceFeePercent) !== undefined ? (toNum(form.marketplaceFeePercent) ?? liveMembershipPlan.caseFee) : liveMembershipPlan.caseFee;
 
   const dimWeight = (l: string, w: string, h: string, weight: string, unit: string) => ({
     length: toNum(l),
@@ -1275,7 +1283,7 @@ export function SingleProductForm({
     }
     const supplierCasePrice = toNum(form.supplierCost) ?? 0;
     const promotionalCustomerPalletPrice = toNum(form.supplierPalletCost);
-    const customerCasePrice = showAtlasEconomics ? supplierCasePrice : supplierCasePrice / (1 - liveMembershipPlan.caseFee / 100);
+    const customerCasePrice = showAtlasEconomics ? supplierCasePrice : supplierCasePrice / (1 - effectiveCaseFee / 100);
     const customerPalletPrice = promotionalCustomerPalletPrice;
     if (!showAtlasEconomics && customerPalletPrice !== undefined && effectivePalletCases > 0 && customerCasePrice > 0 && customerPalletPrice >= customerCasePrice * effectivePalletCases) {
       setMessage(`Promotional pallet price must be lower than the standard pallet price of ${formatMoney(customerCasePrice * effectivePalletCases)}.`);
@@ -1292,6 +1300,7 @@ export function SingleProductForm({
 
     const spec: ProductSpec = {
       pricingModel: showAtlasEconomics ? "wholesale_margin" : "marketplace_fee",
+      marketplaceFeePercent: !showAtlasEconomics && allowFeeOverride ? effectiveCaseFee : undefined,
       customerCasePrice: showAtlasEconomics ? undefined : customerCasePrice,
       customerPalletPrice: showAtlasEconomics ? undefined : customerPalletPrice,
       inventoryLocation: form.stocking === "atlas_hialeah" ? "atlas_hialeah" : form.stocking === "atlas_orlando" ? "atlas_orlando" : "supplier_warehouse",
@@ -1399,7 +1408,7 @@ export function SingleProductForm({
     const draftPalletCases = draftCasesPerFloor * draftLayers;
     const supplierCasePrice = toNum(form.supplierCost) ?? 0;
     const promotionalCustomerPalletPrice = toNum(form.supplierPalletCost);
-    const customerCasePrice = showAtlasEconomics ? supplierCasePrice : supplierCasePrice / (1 - liveMembershipPlan.caseFee / 100);
+    const customerCasePrice = showAtlasEconomics ? supplierCasePrice : supplierCasePrice / (1 - effectiveCaseFee / 100);
     const customerPalletPrice = promotionalCustomerPalletPrice;
     const heldAtAtlas = form.stocking === "atlas_hialeah" || form.stocking === "atlas_orlando";
     const consolidatesAtHialeah = form.stocking === "supplier" && form.orderRouting === "hialeah_consolidation";
@@ -1447,6 +1456,7 @@ export function SingleProductForm({
       spec: {
         draft: true,
         pricingModel: showAtlasEconomics ? "wholesale_margin" : "marketplace_fee",
+        marketplaceFeePercent: !showAtlasEconomics && allowFeeOverride ? effectiveCaseFee : undefined,
         customerCasePrice: showAtlasEconomics ? undefined : customerCasePrice || undefined,
         customerPalletPrice: showAtlasEconomics ? undefined : customerPalletPrice,
         inventoryLocation: form.stocking === "atlas_hialeah" ? "atlas_hialeah" : form.stocking === "atlas_orlando" ? "atlas_orlando" : "supplier_warehouse",
@@ -1680,6 +1690,7 @@ export function SingleProductForm({
         <div className={progressiveSteps && currentStep !== 2 ? "hidden" : "contents"}>
         <ProductSectionHeading>Pricing</ProductSectionHeading>
         <AdminProductInput label={showAtlasEconomics ? "Case cost to Atlas (for margin)" : "Your price per CASE — before Atlas fee ($)"} type="number" value={form.supplierCost} onChange={updateField("supplierCost")} />
+        {!showAtlasEconomics && allowFeeOverride && <AdminProductInput label="Atlas commission for this product (%)" type="number" value={form.marketplaceFeePercent} onChange={updateField("marketplaceFeePercent")} />}
         <AdminProductInput label="Suggested retail per UNIT ($)" type="number" value={form.suggestedRetail} onChange={updateField("suggestedRetail")} />
         <div className="hidden md:block" />
         {showAtlasEconomics ? (
@@ -1719,8 +1730,8 @@ export function SingleProductForm({
           </div>
         ) : (
           <div className="grid gap-3 md:col-span-3 sm:grid-cols-2">
-            <label className="grid gap-1"><span className="text-sm font-bold text-slate-700">Customer price per case (automatic)</span><input className="input bg-sky-50 font-black text-atlas-blue" readOnly value={(toNum(form.supplierCost) ?? 0) > 0 ? ((toNum(form.supplierCost) ?? 0) / (1 - liveMembershipPlan.caseFee / 100)).toFixed(2) : "Enter your case price"} /></label>
-            <label className="grid gap-1"><span className="text-sm font-bold text-slate-700">Standard customer pallet price (automatic)</span><input className="input bg-slate-100 font-bold text-slate-600" readOnly value={effectivePalletCases > 0 && (toNum(form.supplierCost) ?? 0) > 0 ? (((toNum(form.supplierCost) ?? 0) / (1 - liveMembershipPlan.caseFee / 100)) * effectivePalletCases).toFixed(2) : "Enter case price and pallet quantity"} /></label>
+            <label className="grid gap-1"><span className="text-sm font-bold text-slate-700">Customer price per case (automatic · {effectiveCaseFee}% fee)</span><input className="input bg-sky-50 font-black text-atlas-blue" readOnly value={(toNum(form.supplierCost) ?? 0) > 0 ? ((toNum(form.supplierCost) ?? 0) / (1 - effectiveCaseFee / 100)).toFixed(2) : "Enter your case price"} /></label>
+            <label className="grid gap-1"><span className="text-sm font-bold text-slate-700">Standard customer pallet price (automatic)</span><input className="input bg-slate-100 font-bold text-slate-600" readOnly value={effectivePalletCases > 0 && (toNum(form.supplierCost) ?? 0) > 0 ? (((toNum(form.supplierCost) ?? 0) / (1 - effectiveCaseFee / 100)) * effectivePalletCases).toFixed(2) : "Enter case price and pallet quantity"} /></label>
             <AdminProductInput label="Promotional customer pallet price ($, optional)" type="number" value={form.supplierPalletCost} onChange={updateField("supplierPalletCost")} />
             <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-slate-600">
               <p className="font-black text-atlas-navy">Full pallet: {effectivePalletCases > 0 ? `${effectivePalletCases} cases` : "enter cases per pallet above"}</p>
@@ -1732,7 +1743,7 @@ export function SingleProductForm({
             </div>
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-slate-700 sm:col-span-2">
               <p className="font-black text-atlas-navy">Enter what you want to receive. Atlas adds the marketplace fee to calculate the customer price.</p>
-              <p className="mt-1">{liveMembershipPlan.name} case fee: {liveMembershipPlan.caseFee}% · Customer case price: {formatMoney((toNum(form.supplierCost) ?? 0) / (1 - liveMembershipPlan.caseFee / 100))}</p>
+              <p className="mt-1">Atlas case fee: {effectiveCaseFee}%{effectiveCaseFee !== liveMembershipPlan.caseFee ? " · product override" : ` · ${liveMembershipPlan.name} plan`} · Customer case price: {formatMoney((toNum(form.supplierCost) ?? 0) / (1 - effectiveCaseFee / 100))}</p>
               {toNum(form.supplierPalletCost) ? (() => { const base = (toNum(form.supplierCost) ?? 0) * effectivePalletCases; const fee = base * liveMembershipPlan.promotionFee / 100; const surplus = Math.max(0, (toNum(form.supplierPalletCost) ?? 0) - base - fee); return <><p className="mt-1 font-bold text-amber-800">Atlas base promotional fee: {liveMembershipPlan.promotionFee}% × {formatMoney(toNum(form.supplierCost) ?? 0)} × {effectivePalletCases || 0} cases = {formatMoney(fee)}</p><p className="mt-1 font-bold text-atlas-blue">Extra above minimum: {formatMoney(surplus)} · split 50/50 = {formatMoney(surplus / 2)} each</p><p className="mt-1">Your promotional pallet payout: {formatMoney(base + surplus / 2)} · Atlas total: {formatMoney(fee + surplus / 2)}</p><p className="mt-1 font-bold">Minimum allowed promotional customer price: {effectivePalletCases > 0 ? formatMoney(base + fee) : "set pallet quantity first"}. This protects your {formatMoney(toNum(form.supplierCost) ?? 0)} per-case price.</p></>; })() : null}
             </div>
           </div>
