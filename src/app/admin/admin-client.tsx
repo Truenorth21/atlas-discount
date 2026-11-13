@@ -1397,7 +1397,7 @@ export function SingleProductForm({
     setCopyFromId("");
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     if (!form.sku.trim() && !form.brand.trim() && !form.productName.trim()) {
       setMessage("Enter at least a SKU, brand, or product name before saving a draft.");
       return;
@@ -1476,6 +1476,18 @@ export function SingleProductForm({
       }
     };
 
+    if (allowFeeOverride) {
+      const response = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ products: [draft] })
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) {
+        setMessage(`Draft was not saved: ${result.error ?? "Unknown database error"}`);
+        return;
+      }
+    }
     addProducts([draft]);
     setMessage(`${draft.brand || "Product"} ${draft.sku} was saved as a draft. Complete it later under Manage / edit.`);
     setForm((current) => ({ ...blankProductForm, supplierName: current.supplierName, stocking: current.stocking, shippingWarehouse: current.shippingWarehouse, fulfillmentMode: current.fulfillmentMode }));
@@ -1491,7 +1503,7 @@ export function SingleProductForm({
           <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-secondary" type="button" onClick={saveDraft}>Save draft</button>
+          <button className="btn-secondary" type="button" onClick={() => void saveDraft()}>Save draft</button>
           {(!progressiveSteps || currentStep === 3) && <button className="btn-primary" type="button" onClick={() => void addProduct()}>{submitLabel}</button>}
         </div>
       </div>
